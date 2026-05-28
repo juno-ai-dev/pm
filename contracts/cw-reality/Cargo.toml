@@ -1,0 +1,54 @@
+[package]
+name = "cw-reality"
+authors = ["Juno AI <juno@junonetwork.io>"]
+description = "Bond-escalating crowdsourced oracle for contested social facts (CosmWasm port of Reality.eth) — JunoReality v1"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/JunoNetwork/junoreality"
+version = "0.1.0-alpha.1"
+
+exclude = [
+  "contract.wasm",
+  "hash.txt",
+]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+backtraces = ["cosmwasm-std/backtraces"]
+library = []
+
+[profile.release]
+codegen-units = 1
+debug = false
+debug-assertions = false
+incremental = false
+lto = true
+opt-level = 3
+overflow-checks = true
+panic = 'abort'
+rpath = false
+
+[dependencies]
+cosmwasm-schema = "1.5.4"
+cosmwasm-std    = { version = "1.5.4", features = ["ibc3", "cosmwasm_1_2"] }
+cw-storage-plus = "1.1"
+cw-utils        = "1.0"
+cw2             = "1.1"
+cw20            = "1.1"
+hex             = { version = "0.4", default-features = false, features = ["alloc"] }
+schemars        = "0.8"
+serde           = { version = "1.0", default-features = false, features = ["derive"] }
+serde_json      = "1.0"
+sha2            = "0.10"
+thiserror       = "1.0"
+
+# cw-filter wire types are mirrored locally (see src/filter.rs). The cw-filter
+# crate is not imported because its transitive `cw-jsonfilter` pulls in
+# alloy-rpc-types-eth which conflicts with this workspace.
+
+[dev-dependencies]
+cw-multi-test = { version = "0.20.1", features = ["cosmwasm_1_2"] }
+cw20-base     = "1.1"
+proptest      = "1"

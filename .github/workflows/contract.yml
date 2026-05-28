@@ -1,0 +1,94 @@
+name: contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'contracts/**'
+      - '.github/workflows/contract.yml'
+  pull_request:
+    paths:
+      - 'contracts/**'
+      - '.github/workflows/contract.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/cw-reality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/cw-reality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts/cw-reality
+      - run: cargo clippy --all-targets --locked -- -D warnings
+
+  test:
+    name: test (incl. proptests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/cw-reality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts/cw-reality
+      - run: cargo test --locked
+
+  wasm:
+    name: wasm build (sanity)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/cw-reality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts/cw-reality
+      # The non-optimized artifact is NOT deployable (wasmd v0.54.0 rejects raw
+      # bulk-memory ops). This step only verifies the crate compiles to wasm.
+      # The reproducible artifact is produced by `just workspace-optimize` via
+      # cosmwasm/optimizer Docker image; that's a release-time concern, not CI.
+      - run: cargo build --release --target wasm32-unknown-unknown --lib --locked
+
+  schema:
+    name: schema generation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/cw-reality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts/cw-reality
+      - run: cargo run --example schema --locked

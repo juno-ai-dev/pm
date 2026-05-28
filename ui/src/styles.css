@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+  ::selection {
+    @apply bg-accent text-paper;
+  }
+}
+
+@layer components {
+  .mono { @apply font-mono tracking-wider; }
+  .rule { @apply border-t border-rule; }
+  .chip { @apply inline-flex items-center px-2 py-0.5 text-[10px] uppercase tracking-wider; }
+  .chip-ink { @apply chip bg-ink text-paper; }
+  .chip-accent { @apply chip bg-accent text-paper; }
+  .chip-muted { @apply chip text-muted border border-muted/30; }
+  .btn-primary {
+    @apply inline-flex items-center px-5 py-2.5 bg-ink text-paper font-medium
+           hover:bg-accent transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center px-5 py-2.5 border border-ink/30 text-ink
+           hover:bg-ink hover:text-paper transition-colors duration-150;
+  }
+  .input {
+    @apply w-full px-3 py-2 bg-paper border border-ink/20 focus:border-ink focus:outline-none mono text-sm;
+  }
+}

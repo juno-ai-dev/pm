@@ -1,0 +1,52 @@
+# Rust
+target/
+**/*.rs.bk
+*.pdb
+
+# Cargo registry/credentials (defensive — these only live in $CARGO_HOME, not here)
+.cargo/credentials
+.cargo/credentials.toml
+
+# CosmWasm optimizer outputs (regenerable via `just workspace-optimize`)
+artifacts/
+artifacts-from-docker/
+optimize-in/
+contract.wasm
+hash.txt
+
+# Generated schema (regenerable via `just schema` / `cargo run --example schema`)
+contracts/*/schema/raw/
+
+# Node / pnpm
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Vite / Next-style env (UI is mainnet-only — no .env intended, but defensive)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Keyrings — agent identities never belong in git
+.juno-agent-*/
+keyring-test/
+
+# Local scratch
+scratch/
+tmp/
