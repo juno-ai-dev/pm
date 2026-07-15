@@ -37,6 +37,9 @@ jobs:
             --exclude-path docs/juno-reality/research-notes-cw-prior-art.md
             --exclude-path docs/juno-reality/research-notes-reality-source.md
             --exclude-path docs/juno-reality/research-notes-v2v3-safesnap.md
+            # Omen's legacy static host intermittently returns 504 for this
+            # historical rules citation; do not make CI depend on that host.
+            --exclude '^https://omen\\.eth\\.link/rules\\.pdf$'
             './**/*.md'
           fail: true
 
