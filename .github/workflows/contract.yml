@@ -3,7 +3,7 @@ name: contract
 on:
   push:
     branches: [main]
-    paths: &contract_paths
+    paths:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
@@ -12,7 +12,14 @@ on:
       - 'scripts/validate.sh'
       - '.github/workflows/contract.yml'
   pull_request:
-    paths: *contract_paths
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+      - 'contracts/**'
+      - 'scripts/check-schema.sh'
+      - 'scripts/validate.sh'
+      - '.github/workflows/contract.yml'
 
 env:
   CARGO_TERM_COLOR: always

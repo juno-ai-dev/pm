@@ -5,19 +5,18 @@ set -euo pipefail
 
 root=$(git rev-parse --show-toplevel)
 schema="$root/contracts/cw-reality/schema"
+combined="$schema/cw-reality.json"
 snapshot=$(mktemp -d)
 cleanup() {
-  rm -rf "$schema"
-  cp -a "$snapshot/schema" "$schema"
+  cp "$snapshot/cw-reality.json" "$combined"
   rm -rf "$snapshot"
 }
 trap cleanup EXIT
-cp -a "$schema" "$snapshot/schema"
+cp "$combined" "$snapshot/cw-reality.json"
 (
   cd "$root/contracts/cw-reality"
   cargo run --locked --example schema >/dev/null
 )
 # cosmwasm-schema also emits ignored per-message files; the maintained artifact
 # in this repository is the combined schema only.
-rm -rf "$schema/raw"
-diff -ru "$snapshot/schema" "$schema"
+cmp "$snapshot/cw-reality.json" "$combined"

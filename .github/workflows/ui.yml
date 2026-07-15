@@ -3,12 +3,15 @@ name: ui-policy
 on:
   push:
     branches: [main]
-    paths: &ui_paths
+    paths:
       - 'depricated_ui/**'
       - 'scripts/check-ui-policy.sh'
       - '.github/workflows/ui.yml'
   pull_request:
-    paths: *ui_paths
+    paths:
+      - 'depricated_ui/**'
+      - 'scripts/check-ui-policy.sh'
+      - '.github/workflows/ui.yml'
 
 jobs:
   unsupported-ui-policy:
