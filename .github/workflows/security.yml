@@ -30,8 +30,13 @@ jobs:
           # documentation and code-facing guidance instead.
           args: >-
             --no-progress
-            --exclude-path docs/prediction-market/evidence/raw
-            --exclude-path 'docs/juno-reality/research-notes-*.md'
+            --exclude-path docs/prediction-market/evidence
+            --exclude-path docs/prediction-market/prior-art.md
+            --exclude-path depricated_ui
+            --exclude-path docs/juno-reality/research-notes-bond-economics.md
+            --exclude-path docs/juno-reality/research-notes-cw-prior-art.md
+            --exclude-path docs/juno-reality/research-notes-reality-source.md
+            --exclude-path docs/juno-reality/research-notes-v2v3-safesnap.md
             './**/*.md'
           fail: true
 
