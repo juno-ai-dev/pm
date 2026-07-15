@@ -473,6 +473,14 @@ The phase must recommend values and immutable bounds for the following. Empty va
 
 Implementation may be proposed only after all of these are true:
 
+**Current authorization (2026-07-15): NOT AUTHORIZED.** The
+[issue #2 decision packet](docs/prediction-market/issue-2-decision-packet.md)
+prepares the required decisions but records no approval. The machine-readable
+[authorization record](docs/prediction-market/authorization.json) therefore
+sets `implementation_authorized` to `false`; PR approval or merge does not
+change that value. The `blocked: decision` label must remain until an owner
+actually authorizes a defined scope after the required reviews.
+
 - [ ] R1–R5 and A1–A3 deliverables are reviewed and linked from this document.
 - [ ] ADRs 001–018 are accepted or explicitly deferred with a safe default and revisit trigger.
 - [ ] The `cw-reality` compiled schema/source behavior and deployed production instance are independently verified.

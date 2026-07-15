@@ -19,6 +19,8 @@ This directory is the review packet required by [GOAL.md](../../GOAL.md). The do
 | A2 | [Security and economics](security-and-economics.md) | Candidate; quantitative risk acceptance open |
 | A3 | [User journeys](user-journeys.md) | Candidate |
 | ADR | [Decision-record index](adrs/README.md) | Candidate |
+| Decision | [Issue #2 decision packet](issue-2-decision-packet.md) | Proposed for sign-off; no approval recorded |
+| Authorization | [Machine-readable authorization](authorization.json) | `implementation_authorized: false` |
 | Review | [Phase review checklist](review-checklist.md) | Open gates are explicit |
 
 ## Evidence
@@ -61,3 +63,10 @@ The packet does not manufacture evidence where none exists. The following preven
 - an independent audit or reproducible-build match between cw-reality source commit ee64153 and on-chain checksum e25473…f3e2.
 
 These appear as open evidence in the review checklist rather than being silently converted into defaults.
+
+The [issue #2 decision packet](issue-2-decision-packet.md) consolidates the
+proposed ADR dispositions, dated parameter recommendations, schema choices,
+license routes, and required sign-off fields. It is decision-ready but not a
+decision: its empty sign-off fields and the fail-closed
+[`authorization.json`](authorization.json) preserve the current authorization
+state. The `blocked: decision` label remains appropriate.

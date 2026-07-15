@@ -6,6 +6,11 @@
 
 This is an evidence audit, not a progress summary. “Documented” means the candidate answer exists. It does not mean accepted or externally verified.
 
+**Machine-readable authorization:** [`authorization.json`](authorization.json)
+records `implementation_authorized: false`. The
+[issue #2 decision packet](issue-2-decision-packet.md) supplies proposed
+dispositions and blank reviewer sign-off fields; it does not close a gate.
+
 ## Mission questions
 
 | Question | Candidate answer | Evidence | Verdict |
@@ -29,25 +34,26 @@ This is an evidence audit, not a progress summary. “Documented” means the ca
 | A2 | [security-and-economics.md](security-and-economics.md) | Invariants, threats, tier, params, audit/tests | Parameter acceptance absent | Candidate complete; open |
 | A3 | [user-journeys.md](user-journeys.md) | All named roles and normal/adverse cases | No acceptance-test reviewer | Candidate complete; open |
 | ADRs | [ADR index](adrs/README.md) | 001–018 each has alternatives/evidence/consequences/revisit | All Proposed except ADR-017 deferred | Not accepted |
+| Decision packet | [issue-2-decision-packet.md](issue-2-decision-packet.md), [authorization.json](authorization.json) | ADR matrix, dated numeric register, schema/license choices, sign-off fields, fail-closed authorization | No required reviewer or owner has signed | Decision-ready; not accepted |
 
 ## GOAL.md section 13 gate audit
 
 | Gate | Authoritative evidence required | Current evidence | Verdict |
 | --- | --- | --- | --- |
 | R1–R5 and A1–A3 reviewed/linked | Files plus reviewer acceptance | Files linked above; no reviewer record | **Open** |
-| ADRs 001–018 accepted or safely deferred | Status, reviewer/date, safe default/revisit | All exist; ADR-017 safely blocks launch; others Proposed | **Open** |
+| ADRs 001–018 accepted or safely deferred | Status, reviewer/date, evidence, dissent, residual risk, safe default/revisit | [Decision packet](issue-2-decision-packet.md) contains a complete proposed matrix and sign-off fields; ADR-017 safely blocks dependent implementation; no sign-off exists | **Open** |
 | cw-reality source/schema and production instance independently verified | Source/schema pin, tests, on-chain state, reproducible wasm/audit | [Source baseline](evidence/source-baseline.md), 57 tests, [height snapshot](evidence/2026-07-15-juno.md), and [wasm attempt](evidence/oracle-wasm-reproducibility.md); deployed bytes agree across providers, but the best-effort source build mismatched and no independent audit exists | **Open** |
 | Live evidence archived with raw values/height/authorities | Untouched bodies+headers at one height and sign-off refresh | [Byte-exact two-provider archive](evidence/raw/39830878/README.md) at 39,830,878 now satisfies the collection format; sign-off refresh and reviewer attestation remain | **Evidence archived; sign-off open** |
 | Result bytes/payout fixed in writing | Accepted immutable spec | Exact table exists in R3/ADR-014; Proposed | **Open** |
 | Every settlement sequence terminates or discloses nontermination | Reviewed sequence/state analysis | Normal/counter/challenge/stall/neutral and unanswered nontermination documented | **Documented; review open** |
 | Invariants balance for buys/sells/LP/fees/rounding/payouts/partial/forced funds | Worked examples plus independent calculation | R1/A3 exact 105-JUNO reconciliation, dust/partial/forced rules; no independent reviewer/model | **Open** |
-| Market cap/oracle tier approved | Dated quantitative risk acceptance | Candidate 200/10-JUNO tier and limitations in A2; no approval | **Open** |
+| Market cap/oracle tier approved | Dated quantitative risk acceptance | Candidate values are consolidated with unset acceptance dates in the [decision packet](issue-2-decision-packet.md); no approval | **Open** |
 | ujuno/display/liquidity conversions verified | Chain denom facts and reviewed conversions | R4 conversions plus [single-venue Osmosis measurement](evidence/2026-07-15-osmosis-juno-liquidity.md); venue-complete/long-window evidence and human acceptance remain | **Open** |
 | Permissions enumerated address by address | Accepted matrix with refreshed addresses | A1/R4 matrix; x/gov height-pinned; future frozen oracle/factory/market addresses absent | **Open** |
 | Challenge accounting all paths | Accepted state/accounting table | A2/ADR-018 cover changed/same/rejected/failed/stale/timeout/direct cancel | **Documented; review open** |
 | Juno governance verdict rehearsed or path rejected | Authorized on-chain rehearsal evidence or replacement owner decision | Passed proposals 357/363 establish generic x/gov `MsgExecuteContract` precedent; exact market verdict/payee, cw-reality effects, gas, stale/failure paths remain unrehearsed | **Open—blocking** |
 | Implementation test plan covers required classes | Traceable test/audit plan | A2 includes unit/property/multi/adversarial/migration/gas/on-chain | **Documented; review open** |
-| License strategy approved | Counsel/owner approval and provenance | Two candidate routes in R2; no approval/counsel | **Open** |
+| License strategy approved | License/owner approval and provenance; counsel input where required | Two candidate routes and exact provenance controls are decision-ready in the [decision packet](issue-2-decision-packet.md); no route approved | **Open** |
 | Product/legal/content posture documented | Memo plus applicable legal advice | R5 documented; counsel absent | **Open** |
 | Human can trace one unit end to end | Reviewer demonstration | A3 cross-journey and R1 amounts exist; no human attestation | **Open** |
 

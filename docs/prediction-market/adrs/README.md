@@ -2,6 +2,11 @@
 
 These records are candidates until a human reviewer records acceptance. “Owner direction fixed” means GOAL.md section 14 constrains the answer; it does not waive the evidence gates.
 
+The proposed cross-ADR disposition, evidence, dissent, residual-risk, parameter,
+license, and reviewer fields are assembled in the
+[issue #2 decision packet](../issue-2-decision-packet.md). That packet does not
+change the statuses below.
+
 | ADR | Decision | Status |
 | --- | --- | --- |
 | [001](ADR-001-binary-fixed-expiry.md) | Binary fixed-expiry only | Proposed |
