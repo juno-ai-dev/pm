@@ -2,7 +2,7 @@
 
 **Status:** candidate integration specification  
 **Canonical source:** local commit ee641534fd7b7b3677bd48d30390422ee3fbe5ed  
-**Schema:** checked-in cw-reality 0.1.0-alpha.1 combined schema, SHA-256 725cb2a2…827a  
+**Schema:** checked-in cw-reality 0.1.0-alpha.1 combined schema, SHA-256 a50ecbb0…20af
 **Deployment snapshot:** Juno height 39,829,829
 
 ## Compatibility decision
@@ -177,7 +177,7 @@ This is not a rehearsed proposal file. Juno CLI/protobuf encoding, signer accept
 7. gas used by market forwarding and oracle history update;
 8. event/indexer reconstruction and challenge-bond refund/slash.
 
-The market validates the caller, exact question ID, pending challenge, pre-deadline time, empty attached funds, and bech32 payee. Governance remains trusted to choose both answer and payee because cw-reality source provides no history-membership proof for SubmitArbitration. An unrecognized answer only limits payout harm by producing neutral; a malicious payee can still redirect oracle bond winnings. This trust must not be hidden.
+The market validates the caller, exact question ID, pending challenge, pre-deadline time, empty attached funds, and payee address. Governance remains trusted to choose both answer and payee because cw-reality accepts any `Binary`, validates the payee with `deps.api.addr_validate`, and provides no history-membership proof for SubmitArbitration. An unrecognized answer limits market-collateral payout harm by producing neutral, but that market-side mapping does not change the oracle history entry: a malicious payee can still redirect oracle bounty and bond winnings. This trust must not be hidden.
 
 ## Stalled and unanswered behavior
 
@@ -193,12 +193,12 @@ An unanswered question has no protocol terminal state. V1 does not add a privile
 
 This is a clearly disclosed non-termination condition, not neutral resolution.
 
-## Source-versus-document discrepancies
+## Source and documentation consistency
 
-| Topic | Documentation | Source/schema | Architecture |
+| Topic | Public contract documentation | Source/schema | Architecture |
 | --- | --- | --- | --- |
-| Submitted-answer restriction | ARBITRATION.md requires history answer | Arbitrator may author any Binary | Source controls; unknown maps neutral |
-| Payee | ARBITRATION.md omits it in message shape | Required String | Governance path includes and validates bech32; governance chooses it |
+| Submitted-answer restriction | ARBITRATION.md states there is no history-membership proof | Arbitrator may author any Binary | Unknown maps neutral for market payout only |
+| Payee | ARBITRATION.md includes the required field and payout consequence | Required String, validated by the handler | Governance chooses it; market validates before forwarding |
 | Adapters | README says first-class adapters | None exist | Market is controller; address permission only |
 | Bool wire format | AnswerType suggests type | No encoding enforcement/tests | Exact 32-byte table above |
 | Question return | surrounding Reality.eth precedent returns ID | cw-reality emits only | Compute locally and full-query in reply |

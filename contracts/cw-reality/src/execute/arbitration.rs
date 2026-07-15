@@ -197,12 +197,10 @@ pub fn execute_submit_arbitration(
     let payee: Addr = deps.api.addr_validate(&payee)?;
 
     // Reality.eth lets the arbitrator pick ANY answer (including new ones not
-    // in history). We match that — the ARBITRATION.md "pick from history"
-    // wording was tightened in the source-walk: the trust boundary is the
-    // arbitrator address, not the answer surface. The arbitrator authoring
-    // a new answer is functionally equivalent to choosing a juror's answer
-    // off-chain. The `UNRESOLVED_ANSWER_BYTES` sentinel is the explicit-
-    // decline path.
+    // in history). We match that: the trust boundary is the arbitrator
+    // address, not the answer surface. The arbitrator authoring a new answer
+    // is functionally equivalent to choosing a juror's answer off-chain. The
+    // `UNRESOLVED_ANSWER_BYTES` sentinel is the explicit-decline path.
     let is_unresolved = winning_answer.as_slice() == UNRESOLVED_ANSWER_BYTES.as_slice();
 
     let now = env.block.time.seconds();
