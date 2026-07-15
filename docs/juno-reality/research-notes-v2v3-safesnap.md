@@ -841,17 +841,22 @@ Resolved positions based on the above:
    but you didn't keep raising, you still get a partial payout." This is
    *simple*; we should keep this property.
 
-7. **Arbitrator decline?** Two paths. (a) Arbitrator simply doesn't call
-   `submitAnswerByArbitrator` — eventually `cancelArbitration` can be
-   called (by the requester, after a timeout) which returns the question to
-   the open state. (b) Arbitrator calls `submitAnswerByArbitrator` with
-   `UNRESOLVED_ANSWER` to actively decline. Both are supported.
+7. **Arbitrator decline?** Two paths. (a) The arbitrator simply does not call
+   `SubmitArbitration`; the configured arbitrator may cancel while pending,
+   and anyone may call `CancelArbitration` at or after the deadline, returning
+   the question to the open state. (b) The arbitrator calls
+   `SubmitArbitration` with `UNRESOLVED_ANSWER` to actively decline. Both are
+   supported.
 
-   For `cw-reality`: `InvokeArbitration` should record a deadline;
-   `SubmitArbitration` after the deadline reverts; the question
-   auto-cancels back to the "open" state on a separate `CancelArbitration`
-   call. Match Reality.eth's pattern; the explicit-decline-via-sentinel
-   needs a typed answer variant (`Answer::Unresolved`).
+   **Superseded design note:** this research originally proposed that
+   `InvokeArbitration` record a deadline and that `SubmitArbitration` revert
+   after it. The implemented `cw-reality` handler does **not** enforce that
+   submission cutoff: while arbitration remains pending, the configured
+   arbitrator may still submit after the deadline. At or after the deadline,
+   anyone may instead call `CancelArbitration` to return the question to the
+   open state. See `ARBITRATION.md` for the reconciled behavior. The active
+   decline sentinel is `UNRESOLVED_ANSWER`; no typed `Answer::Unresolved`
+   variant ships in v1.
 
 ---
 
