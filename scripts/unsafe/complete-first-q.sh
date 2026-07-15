@@ -20,9 +20,14 @@ ANSWERER="juno1mtzvz3vz6ss96ar3e8jd5pn0rh08ql5uvxvzwd"
 : "${JUNOD:?set JUNOD to an explicitly reviewed junod binary}"
 : "${KR_DIR:?set KR_DIR to an explicitly reviewed keyring directory}"
 : "${KEY_NAME:?set KEY_NAME to an explicitly reviewed key name}"
+: "${I_UNDERSTAND_THIS_BROADCASTS_TO_JUNO_1:?set exactly YES after reviewing this live-network script}"
+if [[ "$I_UNDERSTAND_THIS_BROADCASTS_TO_JUNO_1" != "YES" ]]; then
+  echo "refusing live-network execution without I_UNDERSTAND_THIS_BROADCASTS_TO_JUNO_1=YES" >&2
+  exit 1
+fi
 
 echo "== State before =="
-$JUNOD query wasm contract-state smart "$CONTRACT" \
+"$JUNOD" query wasm contract-state smart "$CONTRACT" \
   "{\"question\":{\"question_id\":\"$QID_B64\"}}" \
   --node "$RPC" -o json | python3 -c "
 import json, sys
@@ -53,7 +58,7 @@ CLAIM_MSG=$(cat <<EOF
 }
 EOF
 )
-$JUNOD tx wasm execute "$CONTRACT" "$CLAIM_MSG" \
+"$JUNOD" tx wasm execute "$CONTRACT" "$CLAIM_MSG" \
   --from "$KEY_NAME" --keyring-backend test --keyring-dir "$KR_DIR" \
   --chain-id juno-1 --node "$RPC" \
   --gas auto --gas-adjustment 1.4 --gas-prices 0.075ujuno \
@@ -65,7 +70,7 @@ sleep 8
 
 echo
 echo "== Withdraw =="
-$JUNOD tx wasm execute "$CONTRACT" '{"withdraw":{"denom":"ujuno"}}' \
+"$JUNOD" tx wasm execute "$CONTRACT" '{"withdraw":{"denom":"ujuno"}}' \
   --from "$KEY_NAME" --keyring-backend test --keyring-dir "$KR_DIR" \
   --chain-id juno-1 --node "$RPC" \
   --gas auto --gas-adjustment 1.4 --gas-prices 0.075ujuno \
@@ -74,7 +79,7 @@ $JUNOD tx wasm execute "$CONTRACT" '{"withdraw":{"denom":"ujuno"}}' \
 echo
 sleep 8
 echo "== State after =="
-$JUNOD query wasm contract-state smart "$CONTRACT" \
+"$JUNOD" query wasm contract-state smart "$CONTRACT" \
   "{\"question\":{\"question_id\":\"$QID_B64\"}}" \
   --node "$RPC" -o json | python3 -c "
 import json, sys
@@ -85,7 +90,7 @@ print('is_claimed:', d['question']['is_claimed'])
 
 echo
 echo "== Bank balance =="
-$JUNOD query bank balances "$ANSWERER" --node "$RPC" -o json | python3 -c "
+"$JUNOD" query bank balances "$ANSWERER" --node "$RPC" -o json | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
 for b in d['balances']: print(f\"{b['denom']}: {int(b['amount'])/1e6:.6f}\")

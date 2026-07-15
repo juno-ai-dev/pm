@@ -24,11 +24,14 @@ workspace-optimize:
             --mount type=volume,source="$cache",target=/target \
             --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
             --platform linux/arm64 \
-            cosmwasm/optimizer-arm64:0.17.0; \
+            cosmwasm/optimizer-arm64:0.17.0@sha256:7881e9cece93bb47a6cf4af620bfb9376431a229389f71845b7ed4d237631341; \
     elif [[ $(uname -m) == 'x86_64' ]]; then \
         docker run --rm -v "$root":/code \
             --mount type=volume,source="$cache",target=/target \
             --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
             --platform linux/amd64 \
-            cosmwasm/optimizer:0.17.0; \
+            cosmwasm/optimizer:0.17.0@sha256:7e0b9229c1a4118d0c9a2af2e7f5d95a91f264c26a2ce5681c779926e74d7f85; \
+    else \
+        echo "unsupported optimizer architecture: $(uname -m)" >&2; \
+        exit 1; \
     fi

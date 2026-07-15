@@ -2,8 +2,9 @@
 
 A CosmWasm port of **[Reality.eth](https://reality.eth.link/)** — a
 bond-escalating crowdsourced oracle for contested social facts. Arbitration
-is pluggable; v1 ships first-class adapters for Juno chain governance and
-DAO DAO DAOs (no Kleros).
+is pluggable through an address permission: Juno governance, DAO DAO, a
+multisig, or another authority can be configured directly. No adapter contract
+ships in v1.
 
 ## Credit & inspiration
 
