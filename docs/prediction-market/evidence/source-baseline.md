@@ -40,7 +40,7 @@ The command cargo test --locked was run against the package on 2026-07-15 before
 | --- | --- | --- |
 | ARBITRATION.md and msg.rs state that the arbitrator may author any Binary without a history-membership proof. | execute/arbitration.rs deliberately accepts any answer. | Consistent; the market maps unknown bytes to neutral, but this does not constrain oracle payout history. |
 | ARBITRATION.md and msg.rs include the arbitrator-selected, validated payee. | The schema requires payee and the handler calls `addr_validate`. | Consistent; governance rehearsal must encode and validate payee, and reviewers must treat oracle-bond redirection as residual trust. |
-| README says first-class governance/DAO adapters ship. | No adapter contract or adapter message surface exists. | Treat the arbitrator as an address permission only. |
+| README states no governance/DAO adapter contract ships in v1. | No adapter contract or adapter message surface exists. | Consistent; treat the arbitrator as an address permission only. |
 | README calls the production arbitration window seven days. | Seven days is a default for newly asked questions; the proposed market must explicitly request 21 days. | Never infer a question value from the instance README. |
 | Comments say a captured cw-filter address means later filter migrations cannot brick a question. | The address is captured, but code at a migratable address can change. | Filters are optional UX only; payout safety must not depend on them. |
 

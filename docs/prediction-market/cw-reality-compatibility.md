@@ -199,7 +199,7 @@ This is a clearly disclosed non-termination condition, not neutral resolution.
 | --- | --- | --- | --- |
 | Submitted-answer restriction | ARBITRATION.md states there is no history-membership proof | Arbitrator may author any Binary | Unknown maps neutral for market payout only |
 | Payee | ARBITRATION.md includes the required field and payout consequence | Required String, validated by the handler | Governance chooses it; market validates before forwarding |
-| Adapters | README says first-class adapters | None exist | Market is controller; address permission only |
+| Adapters | README states no adapter contract ships in v1 | None exist | Consistent: market is controller; address permission only |
 | Bool wire format | AnswerType suggests type | No encoding enforcement/tests | Exact 32-byte table above |
 | Question return | surrounding Reality.eth precedent returns ID | cw-reality emits only | Compute locally and full-query in reply |
 | Filter immutability | comments imply captured address is enough | address code may migrate | v1 answer_schema None |
