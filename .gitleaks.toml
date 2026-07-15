@@ -2,5 +2,8 @@
 useDefault = true
 
 [[allowlists]]
-description = "Public Juno node and validator evidence contains consensus keys and JWT-shaped chain metadata"
-paths = ['''^docs/prediction-market/evidence/raw/''']
+description = "Known false positives in one immutable public-chain evidence commit"
+targetRules = ["generic-api-key", "sourcegraph-access-token"]
+condition = "AND"
+commits = ["0520950dba410e01742db37ec80de16c79b02dbd"]
+paths = ['''^docs/prediction-market/evidence/raw/39830878/(polkachu|cosmos-directory)/(node-info|bonded-validators)\.http(\.b64)?$''']
