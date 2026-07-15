@@ -16,7 +16,7 @@
 
 Canonical files are [msg.rs](../../../contracts/cw-reality/src/msg.rs), [state.rs](../../../contracts/cw-reality/src/state.rs), [query.rs](../../../contracts/cw-reality/src/query.rs), [id.rs](../../../contracts/cw-reality/src/id.rs), and the handlers under [execute](../../../contracts/cw-reality/src/execute). The checked-in [combined schema](../../../contracts/cw-reality/schema/cw-reality.json) is generated evidence of the message surface. CI regenerates it and rejects any uncommitted difference so source commentary and schema descriptions cannot silently drift.
 
-The command cargo test --locked was run against the package on 2026-07-15 before and after this documentation reconciliation. Both runs reported 57 passed, 0 failed, 0 ignored; doc tests 0 passed/failed. One existing unused-variable warning occurred in src/proptests.rs. This only verifies the behavior covered by that suite.
+The command cargo test --locked was run against the package on 2026-07-15 before and after this documentation reconciliation. Both runs reported 57 passed, 0 failed, 0 ignored; doc tests 0 passed/failed. The current root validation gate also passes strict Clippy without warnings. This only verifies the behavior covered by that suite.
 
 ## Direct source observations
 
