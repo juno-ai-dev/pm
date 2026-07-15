@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-07-15",
+  "issue": "https://github.com/juno-ai-dev/pm/issues/2",
+  "decision_packet": "issue-2-decision-packet.md",
+  "decision_packet_status": "proposed",
+  "implementation_authorized": false,
+  "authorized_scope": [],
+  "deployment_authorized": false,
+  "fund_movement_authorized": false,
+  "governance_rehearsal_authorized": false,
+  "license_strategy_approved": false,
+  "license_strategy": null,
+  "required_reviews": {
+    "architecture": {
+      "status": "missing",
+      "reviewer": null,
+      "date": null
+    },
+    "economic_security": {
+      "status": "missing",
+      "reviewer": null,
+      "date": null
+    },
+    "license_provenance": {
+      "status": "missing",
+      "reviewer": null,
+      "date": null
+    },
+    "owner": {
+      "status": "missing",
+      "reviewer": null,
+      "date": null
+    }
+  },
+  "adrs": {
+    "ADR-001": "proposed",
+    "ADR-002": "proposed",
+    "ADR-003": "proposed",
+    "ADR-004": "proposed",
+    "ADR-005": "proposed",
+    "ADR-006": "proposed",
+    "ADR-007": "proposed",
+    "ADR-008": "proposed",
+    "ADR-009": "proposed",
+    "ADR-010": "proposed",
+    "ADR-011": "proposed",
+    "ADR-012": "proposed",
+    "ADR-013": "proposed",
+    "ADR-014": "proposed",
+    "ADR-015": "proposed",
+    "ADR-016": "proposed",
+    "ADR-017": "deferred",
+    "ADR-018": "proposed"
+  },
+  "critical_parameters_accepted": false,
+  "blocked_label_policy": {
+    "label": "blocked: decision",
+    "remove": false,
+    "reason": "Required ADR, parameter, license, and owner decisions are not recorded."
+  },
+  "out_of_scope": [
+    "contract code",
+    "deployment",
+    "fund movement",
+    "legal advice",
+    "governance rehearsal"
+  ]
+}
