@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Public Juno node and validator evidence contains consensus keys and JWT-shaped chain metadata"
+paths = ['''^docs/prediction-market/evidence/raw/''']
