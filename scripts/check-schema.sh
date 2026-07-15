@@ -14,7 +14,10 @@ cleanup() {
 trap cleanup EXIT
 cp -a "$schema" "$snapshot/schema"
 (
-  cd "$root"
-  cargo run --locked -p cw-reality --example schema >/dev/null
+  cd "$root/contracts/cw-reality"
+  cargo run --locked --example schema >/dev/null
 )
+# cosmwasm-schema also emits ignored per-message files; the maintained artifact
+# in this repository is the combined schema only.
+rm -rf "$schema/raw"
 diff -ru "$snapshot/schema" "$schema"

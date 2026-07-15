@@ -65,8 +65,10 @@ jobs:
       - run: ./scripts/check-schema.sh
       - name: negative schema-drift fixture
         run: |
+          cp contracts/cw-reality/schema/cw-reality.json /tmp/cw-reality.json
           printf '\n' >> contracts/cw-reality/schema/cw-reality.json
           if ./scripts/check-schema.sh; then
             echo 'schema drift fixture was not detected' >&2
             exit 1
           fi
+          cp /tmp/cw-reality.json contracts/cw-reality/schema/cw-reality.json

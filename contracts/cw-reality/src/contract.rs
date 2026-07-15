@@ -36,10 +36,7 @@ pub fn instantiate(
         return Err(ContractError::AnswerTimeoutTooHigh {});
     }
 
-    let admin = msg
-        .admin
-        .map(|a| deps.api.addr_validate(&a))
-        .transpose()?;
+    let admin = msg.admin.map(|a| deps.api.addr_validate(&a)).transpose()?;
 
     CONFIG.save(
         deps.storage,

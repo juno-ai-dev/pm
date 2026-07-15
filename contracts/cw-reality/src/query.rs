@@ -10,12 +10,14 @@
 use cosmwasm_std::{Binary, Deps, Order, StdError, StdResult};
 use cw_storage_plus::Bound;
 
-use crate::msg::{
-    BalanceResponse, FinalAnswerResponse, QuestionResponse, QuestionsListResponse,
-};
+use crate::msg::{BalanceResponse, FinalAnswerResponse, QuestionResponse, QuestionsListResponse};
 use crate::state::{State, BALANCES, QUESTIONS};
 
-pub fn query_question(deps: Deps, env: cosmwasm_std::Env, question_id: Binary) -> StdResult<QuestionResponse> {
+pub fn query_question(
+    deps: Deps,
+    env: cosmwasm_std::Env,
+    question_id: Binary,
+) -> StdResult<QuestionResponse> {
     let qid: [u8; 32] = question_id
         .as_slice()
         .try_into()
@@ -162,11 +164,7 @@ pub fn query_list(
     Ok(QuestionsListResponse { questions: out })
 }
 
-pub fn query_balance(
-    deps: Deps,
-    address: String,
-    denom: String,
-) -> StdResult<BalanceResponse> {
+pub fn query_balance(deps: Deps, address: String, denom: String) -> StdResult<BalanceResponse> {
     let addr = deps.api.addr_validate(&address)?;
     let amount = BALANCES
         .may_load(deps.storage, (&addr, &denom))?

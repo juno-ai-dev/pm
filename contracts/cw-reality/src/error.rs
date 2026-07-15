@@ -45,7 +45,10 @@ pub enum ContractError {
     InvalidBondFunds { count: usize },
 
     #[error("bond {provided} must be at least double the previous bond {previous}")]
-    BondMustDouble { provided: Uint128, previous: Uint128 },
+    BondMustDouble {
+        provided: Uint128,
+        previous: Uint128,
+    },
 
     #[error("bond {provided} must meet the question minimum {minimum}")]
     BondBelowMinimum { provided: Uint128, minimum: Uint128 },
