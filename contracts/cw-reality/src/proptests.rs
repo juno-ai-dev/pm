@@ -196,7 +196,6 @@ proptest! {
         // every interior bond (i.e. every round bond except the chain-tip
         // which equals question.current_bond) is shaved by bond/40.
         // The chain-tip is the last round.
-        let chain_tip_bond = rounds.last().unwrap().2;
         let burn: u128 = rounds.iter().enumerate().map(|(i, (_, _, b))| {
             if i + 1 == rounds.len() { 0 } else { b / 40 }
         }).sum();

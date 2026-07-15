@@ -4,6 +4,7 @@
 # Run AFTER finalize_ts (1780069441 — ~2026-05-29 ~15:44 UTC).
 # Idempotent: re-running after success will hit `NothingToClaim` /
 # `NothingToWithdraw` (typed errors) without affecting state.
+# QUARANTINED: unsupported historical live-network mutation. Never automate.
 
 set -euo pipefail
 
@@ -16,9 +17,9 @@ ANSWER_B64="AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 BOND="100000"
 ANSWERER="juno1mtzvz3vz6ss96ar3e8jd5pn0rh08ql5uvxvzwd"
 
-JUNOD=/workspace/bin/junod
-KR_DIR=/workspace/.juno-agent-testnet
-KEY_NAME=juno-agent-testnet
+: "${JUNOD:?set JUNOD to an explicitly reviewed junod binary}"
+: "${KR_DIR:?set KR_DIR to an explicitly reviewed keyring directory}"
+: "${KEY_NAME:?set KEY_NAME to an explicitly reviewed key name}"
 
 echo "== State before =="
 $JUNOD query wasm contract-state smart "$CONTRACT" \

@@ -1,3 +1,8 @@
-allowBuilds:
-  esbuild: set this to true or false
-  protobufjs: set this to true or false
+packages: []
+
+# Historical package only. If installed manually, pnpm may run lifecycle
+# scripts solely for this reviewed allowlist; all other dependency scripts are
+# blocked by default.
+onlyBuiltDependencies:
+  - esbuild
+  - protobufjs

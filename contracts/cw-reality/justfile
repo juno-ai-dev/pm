@@ -13,7 +13,7 @@ schema:
     cargo run --example schema --locked
 
 # Reproducible optimised wasm via the shared dao-contracts pattern.
-# Recipe copied from /workspace/dao-contracts/justfile:56–67.
+# Pattern historically adapted from the dao-contracts optimizer recipe.
 workspace-optimize:
     #!/bin/bash
     set -euo pipefail

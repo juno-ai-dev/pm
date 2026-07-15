@@ -3,13 +3,16 @@ name: contract
 on:
   push:
     branches: [main]
-    paths:
+    paths: &contract_paths
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
       - 'contracts/**'
+      - 'scripts/check-schema.sh'
+      - 'scripts/validate.sh'
       - '.github/workflows/contract.yml'
   pull_request:
-    paths:
-      - 'contracts/**'
-      - '.github/workflows/contract.yml'
+    paths: *contract_paths
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,76 +22,51 @@ jobs:
   fmt:
     name: rustfmt
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: contracts/cw-reality
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
+      - uses: dtolnay/rust-toolchain@master
       - run: cargo fmt --all -- --check
 
   clippy:
     name: clippy
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: contracts/cw-reality
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+      - uses: dtolnay/rust-toolchain@master
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: contracts/cw-reality
-      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
   test:
-    name: test (incl. proptests)
+    name: test (57 incl. proptests)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: contracts/cw-reality
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: contracts/cw-reality
-      - run: cargo test --locked
+      - run: cargo test --workspace --locked
 
   wasm:
     name: wasm build (sanity)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: contracts/cw-reality
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
+      - uses: dtolnay/rust-toolchain@master
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: contracts/cw-reality
-      # The non-optimized artifact is NOT deployable (wasmd v0.54.0 rejects raw
-      # bulk-memory ops). This step only verifies the crate compiles to wasm.
-      # The reproducible artifact is produced by `just workspace-optimize` via
-      # cosmwasm/optimizer Docker image; that's a release-time concern, not CI.
-      - run: cargo build --release --target wasm32-unknown-unknown --lib --locked
+      # This is a compile sanity check, not the optimizer-produced deployable artifact.
+      - run: cargo build --release --target wasm32-unknown-unknown --lib --locked -p cw-reality
 
   schema:
-    name: schema generation
+    name: schema drift
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: contracts/cw-reality
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: contracts/cw-reality
-      - run: cargo run --example schema --locked
+      - run: ./scripts/check-schema.sh
+      - name: negative schema-drift fixture
+        run: |
+          printf '\n' >> contracts/cw-reality/schema/cw-reality.json
+          if ./scripts/check-schema.sh; then
+            echo 'schema drift fixture was not detected' >&2
+            exit 1
+          fi

@@ -1,0 +1,16 @@
+[workspace]
+members = ["contracts/cw-reality"]
+resolver = "2"
+
+# These values are intentionally identical to the former package-local profile.
+# Moving them here makes Cargo apply them without changing release bytes.
+[profile.release]
+codegen-units = 1
+debug = false
+debug-assertions = false
+incremental = false
+lto = true
+opt-level = 3
+overflow-checks = true
+panic = "abort"
+rpath = false
