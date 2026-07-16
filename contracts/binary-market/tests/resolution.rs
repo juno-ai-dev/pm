@@ -54,6 +54,10 @@ fn question() -> QuestionInput {
 }
 
 fn setup(answer: Binary) -> (App, Addr, Addr, Addr) {
+    setup_with_splits(answer, &[])
+}
+
+fn setup_with_splits(answer: Binary, splits: &[(&str, u128)]) -> (App, Addr, Addr, Addr) {
     let factory = Addr::unchecked("factory");
     let answerer = Addr::unchecked("answerer");
     let mut app = AppBuilder::new().build(|router, _, storage| {
@@ -65,6 +69,12 @@ fn setup(answer: Binary) -> (App, Addr, Addr, Addr) {
             .bank
             .init_balance(storage, &answerer, vec![coin(20_000_000, "ujuno")])
             .unwrap();
+        for owner in ["alice", "bob"] {
+            router
+                .bank
+                .init_balance(storage, &Addr::unchecked(owner), vec![coin(1_000, "ujuno")])
+                .unwrap();
+        }
     });
     app.update_block(|block| block.time = cosmwasm_std::Timestamp::from_seconds(CREATION));
     let oracle_code = app.store_code(oracle_contract());
@@ -113,6 +123,17 @@ fn setup(answer: Binary) -> (App, Addr, Addr, Addr) {
             None,
         )
         .unwrap();
+    for (owner, amount) in splits {
+        app.execute_contract(
+            Addr::unchecked(*owner),
+            market.clone(),
+            &ExecuteMsg::Split {
+                amount: Uint128::new(*amount),
+            },
+            &[coin(*amount, "ujuno")],
+        )
+        .unwrap();
+    }
     let bound: binary_market::msg::QuestionResponse = app
         .wrap()
         .query_wasm_smart(&market, &QueryMsg::Question {})
@@ -239,4 +260,59 @@ fn finality_boundary_is_exact_and_failed_query_leaves_resolution_empty() {
         resolved.payout,
         Some(Payout::for_outcome(pm_types::Outcome::Yes))
     );
+}
+
+#[test]
+fn failed_redemption_send_rolls_back_burn_and_allows_exact_retry() {
+    let (mut app, market, _, resolver) = setup_with_splits(bytes(YES_HEX), &[("alice", 2)]);
+    app.update_block(|block| block.time = cosmwasm_std::Timestamp::from_seconds(OPENING + 86_400));
+    app.execute_contract(resolver, market.clone(), &ExecuteMsg::Resolve {}, &[])
+        .unwrap();
+    let position = |app: &App| -> binary_market::msg::PositionResponse {
+        app.wrap()
+            .query_wasm_smart(
+                &market,
+                &QueryMsg::Position {
+                    address: "alice".into(),
+                },
+            )
+            .unwrap()
+    };
+    let before = position(&app);
+
+    app.init_modules(|router, _, storage| {
+        router.bank.init_balance(storage, &market, vec![]).unwrap();
+    });
+    assert!(app
+        .execute_contract(
+            Addr::unchecked("alice"),
+            market.clone(),
+            &ExecuteMsg::RedeemPositions {
+                yes: Uint128::new(2),
+                no: Uint128::zero(),
+            },
+            &[],
+        )
+        .is_err());
+    assert_eq!(position(&app), before);
+
+    app.init_modules(|router, _, storage| {
+        router
+            .bank
+            .init_balance(storage, &market, vec![coin(2, "ujuno")])
+            .unwrap();
+    });
+    app.execute_contract(
+        Addr::unchecked("alice"),
+        market.clone(),
+        &ExecuteMsg::RedeemPositions {
+            yes: Uint128::new(2),
+            no: Uint128::zero(),
+        },
+        &[],
+    )
+    .unwrap();
+    let after_retry = position(&app);
+    assert_eq!(after_retry.yes, Uint128::zero());
+    assert_eq!(after_retry.no, Uint128::new(2));
 }
