@@ -1,9 +1,9 @@
 # Independent audit handoff — cw-reality frozen artifact
 
-**Audit status:** not performed; this is the required handoff contract  
-**Source:** `https://github.com/juno-ai-dev/pm.git` at `454f9777b0bafa71c43b427f7451e626d860269e`  
-**Root tree:** `e7cad35d114197fbae3cb0ff9e44ac05d0309bfa`  
-**Contract tree:** `cc53d2ea0aa9fcd04fe11ba910b02db11276a0b1`  
+**Audit status:** not performed; this is the required handoff contract
+**Source:** `https://github.com/juno-ai-dev/pm.git` at `454f9777b0bafa71c43b427f7451e626d860269e`
+**Root tree:** `e7cad35d114197fbae3cb0ff9e44ac05d0309bfa`
+**Contract tree:** `cc53d2ea0aa9fcd04fe11ba910b02db11276a0b1`
 **Artifact SHA-256:** pending two-builder reproducibility evidence
 
 ## In-scope code and assumptions

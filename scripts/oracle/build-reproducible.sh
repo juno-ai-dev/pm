@@ -36,7 +36,8 @@ source_artifact="$worktree/artifacts/cw_reality.wasm"
 }
 mkdir -p "$out"
 install -m 0644 "$source_artifact" "$out/cw_reality.wasm"
-sha256sum "$out/cw_reality.wasm" | tee "$out/cw_reality.wasm.sha256"
+digest=$(sha256sum "$out/cw_reality.wasm" | cut -d ' ' -f1)
+printf '%s\n' "$digest" | tee "$out/cw_reality.wasm.sha256"
 wc -c < "$out/cw_reality.wasm" | tr -d ' ' > "$out/cw_reality.wasm.size"
 printf '%s\n' "$source_commit" > "$out/source-commit.txt"
 printf '%s\n' "$image" > "$out/optimizer-image.txt"

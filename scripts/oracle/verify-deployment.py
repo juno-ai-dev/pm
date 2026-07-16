@@ -11,6 +11,17 @@ import sys
 from pathlib import Path
 from typing import Any, NoReturn
 
+TRUSTED_REPOSITORY = "https://github.com/juno-ai-dev/pm.git"
+TRUSTED_COMMIT = "454f9777b0bafa71c43b427f7451e626d860269e"
+TRUSTED_TREE = "e7cad35d114197fbae3cb0ff9e44ac05d0309bfa"
+TRUSTED_CONTRACT_TREE = "cc53d2ea0aa9fcd04fe11ba910b02db11276a0b1"
+TRUSTED_CONTRACT_PATH = "contracts/cw-reality"
+TRUSTED_OPTIMIZER = "cosmwasm/optimizer:0.17.0@sha256:7e0b9229c1a4118d0c9a2af2e7f5d95a91f264c26a2ce5681c779926e74d7f85"
+TRUSTED_OPTIMIZER_DIGEST = "sha256:7e0b9229c1a4118d0c9a2af2e7f5d95a91f264c26a2ce5681c779926e74d7f85"
+TRUSTED_CHAIN_ID = "juno-1"
+TRUSTED_MIN_BOND = "10000000"
+TRUSTED_MIN_TIMEOUT = 86400
+
 
 class VerificationError(Exception):
     pass
@@ -31,7 +42,7 @@ def load_object(path: Path, label: str) -> dict[str, Any]:
 
 
 def field(obj: dict[str, Any], name: str, expected_type: type, context: str) -> Any:
-    if name not in obj or not isinstance(obj[name], expected_type):
+    if name not in obj or type(obj[name]) is not expected_type:
         fail(f"{context}.{name} must be {expected_type.__name__}")
     return obj[name]
 
@@ -68,6 +79,11 @@ def verify(manifest: dict[str, Any], evidence: dict[str, Any], artifact: Path, r
     tree = field(source, "tree", str, "manifest.source")
     contract_tree = field(source, "contract_tree", str, "manifest.source")
     contract_path = field(source, "contract_path", str, "manifest.source")
+    if (repository, commit, tree, contract_tree, contract_path) != (
+        TRUSTED_REPOSITORY, TRUSTED_COMMIT, TRUSTED_TREE,
+        TRUSTED_CONTRACT_TREE, TRUSTED_CONTRACT_PATH,
+    ):
+        fail("source provenance does not match the selected immutable policy")
     if len(commit) != 40 or len(tree) != 40 or len(contract_tree) != 40:
         fail("source provenance pins must be full 40-character Git object IDs")
     git(repo, "cat-file", "-e", f"{commit}^{{commit}}")
@@ -83,6 +99,8 @@ def verify(manifest: dict[str, Any], evidence: dict[str, Any], artifact: Path, r
     build = field(manifest, "build", dict, "manifest")
     image = field(build, "optimizer_image", str, "manifest.build")
     digest = field(build, "optimizer_digest", str, "manifest.build")
+    if image != TRUSTED_OPTIMIZER or digest != TRUSTED_OPTIMIZER_DIGEST:
+        fail("optimizer does not match the selected immutable policy")
     if not digest.startswith("sha256:"):
         fail("optimizer digest must be sha256-pinned")
     require_sha256(digest.removeprefix("sha256:"), "optimizer digest")
@@ -109,16 +127,25 @@ def verify(manifest: dict[str, Any], evidence: dict[str, Any], artifact: Path, r
     actual_hash = hashlib.sha256(artifact_bytes).hexdigest()
     if actual_hash != expected_hash or hashes[0] != expected_hash:
         fail("artifact checksum does not match manifest and two-build records")
-    if field(artifact_info, "size", int, "manifest.artifact") != len(artifact_bytes):
+    if field(artifact_info, "size", int, "manifest.artifact") != len(artifact_bytes) or not artifact_bytes:
         fail("artifact size mismatch")
 
     deployment = field(manifest, "deployment", dict, "manifest")
     chain_id = field(deployment, "chain_id", str, "manifest.deployment")
+    if chain_id != TRUSTED_CHAIN_ID:
+        fail("deployment chain must be juno-1")
     code_id = field(deployment, "code_id", int, "manifest.deployment")
     address = field(deployment, "contract_address", str, "manifest.deployment")
+    if code_id <= 0 or not address.startswith("juno1"):
+        fail("deployment code ID and contract address must identify a Juno contract")
     nullable(deployment, "chain_admin", "manifest.deployment")
     nullable(deployment, "stored_admin", "manifest.deployment")
     expected_config = field(deployment, "config", dict, "manifest.deployment")
+    if expected_config != {
+        "min_initial_bond_floor": TRUSTED_MIN_BOND,
+        "min_answer_timeout_secs": TRUSTED_MIN_TIMEOUT,
+    }:
+        fail("deployment config does not match the selected immutable policy")
 
     if field(evidence, "chain_id", str, "evidence") != chain_id:
         fail("chain ID mismatch")
@@ -145,13 +172,12 @@ def verify(manifest: dict[str, Any], evidence: dict[str, Any], artifact: Path, r
             fail(f"config {key} mismatch")
 
     audit = field(manifest, "audit", dict, "manifest")
-    if audit.get("status") not in {"pending", "accepted"}:
-        fail("audit.status must be pending or accepted")
-    if audit.get("status") == "accepted":
-        if audit.get("audited_commit") != commit or audit.get("audited_sha256") != expected_hash:
-            fail("accepted audit must bind the exact source commit and artifact checksum")
-        if not isinstance(audit.get("report"), str) or not audit["report"]:
-            fail("accepted audit must link a report")
+    if audit.get("status") != "accepted":
+        fail("deployment verification requires an accepted independent audit")
+    if audit.get("audited_commit") != commit or audit.get("audited_sha256") != expected_hash:
+        fail("accepted audit must bind the exact source commit and artifact checksum")
+    if not isinstance(audit.get("report"), str) or not audit["report"]:
+        fail("accepted audit must link a report")
 
     return [
         "source_provenance", "optimizer_digest", "two_build_byte_identity",

@@ -1,6 +1,6 @@
 # Frozen cw-reality artifact and deployment runbook
 
-**Issue:** [#3](https://github.com/juno-ai-dev/pm/issues/3)  
+**Issue:** [#3](https://github.com/juno-ai-dev/pm/issues/3)
 **Stage:** tooling ready; reproducible artifact, independent audit, deployment, and smoke evidence pending
 
 This directory defines the fail-closed path from immutable source to a frozen

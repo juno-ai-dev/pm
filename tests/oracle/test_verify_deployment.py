@@ -37,7 +37,7 @@ class VerifyDeploymentTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         report = json.loads(result.stdout)
         self.assertEqual(report["status"], "deployment_verified")
-        self.assertEqual(report["audit_status"], "pending")
+        self.assertEqual(report["audit_status"], "accepted")
         self.assertIn("source_provenance", report["checks"])
 
     def test_rejects_wrong_checksum(self):
@@ -77,6 +77,30 @@ class VerifyDeploymentTests(unittest.TestCase):
             result = self.run_verifier("evidence-ok.json", path)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("two-build", result.stderr)
+
+    def test_rejects_untrusted_policy_and_pending_audit(self):
+        mutations = [
+            ("repository", lambda m: m["source"].__setitem__("repository", "https://example.com/pm.git")),
+            ("source commit", lambda m: m["source"].__setitem__("commit", "a" * 40)),
+            ("source tree", lambda m: m["source"].__setitem__("tree", "b" * 40)),
+            ("contract tree", lambda m: m["source"].__setitem__("contract_tree", "c" * 40)),
+            ("contract path", lambda m: m["source"].__setitem__("contract_path", "other")),
+            ("optimizer", lambda m: m["build"].__setitem__("optimizer_image", "cosmwasm/optimizer:0.17.0@sha256:" + "d" * 64)),
+            ("chain", lambda m: m["deployment"].__setitem__("chain_id", "attacker-chain")),
+            ("bond floor", lambda m: m["deployment"]["config"].__setitem__("min_initial_bond_floor", "1")),
+            ("timeout floor", lambda m: m["deployment"]["config"].__setitem__("min_answer_timeout_secs", 1)),
+            ("code id", lambda m: m["deployment"].__setitem__("code_id", 0)),
+            ("address", lambda m: m["deployment"].__setitem__("contract_address", "cosmos1wrong")),
+            ("audit", lambda m: m["audit"].__setitem__("status", "pending")),
+        ]
+        for label, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                manifest = json.loads((FIXTURES / "manifest.json").read_text())
+                mutate(manifest)
+                path = Path(directory) / "manifest.json"
+                path.write_text(json.dumps(manifest))
+                result = self.run_verifier("evidence-ok.json", path)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
 
 
 if __name__ == "__main__":

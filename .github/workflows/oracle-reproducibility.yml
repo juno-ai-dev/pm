@@ -58,6 +58,7 @@ jobs:
           cmp one/cw_reality.wasm two/cw_reality.wasm
           sha256sum one/cw_reality.wasm
           test "$(cat one/cw_reality.wasm.sha256)" = "$(cat two/cw_reality.wasm.sha256)"
+          test "$(sha256sum one/cw_reality.wasm | cut -d ' ' -f1)" = "$(cat one/cw_reality.wasm.sha256)"
           cp one/cw_reality.wasm cw_reality.wasm
           cp one/cw_reality.wasm.sha256 cw_reality.wasm.sha256
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

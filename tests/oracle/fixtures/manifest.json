@@ -8,7 +8,7 @@
     "contract_path": "contracts/cw-reality"
   },
   "build": {
-    "optimizer_image": "docker.io/cosmwasm/optimizer:0.17.0@sha256:7e0b9229c1a4118d0c9a2af2e7f5d95a91f264c26a2ce5681c779926e74d7f85",
+    "optimizer_image": "cosmwasm/optimizer:0.17.0@sha256:7e0b9229c1a4118d0c9a2af2e7f5d95a91f264c26a2ce5681c779926e74d7f85",
     "optimizer_digest": "sha256:7e0b9229c1a4118d0c9a2af2e7f5d95a91f264c26a2ce5681c779926e74d7f85",
     "platform": "linux/amd64",
     "locked": true,
@@ -34,9 +34,9 @@
     }
   },
   "audit": {
-    "status": "pending",
-    "report": null,
-    "audited_commit": null,
-    "audited_sha256": null
+    "status": "accepted",
+    "report": "fixture-audit-report",
+    "audited_commit": "454f9777b0bafa71c43b427f7451e626d860269e",
+    "audited_sha256": "dbc6f04743a1cfdadae99016df7a69c5b8352ba568991d8417c4d297573ab629"
   }
 }

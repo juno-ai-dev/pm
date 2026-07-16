@@ -20,13 +20,12 @@ done
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 junod status --node "$rpc" > "$tmp/status.json"
-junod query wasm code-info "$code_id" --node "$rpc" --output json > "$tmp/code.json"
-junod query wasm contract "$contract" --node "$rpc" --output json > "$tmp/contract.json"
-junod query wasm contract-state smart "$contract" '{"config":{}}' \
-  --node "$rpc" --output json > "$tmp/config.json"
-
 chain_id=$(jq -er '.node_info.network // .NodeInfo.network' "$tmp/status.json")
 height=$(jq -er '(.sync_info.latest_block_height // .SyncInfo.latest_block_height) | tonumber' "$tmp/status.json")
+junod query wasm code-info "$code_id" --height "$height" --node "$rpc" --output json > "$tmp/code.json"
+junod query wasm contract "$contract" --height "$height" --node "$rpc" --output json > "$tmp/contract.json"
+junod query wasm contract-state smart "$contract" '{"config":{}}' \
+  --height "$height" --node "$rpc" --output json > "$tmp/config.json"
 jq -n \
   --arg endpoint "$rpc" --arg chain_id "$chain_id" --arg address "$contract" \
   --argjson height "$height" --slurpfile code "$tmp/code.json" \
