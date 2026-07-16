@@ -9,7 +9,12 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+cosmwasm-std.workspace = true
 pm-types = { path = "../pm-types" }
+thiserror.workspace = true
 
 [dev-dependencies]
+num-bigint = "0.4"
+num-traits = "0.2"
 pm-types = { path = "../pm-types", features = ["test-utils"] }
+proptest.workspace = true
