@@ -34,6 +34,8 @@ pub enum ContractError {
     CollateralCapExceeded,
     #[error("insufficient YES/NO position balance")]
     InsufficientPosition,
+    #[error("redemption must burn at least one position unit")]
+    EmptyRedemption,
     #[error("trade slippage limit exceeded")]
     SlippageExceeded,
     #[error("FPMM arithmetic rejected the trade: {0}")]

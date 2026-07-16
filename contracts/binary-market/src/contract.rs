@@ -290,9 +290,12 @@ pub fn execute(
             }
             return execute_resolve(deps, env, &config);
         }
-        ExecuteMsg::RedeemPositions { .. }
-        | ExecuteMsg::RedeemLp { .. }
-        | ExecuteMsg::ClaimLpAccrual {} => {
+        ExecuteMsg::RedeemPositions { yes, no } => {
+            guards::no_funds(&info.funds)?;
+            let payout = lifecycle.payout.ok_or(ContractError::NotResolved)?;
+            return execute_redeem_positions(deps, env, info, &config, &payout, yes, no);
+        }
+        ExecuteMsg::RedeemLp { .. } | ExecuteMsg::ClaimLpAccrual {} => {
             guards::no_funds(&info.funds)?;
             if lifecycle.payout.is_none() {
                 return Err(ContractError::NotResolved);
@@ -300,6 +303,104 @@ pub fn execute(
         }
     }
     Err(ContractError::NotImplemented)
+}
+
+fn execute_redeem_positions(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    config: &Config,
+    payout: &Payout,
+    yes: Uint128,
+    no: Uint128,
+) -> Result<Response, ContractError> {
+    if yes.is_zero() && no.is_zero() {
+        return Err(ContractError::EmptyRedemption);
+    }
+    let mut position = state::load_position(deps.storage, &info.sender)?;
+    if position.yes < yes || position.no < no {
+        return Err(ContractError::InsufficientPosition);
+    }
+    position.yes = position.yes.checked_sub(yes)?;
+    position.no = position.no.checked_sub(no)?;
+
+    let mut accounting = state::ACCOUNTING.load(deps.storage)?;
+    let mut terminal = accounting
+        .terminal_liability_twice
+        .ok_or(ContractError::NotResolved)?;
+    let payment;
+    if *payout == Payout::for_outcome(Outcome::Yes) || *payout == Payout::for_outcome(Outcome::No) {
+        payment = yes
+            .checked_mul(payout.yes_numerator)?
+            .checked_add(no.checked_mul(payout.no_numerator)?)?;
+        terminal = terminal.checked_sub(payment.checked_mul(Uint128::new(2))?)?;
+    } else if *payout == Payout::neutral() {
+        let burned = yes.checked_add(no)?;
+        let mut redemption = state::NEUTRAL_REDEMPTIONS
+            .may_load(deps.storage, &info.sender)?
+            .unwrap_or(state::NeutralRedemption {
+                cumulative_numerator: Uint128::zero(),
+                whole_paid: Uint128::zero(),
+                finalized_half: false,
+            });
+        if redemption.finalized_half {
+            return Err(ContractError::InvariantViolation(
+                "neutral remainder was already finalized".into(),
+            ));
+        }
+        redemption.cumulative_numerator = redemption.cumulative_numerator.checked_add(burned)?;
+        let whole_credit = Uint128::new(redemption.cumulative_numerator.u128() / 2);
+        payment = whole_credit.checked_sub(redemption.whole_paid)?;
+        redemption.whole_paid = whole_credit;
+        terminal = terminal.checked_sub(payment.checked_mul(Uint128::new(2))?)?;
+
+        if position.yes.is_zero()
+            && position.no.is_zero()
+            && redemption.cumulative_numerator.u128() % 2 == 1
+        {
+            redemption.finalized_half = true;
+            terminal = terminal.checked_sub(Uint128::one())?;
+            accounting.neutral_half_dust = accounting
+                .neutral_half_dust
+                .checked_add(1)
+                .ok_or_else(|| ContractError::InvariantViolation("half-dust overflow".into()))?;
+            if accounting.neutral_half_dust == 2 {
+                accounting.neutral_half_dust = 0;
+                accounting.lp_accrual = accounting.lp_accrual.checked_add(Uint128::one())?;
+            }
+        }
+        state::NEUTRAL_REDEMPTIONS.save(deps.storage, &info.sender, &redemption)?;
+    } else {
+        return Err(ContractError::InvariantViolation(
+            "unsupported terminal payout vector".into(),
+        ));
+    }
+
+    accounting.total_yes = accounting.total_yes.checked_sub(yes)?;
+    accounting.total_no = accounting.total_no.checked_sub(no)?;
+    accounting.terminal_liability_twice = Some(terminal);
+    state::POSITIONS.save(deps.storage, &info.sender, &position)?;
+    state::ACCOUNTING.save(deps.storage, &accounting)?;
+
+    let event = Event::new("juno_pm_v1")
+        .add_attribute("protocol_version", "1")
+        .add_attribute("factory", config.factory.to_string())
+        .add_attribute("market", env.contract.address.to_string())
+        .add_attribute("action", "positions_redeemed")
+        .add_attribute("account", info.sender.to_string())
+        .add_attribute("yes_burned", yes.to_string())
+        .add_attribute("no_burned", no.to_string())
+        .add_attribute("paid", payment.to_string())
+        .add_attribute("terminal_liability_numerator_after", terminal.to_string());
+    let response = Response::new().add_event(event);
+    if payment.is_zero() {
+        Ok(response)
+    } else {
+        Ok(response.add_message(BankMsg::Send {
+            to_address: info.sender.to_string(),
+            amount: vec![cosmwasm_std::coin(payment.u128(), UJUNO_DENOM)],
+        }))
+    }
 }
 
 fn execute_resolve(deps: DepsMut, env: Env, config: &Config) -> Result<Response, ContractError> {
