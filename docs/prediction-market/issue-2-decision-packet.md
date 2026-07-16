@@ -78,7 +78,7 @@ Completed after the four reviews above.
 
 **Recommendation date for every row:** 2026-07-15. **Acceptance date:** 2026-07-16. Jake Hartnell and Juno AI (delegated by Jake Hartnell) accepted every value exactly as recommended, together with the listed limitations and residual risk. Acceptance authorizes implementation, not deployment.
 
-| Parameter | Exact recommendation | Rationale / limitation | Required decision | Acceptance date / reviewer |
+| Parameter | Accepted value | Rationale / limitation | Recorded decision | Acceptance date / reviewer |
 | --- | ---: | --- | --- | --- |
 | Initial liquidity/principal | minimum `100,000,000 ujuno`; even ujuno | Keeps a representative 1-JUNO balanced-pool buy under about 0.5 quote points in R1; usage/gas unmeasured | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
 | Locked principal `P` | maximum `200,000,000 ujuno` | Containment only; 20× initial oracle bond is not a corruption-cost proof | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |

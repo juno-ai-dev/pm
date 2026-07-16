@@ -56,7 +56,7 @@ This is delegation concentration, not a claim that three operators control every
 
 A [primary single-venue supplement](evidence/2026-07-15-osmosis-juno-liquidity.md) now measures Osmosis at height 66,387,548. Equal-weight pools 497 and 498 held 355,829.816267 and 711,889.169521 JUNO respectively. A calculated 200-JUNO sale into either pool was 0.0562% or 0.0281% of its JUNO reserve, with about 0.356% or 0.328% fee-plus-curve shortfall before taker fees/routing. Twenty-four hourly JUNO/ATOM TWAPs over one day had a 1.886% high/low range and -1.754% first-to-last move.
 
-That is not venue-complete liquidity or long-horizon volatility. External depth can change faster than immutable market terms and is not a solvency input; external pools also do not create prediction-market LP participation. Before accepting a tier, risk review still needs repeat executable-depth measurements, 30/90-day volatility, concentration and historical governance turnout. The snapshot supports keeping a canary small relative to observed external reserves but does not approve the cap, bond, or fee.
+That is not venue-complete liquidity or long-horizon volatility. External depth can change faster than immutable market terms and is not a solvency input; external pools also do not create prediction-market LP participation. The accepted canary tier remains subject to deployment-policy review using repeat executable-depth measurements, 30/90-day volatility, concentration, and historical governance turnout. The snapshot supports keeping the canary small relative to observed external reserves but is not evidence for deployment or scaling beyond the accepted cap, bond, and fee.
 
 ## Height-pinned chain profile
 

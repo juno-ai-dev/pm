@@ -37,7 +37,7 @@ These values are the accepted first-release implementation envelope. Acceptance 
 | Parameter | Accepted canary value | Basis and limitation |
 | --- | ---: | --- |
 | Initial liquidity | at least 100 JUNO | R1: a 1-JUNO balanced-pool buy moves end quote about 0.49 points at 2% |
-| Locked-principal cap P | 200 JUNO | Contains first-release loss; equals 20× initial oracle bond. It is small versus two observed Osmosis reserves, but the oracle ratio still needs risk acceptance. |
+| Locked-principal cap P | 200 JUNO | Contains first-release loss; equals 20× initial oracle bond. The ratio is accepted for the canary; further deployment and scaling still require current economic-security evidence. |
 | Per-address outcome exposure | 20 JUNO terminal units per side | Accidental concentration limiter; trivial to bypass with wallets and not a security identity control |
 | LP fee | exact 200 bps | Omen precedent and worked accounting; one-day JUNO/ATOM movement is measured, but prediction-event adverse selection/profitability remain unmeasured |
 | Protocol fee | 0 | Avoids owner/sweep accounting and legal/economic scope |

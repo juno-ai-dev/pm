@@ -109,7 +109,7 @@ Accepted canary challenge bond:
 required = max(10,000,000 ujuno, oracle.current_bond)
 ~~~
 
-The floor and formula require owner risk acceptance. The challenge accepts exactly one native ujuno coin and no extras.
+The accepted floor and formula are implementation requirements. The challenge accepts exactly one native ujuno coin and no extras.
 
 ~~~text
 oracle OpenAnswered before finalize_ts
