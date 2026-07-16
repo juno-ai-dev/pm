@@ -210,18 +210,40 @@ fn documented_buy_sell_vector_matches_quote_and_ledgers() {
     assert_eq!(sell.gross, Uint128::new(5_102_041));
     assert_eq!(sell.fee, Uint128::new(102_041));
     assert_eq!(sell.input, Uint128::new(9_540_206));
-    app.execute_contract(
-        Addr::unchecked("alice"),
-        market.clone(),
-        &ExecuteMsg::Sell {
-            outcome: Outcome::Yes,
-            return_amount: Uint128::new(5_000_000),
-            max_in: sell.input,
-            deadline: NOW,
-        },
-        &[],
-    )
-    .unwrap();
+    let response = app
+        .execute_contract(
+            Addr::unchecked("alice"),
+            market.clone(),
+            &ExecuteMsg::Sell {
+                outcome: Outcome::Yes,
+                return_amount: Uint128::new(5_000_000),
+                max_in: sell.input,
+                deadline: NOW,
+            },
+            &[],
+        )
+        .unwrap();
+    let trade = response
+        .events
+        .iter()
+        .find(|event| event.ty.ends_with("juno_pm_v1"))
+        .expect("trade event");
+    let attribute = |key: &str| {
+        trade
+            .attributes
+            .iter()
+            .find(|attribute| attribute.key == key)
+            .map(|attribute| attribute.value.as_str())
+    };
+    assert_eq!(attribute("action"), Some("trade"));
+    assert_eq!(attribute("account"), Some("alice"));
+    assert_eq!(attribute("side"), Some("sell"));
+    assert_eq!(attribute("outcome"), Some("yes"));
+    assert_eq!(attribute("principal_after"), Some("104697959"));
+    assert_eq!(attribute("fee_liability_after"), Some("302041"));
+    assert!(attribute("caller").is_none());
+    assert!(attribute("principal").is_none());
+    assert!(attribute("fees").is_none());
     let a = accounting(&app, &market);
     assert_eq!(a.pool_yes, Uint128::new(95_512_847));
     assert_eq!(a.pool_no, Uint128::new(104_697_959));
@@ -367,6 +389,60 @@ fn stale_quote_slippage_and_failure_guards_are_atomic() {
                 deadline: NOW,
             },
             &[coin(10_000_000, "ujuno")],
+        )
+        .is_err());
+    assert_eq!(accounting(&app, &market), before);
+}
+
+#[test]
+fn configured_minimum_is_shared_by_quotes_and_execution() {
+    let (mut app, market) = setup(200_000_000, 2_500);
+    let below = Uint128::new(9_999);
+    assert!(app
+        .wrap()
+        .query_wasm_smart::<QuoteResponse>(
+            &market,
+            &QueryMsg::QuoteBuy {
+                outcome: Outcome::Yes,
+                gross: below,
+            },
+        )
+        .is_err());
+    assert!(app
+        .wrap()
+        .query_wasm_smart::<QuoteResponse>(
+            &market,
+            &QueryMsg::QuoteSell {
+                outcome: Outcome::Yes,
+                return_amount: below,
+            },
+        )
+        .is_err());
+
+    let before = accounting(&app, &market);
+    assert!(app
+        .execute_contract(
+            Addr::unchecked("alice"),
+            market.clone(),
+            &ExecuteMsg::Buy {
+                outcome: Outcome::Yes,
+                min_out: Uint128::zero(),
+                deadline: NOW,
+            },
+            &[coin(below.u128(), "ujuno")],
+        )
+        .is_err());
+    assert!(app
+        .execute_contract(
+            Addr::unchecked("alice"),
+            market.clone(),
+            &ExecuteMsg::Sell {
+                outcome: Outcome::Yes,
+                return_amount: below,
+                max_in: Uint128::MAX,
+                deadline: NOW,
+            },
+            &[],
         )
         .is_err());
     assert_eq!(accounting(&app, &market), before);

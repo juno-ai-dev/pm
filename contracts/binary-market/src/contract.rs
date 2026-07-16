@@ -443,6 +443,7 @@ fn buy_quote(
     outcome: Outcome,
     gross: Uint128,
 ) -> Result<BuyQuote, ContractError> {
+    validate_amount(gross, config.min_trade)?;
     let quote = math::buy_exact_collateral(reserves(accounting), outcome, gross, config.fee_bps)
         .map_err(|error| ContractError::Math(error.to_string()))?;
     enforce_configured_ratio(
@@ -459,6 +460,7 @@ fn sell_quote(
     outcome: Outcome,
     return_amount: Uint128,
 ) -> Result<SellQuote, ContractError> {
+    validate_amount(return_amount, config.min_trade)?;
     let quote = math::sell_for_exact_collateral(
         reserves(accounting),
         outcome,
@@ -502,7 +504,7 @@ fn trade_event(
                 Outcome::No => "no",
             },
         )
-        .add_attribute("caller", caller.to_string())
+        .add_attribute("account", caller.to_string())
         .add_attribute("gross", gross.to_string())
         .add_attribute("net", net.to_string())
         .add_attribute("fee", fee.to_string())
@@ -512,8 +514,8 @@ fn trade_event(
         .add_attribute("reserve_no_before", before.no.to_string())
         .add_attribute("reserve_yes_after", accounting.pool_yes.to_string())
         .add_attribute("reserve_no_after", accounting.pool_no.to_string())
-        .add_attribute("principal", accounting.principal.to_string())
-        .add_attribute("fees", accounting.fees.to_string())
+        .add_attribute("principal_after", accounting.principal.to_string())
+        .add_attribute("fee_liability_after", accounting.fees.to_string())
 }
 
 fn execute_buy(
