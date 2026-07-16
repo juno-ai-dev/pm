@@ -4,7 +4,7 @@ use binary_market::{
     guards,
     msg::{ExecuteMsg, InstantiateMsg, LifecycleStatus},
     question::{ObservationInput, QuestionInput, SourceInput},
-    state::{self, Challenge, ReplyInProgress},
+    state::{self, Accounting, Challenge, Position, ReplyInProgress},
 };
 use cosmwasm_std::{
     coin,
@@ -307,4 +307,86 @@ fn missing_positions_are_zero_but_other_records_fail() {
     );
     assert!(state::QUESTION_ID.load(&deps.storage).is_err());
     assert!(state::CHALLENGE.load(&deps.storage).is_err());
+}
+
+#[test]
+fn merge_rejects_below_minimum_and_resolved_state_before_mutation() {
+    let mut deps = init();
+    state::LIFECYCLE
+        .update(
+            &mut deps.storage,
+            |mut lifecycle| -> cosmwasm_std::StdResult<_> {
+                lifecycle.activated = true;
+                Ok(lifecycle)
+            },
+        )
+        .unwrap();
+    state::ACCOUNTING
+        .save(
+            &mut deps.storage,
+            &Accounting {
+                principal: Uint128::new(100),
+                fees: Uint128::zero(),
+                challenge: Uint128::zero(),
+                pool_yes: Uint128::new(100),
+                pool_no: Uint128::new(100),
+                total_yes: Uint128::new(100),
+                total_no: Uint128::new(100),
+                lp_supply: Uint128::new(100),
+                lp_burned: Uint128::zero(),
+                lp_paid: Uint128::zero(),
+                neutral_half_dust: 0,
+                lp_accrual: Uint128::zero(),
+                principal_at_resolution: None,
+                terminal_liability_twice: None,
+            },
+        )
+        .unwrap();
+    state::POSITIONS
+        .save(
+            &mut deps.storage,
+            &Addr::unchecked("alice"),
+            &Position {
+                yes: Uint128::one(),
+                no: Uint128::one(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("alice", &[]),
+            ExecuteMsg::Merge {
+                amount: Uint128::zero(),
+            },
+        )
+        .unwrap_err(),
+        ContractError::AmountBelowMinimum {
+            minimum: Uint128::one(),
+        }
+    );
+    state::LIFECYCLE
+        .update(
+            &mut deps.storage,
+            |mut lifecycle| -> cosmwasm_std::StdResult<_> {
+                lifecycle.payout = Some(pm_types::Payout::neutral());
+                Ok(lifecycle)
+            },
+        )
+        .unwrap();
+    let before = state::ACCOUNTING.load(&deps.storage).unwrap();
+    assert_eq!(
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("alice", &[]),
+            ExecuteMsg::Merge {
+                amount: Uint128::one(),
+            },
+        )
+        .unwrap_err(),
+        ContractError::AlreadyResolved
+    );
+    assert_eq!(state::ACCOUNTING.load(&deps.storage).unwrap(), before);
 }

@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    entry_point, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Reply,
-    ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
+    entry_point, to_json_binary, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env, Event,
+    MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 
 use crate::{
@@ -205,6 +205,7 @@ pub fn execute(
         ExecuteMsg::Split { amount } => {
             guards::trading(&env, &config, &lifecycle)?;
             guards::exact_funds(&info.funds, UJUNO_DENOM, amount)?;
+            return execute_split(deps, env, info, &config, amount);
         }
         ExecuteMsg::Buy { deadline, .. } => {
             guards::trading(&env, &config, &lifecycle)?;
@@ -224,9 +225,13 @@ pub fn execute(
             guards::trading(&env, &config, &lifecycle)?;
             guards::user_deadline(&env, deadline)?;
         }
-        ExecuteMsg::Merge { .. } => {
+        ExecuteMsg::Merge { amount } => {
             guards::no_funds(&info.funds)?;
+            if !lifecycle.activated {
+                return Err(ContractError::NotActivated);
+            }
             guards::unresolved(&lifecycle)?;
+            return execute_merge(deps, env, info, &config, amount);
         }
         ExecuteMsg::Challenge {} => {
             guards::exact_funds(&info.funds, UJUNO_DENOM, config.challenge_bond)?;
@@ -265,6 +270,130 @@ pub fn execute(
         }
     }
     Err(ContractError::NotImplemented)
+}
+
+fn validate_amount(amount: Uint128, minimum: Uint128) -> Result<(), ContractError> {
+    if amount < minimum {
+        return Err(ContractError::AmountBelowMinimum { minimum });
+    }
+    Ok(())
+}
+
+/// Cheap consensus assertion over aggregate ledgers. Map reconciliation is
+/// covered by model tests because maps cannot be summed during execution.
+fn assert_pre_resolution(accounting: &Accounting) -> Result<(), ContractError> {
+    if accounting.total_yes != accounting.principal
+        || accounting.total_no != accounting.principal
+        || accounting.pool_yes > accounting.total_yes
+        || accounting.pool_no > accounting.total_no
+        || accounting.pool_yes.is_zero()
+        || accounting.pool_no.is_zero()
+    {
+        return Err(ContractError::InvariantViolation(
+            "Y = N = P and positive bounded pool reserves are required".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn complete_set_event(
+    action: &str,
+    env: &Env,
+    config: &Config,
+    caller: &cosmwasm_std::Addr,
+    amount: Uint128,
+    accounting: &Accounting,
+) -> Event {
+    Event::new("juno_pm_v1")
+        .add_attribute("protocol_version", "1")
+        .add_attribute("factory", config.factory.to_string())
+        .add_attribute("market", env.contract.address.to_string())
+        .add_attribute("action", action)
+        .add_attribute("caller", caller.to_string())
+        .add_attribute("amount", amount.to_string())
+        .add_attribute("principal", accounting.principal.to_string())
+        .add_attribute("total_yes", accounting.total_yes.to_string())
+        .add_attribute("total_no", accounting.total_no.to_string())
+        .add_attribute("pool_yes", accounting.pool_yes.to_string())
+        .add_attribute("pool_no", accounting.pool_no.to_string())
+}
+
+fn execute_split(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    config: &Config,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    validate_amount(amount, config.min_trade)?;
+    let accounting = state::ACCOUNTING.update(deps.storage, |mut accounting| {
+        assert_pre_resolution(&accounting)?;
+        accounting.principal = accounting.principal.checked_add(amount)?;
+        if accounting.principal > config.collateral_cap {
+            return Err(ContractError::CollateralCapExceeded);
+        }
+        accounting.total_yes = accounting.total_yes.checked_add(amount)?;
+        accounting.total_no = accounting.total_no.checked_add(amount)?;
+        assert_pre_resolution(&accounting)?;
+        Ok(accounting)
+    })?;
+    state::POSITIONS.update(
+        deps.storage,
+        &info.sender,
+        |position| -> Result<_, ContractError> {
+            let mut position = position.unwrap_or_default();
+            position.yes = position.yes.checked_add(amount)?;
+            position.no = position.no.checked_add(amount)?;
+            Ok(position)
+        },
+    )?;
+    Ok(Response::new().add_event(complete_set_event(
+        "split",
+        &env,
+        config,
+        &info.sender,
+        amount,
+        &accounting,
+    )))
+}
+
+fn execute_merge(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    config: &Config,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    validate_amount(amount, config.min_trade)?;
+    let mut position = state::load_position(deps.storage, &info.sender)?;
+    if position.yes < amount || position.no < amount {
+        return Err(ContractError::InsufficientPosition);
+    }
+    let accounting =
+        state::ACCOUNTING.update(deps.storage, |mut accounting| -> Result<_, ContractError> {
+            assert_pre_resolution(&accounting)?;
+            accounting.principal = accounting.principal.checked_sub(amount)?;
+            accounting.total_yes = accounting.total_yes.checked_sub(amount)?;
+            accounting.total_no = accounting.total_no.checked_sub(amount)?;
+            assert_pre_resolution(&accounting)?;
+            Ok(accounting)
+        })?;
+    position.yes = position.yes.checked_sub(amount)?;
+    position.no = position.no.checked_sub(amount)?;
+    state::POSITIONS.save(deps.storage, &info.sender, &position)?;
+    Ok(Response::new()
+        .add_message(BankMsg::Send {
+            to_address: info.sender.to_string(),
+            amount: vec![cosmwasm_std::coin(amount.u128(), UJUNO_DENOM)],
+        })
+        .add_event(complete_set_event(
+            "merge",
+            &env,
+            config,
+            &info.sender,
+            amount,
+            &accounting,
+        )))
 }
 
 #[entry_point]
@@ -336,6 +465,7 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
         accounting.lp_supply = config.initial_liquidity;
         Ok(accounting)
     })?;
+    assert_pre_resolution(&state::ACCOUNTING.load(deps.storage)?)?;
     state::POSITIONS.save(deps.storage, &config.initial_lp, &Position::default())?;
     state::REPLY_IN_PROGRESS.remove(deps.storage);
     Ok(Response::new().add_event(

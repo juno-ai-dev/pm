@@ -28,6 +28,14 @@ pub enum ContractError {
     AlreadyResolved,
     #[error("market is not resolved")]
     NotResolved,
+    #[error("amount must be at least {minimum}")]
+    AmountBelowMinimum { minimum: cosmwasm_std::Uint128 },
+    #[error("collateral cap exceeded")]
+    CollateralCapExceeded,
+    #[error("insufficient YES/NO position balance")]
+    InsufficientPosition,
+    #[error("pre-resolution accounting invariant failed: {0}")]
+    InvariantViolation(String),
     #[error("no challenge is pending")]
     NoPendingChallenge,
     #[error("governance verdict deadline reached")]
