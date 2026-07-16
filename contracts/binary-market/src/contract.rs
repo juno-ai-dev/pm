@@ -1,14 +1,15 @@
 use cosmwasm_std::{
     entry_point, to_json_binary, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env, Event,
-    MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
+    MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, Uint256, WasmMsg,
 };
 
 use crate::{
     error::ContractError,
     guards,
+    math::{self, BuyQuote, Reserves, SellQuote},
     msg::{
         ConfigResponse, ExecuteMsg, IdentityResponse, InstantiateMsg, LifecycleStatus,
-        PositionResponse, QueryMsg, QuestionResponse, StateResponse,
+        PositionResponse, QueryMsg, QuestionResponse, QuoteResponse, StateResponse,
     },
     question,
     state::{self, Accounting, Config, Lifecycle, Position, ReplyInProgress},
@@ -20,7 +21,7 @@ use cw_reality::{
     },
     state::{AnswerType, State as OracleState},
 };
-use pm_types::{ProtocolVersion, UJUNO_DENOM};
+use pm_types::{Outcome, ProtocolVersion, UJUNO_DENOM};
 
 pub const REPLY_ACTIVATION: u64 = 1;
 pub const REPLY_CHALLENGE: u64 = 2;
@@ -207,7 +208,11 @@ pub fn execute(
             guards::exact_funds(&info.funds, UJUNO_DENOM, amount)?;
             return execute_split(deps, env, info, &config, amount);
         }
-        ExecuteMsg::Buy { deadline, .. } => {
+        ExecuteMsg::Buy {
+            outcome,
+            min_out,
+            deadline,
+        } => {
             guards::trading(&env, &config, &lifecycle)?;
             guards::user_deadline(&env, deadline)?;
             if info.funds.len() != 1
@@ -219,11 +224,19 @@ pub fn execute(
                     denom: UJUNO_DENOM.into(),
                 });
             }
+            let gross = info.funds[0].amount;
+            return execute_buy(deps, env, info, &config, outcome, min_out, gross);
         }
-        ExecuteMsg::Sell { deadline, .. } => {
+        ExecuteMsg::Sell {
+            outcome,
+            return_amount,
+            max_in,
+            deadline,
+        } => {
             guards::no_funds(&info.funds)?;
             guards::trading(&env, &config, &lifecycle)?;
             guards::user_deadline(&env, deadline)?;
+            return execute_sell(deps, env, info, &config, outcome, return_amount, max_in);
         }
         ExecuteMsg::Merge { amount } => {
             guards::no_funds(&info.funds)?;
@@ -393,6 +406,219 @@ fn execute_merge(
             &info.sender,
             amount,
             &accounting,
+        )))
+}
+
+fn reserves(accounting: &Accounting) -> Reserves {
+    Reserves {
+        yes: accounting.pool_yes,
+        no: accounting.pool_no,
+    }
+}
+
+fn enforce_configured_ratio(
+    amount: Uint128,
+    before: Reserves,
+    max_trade_bps: u16,
+) -> Result<(), ContractError> {
+    let smaller = before.yes.min(before.no);
+    let maximum256 = Uint256::from(smaller)
+        .checked_mul(Uint256::from(max_trade_bps))
+        .map_err(|error| ContractError::Math(error.to_string()))?
+        .checked_div(Uint256::from(math::FEE_SCALE))
+        .map_err(|error| ContractError::Math(error.to_string()))?;
+    let maximum =
+        Uint128::try_from(maximum256).map_err(|error| ContractError::Math(error.to_string()))?;
+    if amount > maximum {
+        return Err(ContractError::Math(
+            "configured reserve-ratio limit exceeded".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn buy_quote(
+    accounting: &Accounting,
+    config: &Config,
+    outcome: Outcome,
+    gross: Uint128,
+) -> Result<BuyQuote, ContractError> {
+    validate_amount(gross, config.min_trade)?;
+    let quote = math::buy_exact_collateral(reserves(accounting), outcome, gross, config.fee_bps)
+        .map_err(|error| ContractError::Math(error.to_string()))?;
+    enforce_configured_ratio(
+        quote.net_collateral,
+        quote.reserves_before,
+        config.max_trade_bps,
+    )?;
+    Ok(quote)
+}
+
+fn sell_quote(
+    accounting: &Accounting,
+    config: &Config,
+    outcome: Outcome,
+    return_amount: Uint128,
+) -> Result<SellQuote, ContractError> {
+    validate_amount(return_amount, config.min_trade)?;
+    let quote = math::sell_for_exact_collateral(
+        reserves(accounting),
+        outcome,
+        return_amount,
+        config.fee_bps,
+    )
+    .map_err(|error| ContractError::Math(error.to_string()))?;
+    enforce_configured_ratio(
+        quote.gross_collateral,
+        quote.reserves_before,
+        config.max_trade_bps,
+    )?;
+    Ok(quote)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn trade_event(
+    side: &str,
+    env: &Env,
+    config: &Config,
+    caller: &cosmwasm_std::Addr,
+    outcome: &Outcome,
+    gross: Uint128,
+    net: Uint128,
+    fee: Uint128,
+    input: Uint128,
+    output: Uint128,
+    before: Reserves,
+    accounting: &Accounting,
+) -> Event {
+    Event::new("juno_pm_v1")
+        .add_attribute("protocol_version", "1")
+        .add_attribute("factory", config.factory.to_string())
+        .add_attribute("market", env.contract.address.to_string())
+        .add_attribute("action", "trade")
+        .add_attribute("side", side)
+        .add_attribute(
+            "outcome",
+            match outcome {
+                Outcome::Yes => "yes",
+                Outcome::No => "no",
+            },
+        )
+        .add_attribute("account", caller.to_string())
+        .add_attribute("gross", gross.to_string())
+        .add_attribute("net", net.to_string())
+        .add_attribute("fee", fee.to_string())
+        .add_attribute("input", input.to_string())
+        .add_attribute("output", output.to_string())
+        .add_attribute("reserve_yes_before", before.yes.to_string())
+        .add_attribute("reserve_no_before", before.no.to_string())
+        .add_attribute("reserve_yes_after", accounting.pool_yes.to_string())
+        .add_attribute("reserve_no_after", accounting.pool_no.to_string())
+        .add_attribute("principal_after", accounting.principal.to_string())
+        .add_attribute("fee_liability_after", accounting.fees.to_string())
+}
+
+fn execute_buy(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    config: &Config,
+    outcome: Outcome,
+    min_out: Uint128,
+    gross: Uint128,
+) -> Result<Response, ContractError> {
+    let before = state::ACCOUNTING.load(deps.storage)?;
+    assert_pre_resolution(&before)?;
+    let quote = buy_quote(&before, config, outcome.clone(), gross)?;
+    if quote.outcome_out < min_out {
+        return Err(ContractError::SlippageExceeded);
+    }
+    let mut after = before;
+    after.principal = after.principal.checked_add(quote.net_collateral)?;
+    if after.principal > config.collateral_cap {
+        return Err(ContractError::CollateralCapExceeded);
+    }
+    after.fees = after.fees.checked_add(quote.fee)?;
+    after.total_yes = after.total_yes.checked_add(quote.net_collateral)?;
+    after.total_no = after.total_no.checked_add(quote.net_collateral)?;
+    after.pool_yes = quote.reserves_after.yes;
+    after.pool_no = quote.reserves_after.no;
+    assert_pre_resolution(&after)?;
+    let mut position = state::load_position(deps.storage, &info.sender)?;
+    match outcome {
+        Outcome::Yes => position.yes = position.yes.checked_add(quote.outcome_out)?,
+        Outcome::No => position.no = position.no.checked_add(quote.outcome_out)?,
+    }
+    state::ACCOUNTING.save(deps.storage, &after)?;
+    state::POSITIONS.save(deps.storage, &info.sender, &position)?;
+    Ok(Response::new().add_event(trade_event(
+        "buy",
+        &env,
+        config,
+        &info.sender,
+        &outcome,
+        quote.gross_collateral,
+        quote.net_collateral,
+        quote.fee,
+        quote.gross_collateral,
+        quote.outcome_out,
+        quote.reserves_before,
+        &after,
+    )))
+}
+
+fn execute_sell(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    config: &Config,
+    outcome: Outcome,
+    return_amount: Uint128,
+    max_in: Uint128,
+) -> Result<Response, ContractError> {
+    let before = state::ACCOUNTING.load(deps.storage)?;
+    assert_pre_resolution(&before)?;
+    let quote = sell_quote(&before, config, outcome.clone(), return_amount)?;
+    if quote.outcome_in > max_in {
+        return Err(ContractError::SlippageExceeded);
+    }
+    let mut position = state::load_position(deps.storage, &info.sender)?;
+    let selected = match outcome {
+        Outcome::Yes => &mut position.yes,
+        Outcome::No => &mut position.no,
+    };
+    if *selected < quote.outcome_in {
+        return Err(ContractError::InsufficientPosition);
+    }
+    *selected = selected.checked_sub(quote.outcome_in)?;
+    let mut after = before;
+    after.principal = after.principal.checked_sub(quote.gross_collateral)?;
+    after.fees = after.fees.checked_add(quote.fee)?;
+    after.total_yes = after.total_yes.checked_sub(quote.gross_collateral)?;
+    after.total_no = after.total_no.checked_sub(quote.gross_collateral)?;
+    after.pool_yes = quote.reserves_after.yes;
+    after.pool_no = quote.reserves_after.no;
+    assert_pre_resolution(&after)?;
+    state::ACCOUNTING.save(deps.storage, &after)?;
+    state::POSITIONS.save(deps.storage, &info.sender, &position)?;
+    Ok(Response::new()
+        .add_message(BankMsg::Send {
+            to_address: info.sender.to_string(),
+            amount: vec![cosmwasm_std::coin(return_amount.u128(), UJUNO_DENOM)],
+        })
+        .add_event(trade_event(
+            "sell",
+            &env,
+            config,
+            &info.sender,
+            &outcome,
+            quote.gross_collateral,
+            quote.net_collateral,
+            quote.fee,
+            quote.outcome_in,
+            quote.net_collateral,
+            quote.reserves_before,
+            &after,
         )))
 }
 
@@ -650,6 +876,62 @@ mod activation_verification_tests {
     }
 }
 
+fn ratio_bps(ratio: math::QuoteRatio) -> StdResult<Uint128> {
+    let value = ratio
+        .numerator
+        .checked_mul(Uint256::from(math::FEE_SCALE))
+        .map_err(|error| StdError::generic_err(error.to_string()))?
+        .checked_div(ratio.denominator)
+        .map_err(|error| StdError::generic_err(error.to_string()))?;
+    Uint128::try_from(value).map_err(|error| StdError::generic_err(error.to_string()))
+}
+
+fn quote_response_buy(env: &Env, outcome: Outcome, quote: BuyQuote) -> StdResult<QuoteResponse> {
+    let before = ratio_bps(quote.marginal_before)?;
+    let after = ratio_bps(quote.marginal_after)?;
+    Ok(QuoteResponse {
+        height: env.block.height,
+        time: env.block.time.seconds(),
+        outcome,
+        gross: quote.gross_collateral,
+        net: quote.net_collateral,
+        fee: quote.fee,
+        input: quote.gross_collateral,
+        output: quote.outcome_out,
+        reserve_yes_before: quote.reserves_before.yes,
+        reserve_no_before: quote.reserves_before.no,
+        reserve_yes_after: quote.reserves_after.yes,
+        reserve_no_after: quote.reserves_after.no,
+        average_price_bps: ratio_bps(quote.average_execution)?,
+        marginal_before_bps: before,
+        marginal_after_bps: after,
+        price_impact_bps: after.abs_diff(before),
+    })
+}
+
+fn quote_response_sell(env: &Env, outcome: Outcome, quote: SellQuote) -> StdResult<QuoteResponse> {
+    let before = ratio_bps(quote.marginal_before)?;
+    let after = ratio_bps(quote.marginal_after)?;
+    Ok(QuoteResponse {
+        height: env.block.height,
+        time: env.block.time.seconds(),
+        outcome,
+        gross: quote.gross_collateral,
+        net: quote.net_collateral,
+        fee: quote.fee,
+        input: quote.outcome_in,
+        output: quote.net_collateral,
+        reserve_yes_before: quote.reserves_before.yes,
+        reserve_no_before: quote.reserves_before.no,
+        reserve_yes_after: quote.reserves_after.yes,
+        reserve_no_after: quote.reserves_after.no,
+        average_price_bps: ratio_bps(quote.average_execution)?,
+        marginal_before_bps: before,
+        marginal_after_bps: after,
+        price_impact_bps: after.abs_diff(before),
+    })
+}
+
 #[entry_point]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     let config = state::CONFIG.load(deps.storage)?;
@@ -695,6 +977,21 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 activated: lifecycle.activated,
                 challenge_used: lifecycle.challenge_used,
             })
+        }
+        QueryMsg::QuoteBuy { outcome, gross } => {
+            let accounting = state::ACCOUNTING.load(deps.storage)?;
+            let quote = buy_quote(&accounting, &config, outcome.clone(), gross)
+                .map_err(|error| StdError::generic_err(error.to_string()))?;
+            to_json_binary(&quote_response_buy(&env, outcome, quote)?)
+        }
+        QueryMsg::QuoteSell {
+            outcome,
+            return_amount,
+        } => {
+            let accounting = state::ACCOUNTING.load(deps.storage)?;
+            let quote = sell_quote(&accounting, &config, outcome.clone(), return_amount)
+                .map_err(|error| StdError::generic_err(error.to_string()))?;
+            to_json_binary(&quote_response_sell(&env, outcome, quote)?)
         }
         QueryMsg::Position { address } => {
             let address = deps.api.addr_validate(&address)?;

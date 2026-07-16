@@ -34,6 +34,10 @@ pub enum ContractError {
     CollateralCapExceeded,
     #[error("insufficient YES/NO position balance")]
     InsufficientPosition,
+    #[error("trade slippage limit exceeded")]
+    SlippageExceeded,
+    #[error("FPMM arithmetic rejected the trade: {0}")]
+    Math(String),
     #[error("pre-resolution accounting invariant failed: {0}")]
     InvariantViolation(String),
     #[error("no challenge is pending")]
