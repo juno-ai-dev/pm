@@ -1,7 +1,7 @@
 # ADR-010 — Fees, rounding, and dust
 
-**Status:** Proposed; fee risk acceptance open  
-**Decision:** Candidate immutable LP fee 200 bps, protocol fee zero. All divisions use the R1 caller-adverse/cumulative rules; neutral half-dust pairs accrue to LP; forced excess has no claimant.
+**Status:** Accepted 2026-07-16; documented fee residual risks retained
+**Decision:** Immutable LP fee 200 bps, protocol fee zero. All divisions use the R1 caller-adverse/cumulative rules; neutral half-dust pairs accrue to LP; forced excess has no claimant.
 
 ## Alternatives
 
@@ -19,4 +19,4 @@ Fees never back positions or guarantee LP profit. Address splitting cannot incre
 
 ## Safe default and revisit
 
-No launch until 2% is accepted. Revisit from measured volume, LP loss, trade size, and routing; new value means new factory.
+Acceptance authorizes implementing the 2% value only. Launch remains separately unauthorized until deployment/readiness gates and an explicit deployment decision exist. Revisit from measured volume, LP loss, trade size, and routing; a new value means a new factory.

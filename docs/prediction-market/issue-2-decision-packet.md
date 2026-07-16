@@ -1,16 +1,17 @@
 # Issue #2 — v1 architecture decision packet
 
 **Packet date:** 2026-07-15
+**Acceptance date:** 2026-07-16
 
-**Packet status:** Proposed for review; no approval is recorded
+**Packet status:** Accepted
 
-**Authorization:** Contract implementation is **not authorized**
+**Authorization:*** Milestone implementation is **authorized** for contract code, tests/models, SDK, frontend, indexer, and operations tooling
 
-**Scope:** decision preparation only; no contract code, deployment, funds, legal advice, or governance rehearsal
+**Safety boundary:** deployment, fund movement, mainnet governance-rehearsal transaction execution, and claims of legal or operational readiness remain unauthorized
 
-This packet advances [issue #2](https://github.com/juno-ai-dev/pm/issues/2) by putting the remaining choices into one reviewable record. It does not accept architecture, economics, licensing, legal posture, or implementation authority. A recommendation is not a decision. Empty reviewer fields are intentionally not signatures.
+On 2026-07-16 Jake Hartnell accepted the complete packet and delegated architecture, economic-security, and license/provenance decisions to Juno AI: “Everything is accepted. You are empowered to make decisions and are not blocked. I will review when done.” This records architecture/product acceptance and implementation authority; it does not manufacture an audit, qualified legal advice, deployed checksum, funded/mainnet governance transaction, or operational-readiness evidence.
 
-The machine-readable companion is [`authorization.json`](authorization.json). It must remain fail-closed until the required reviewers and owner actually sign this packet. The `blocked: decision` issue label must remain while `implementation_authorized` is `false`.
+The machine-readable companion is [`authorization.json`](authorization.json). It authorizes implementation tooling while retaining separate fail-closed gates for deployment, funds, and governance-rehearsal transaction execution. Its label policy permits removal of `blocked: decision`; this packet and PR do not themselves change labels.
 
 ## 1. How to decide
 
@@ -27,82 +28,83 @@ No row becomes Accepted merely because a reviewer approves this PR. The owner mu
 
 | Review | Reviewer identity | Date (YYYY-MM-DD) | Evidence considered | Dissent / conditions | Residual risk accepted | Disposition |
 | --- | --- | --- | --- | --- | --- | --- |
-| Architecture | _required_ | _required_ | _required_ | _required; write “none” explicitly if none_ | _required_ | _Accept / Replace / Defer / Reject_ |
-| Economic security | _required_ | _required_ | _required_ | _required; write “none” explicitly if none_ | _required_ | _Accept / Replace / Defer / Reject_ |
-| License/provenance | _required_ | _required_ | _required_ | _required; write “none” explicitly if none_ | _required_ | _Accept / Replace / Defer / Reject_ |
-| Owner | _required_ | _required_ | _required_ | _required; write “none” explicitly if none_ | _required_ | _Accept / Replace / Defer / Reject_ |
+| Architecture | Juno AI (delegated by Jake Hartnell) | 2026-07-16 | R1–R5, A1–A3, ADR-001–018, §§4–5 | none recorded | Residual risks in the ADR matrix and evidence gates | Accept |
+| Economic security | Juno AI (delegated by Jake Hartnell) | 2026-07-16 | R1, A2, ADR-008/010/013/017/018, exact §4 register | none recorded | Capped loss, oracle/governance failure, thin liquidity, liveness and parameter-model risk | Accept |
+| License/provenance | Juno AI (delegated by Jake Hartnell) | 2026-07-16 | R2, repository Apache-2.0 policy, §6 provenance controls | none recorded | Independent-expression provenance must be maintained; this is not qualified legal advice | Accept independent-expression route |
+| Owner | Jake Hartnell | 2026-07-16 | Complete decision packet and delegated reviews | none recorded | All documented residual risks; evidence gates remain | Accept and authorize scoped implementation |
 
 License review here is a project authorization gate, not legal advice. ADR-016 separately keeps public interface/deployment blocked pending dated advice applicable to actual actors and jurisdictions.
 
 ## 3. ADR disposition matrix
 
-All dispositions below preserve the repository's authoritative status: Proposed except ADR-017, which is Deferred. “Recommended disposition” is a request to the named reviewers, not recorded approval.
+All ADR-001–018 dispositions are Accepted as of 2026-07-16. For ADR-017, Juno `x/gov` is accepted as the architecture and ultimate verdict authority; issue #4 retains the end-to-end/mainnet rehearsal evidence work as a separate safety gate, not an unresolved architecture decision. The table preserves contrary evidence, residual risk, and revisit triggers rather than treating acceptance as proof.
 
-| ADR | Current status | Recommended disposition | Evidence to review | Dissent / contrary evidence to resolve | Material residual risk | Safe default while open | Objective revisit trigger |
+| ADR | Status | Accepted disposition | Evidence considered | Contrary evidence / limitation | Material residual risk | Implementation/deployment control | Objective revisit trigger |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [001](adrs/ADR-001-binary-fixed-expiry.md) | Proposed | Accept binary fixed-expiry only | R3 question/time policy; A1 lifecycle | Broader market types are excluded rather than proven unsafe | Fixed timestamps can lock in bad rules; chain time controls | No implementation | New version only after audited binary lifecycle and demand for another shape |
-| [002](adrs/ADR-002-fpmm.md) | Proposed | Accept integer FPMM **only with an approved license route** | R1 formulas/examples; pinned Gnosis commit `6814c024`; R2 | FPMM fitness is inferred; LGPL route unresolved | Thin/manipulable quotes, LP adverse selection, implementation/provenance defects | No FPMM implementation | License sign-off plus independent arithmetic review; later mechanism reconsideration after observed flow/depth |
-| [003](adrs/ADR-003-internal-positions.md) | Proposed | Accept non-transferable internal balances | R1; A1 accounting | Sacrifices composability and wallet transfer | Lost keys and abandonment lock claims forever | No implementation | Independently audited token standard and concrete router/CLOB need |
-| [004](adrs/ADR-004-isolated-topology.md) | Proposed | Accept immutable factory plus isolated market | A1; R4 | Gas/storage is unmeasured | Repeated instantiate cost; bugs cannot be repaired | No implementation/deployment | Implementation-phase gas evidence and safety proof; never migrate funded v1 |
-| [005](adrs/ADR-005-native-ujuno.md) | Proposed; owner direction dated 2026-07-15 | Accept native `ujuno` only | GOAL §14; R4 denom evidence | Owner direction does not prove economic suitability | JUNO volatility and dual collateral/governance concentration | No implementation until whole packet accepted | New audited collateral version after explicit owner decision |
-| [006](adrs/ADR-006-neutral-invalid.md) | Proposed | Accept deterministic neutral fallback | R1 dust accounting; R3 byte table | Neutral can reward ambiguous markets and lets governance escape | Canonical wrong 0/1 still redirects value; half-dust goes to LP | No implementation | Audited bounded re-question design in a new version |
-| [007](adrs/ADR-007-market-owned-question.md) | Proposed | Accept atomic market-owned question | R3 source matrix/ID derivation; A1 activation | Local ID compatibility is brittle and build provenance is open | Omitted oracle fields or source changes could bind the wrong guarantees | No implementation; creation must fail closed | Audited oracle response/prediction API in a new frozen dependency |
-| [008](adrs/ADR-008-oracle-tiers-and-caps.md) | Proposed; risk acceptance open | Accept the canary recommendation only if economic-security and owner reviewers explicitly accept every dated value in §4 | A2; Juno/Osmosis evidence snapshots | Oracle/governance corruption cost is unquantified; external liquidity does not secure resolution | Up to capped principal can follow a wrong canonical result | No deployment; no uncapped factory | Rehearsal, named monitor capital, current governance/concentration evidence, and explicit risk acceptance |
-| [009](adrs/ADR-009-locked-initial-liquidity.md) | Proposed | Accept one creator=LP, fixed and locked | R1 lifecycle/payoffs; A1 | LP capital can be locked indefinitely and cannot rebalance | LP loss, unanswered lock, lost LP key | No implementation | Audited fee accumulator/withdrawal design plus operating data |
-| [010](adrs/ADR-010-fees-and-dust.md) | Proposed; fee acceptance open | Accept only if exact 200 bps and dust rules are explicitly accepted | R1 worked reconciliation; A2 | Omen precedent and one-day collateral movement do not establish Juno fitness | Fee may overcharge flow or fail to compensate LP; forced excess is stranded | No launch | Measured volume/trade size/LP loss/routing; changed fee requires new factory |
-| [011](adrs/ADR-011-permissionless-creation.md) | Proposed; owner direction dated 2026-07-15 | Accept objective bounds with no allowlist | GOAL §14; R5 | Permissionless scope creates spam/content/legal exposure | Harmful/illegal markets remain directly accessible | No public interface/deployment pending ADR-016 gates | New explicit owner decision; existing factory remains immutable |
-| [012](adrs/ADR-012-no-admin-or-pause.md) | Proposed | Accept no admin/migration/pause/recovery/sweep | A1 authority matrix; R3 deployed-oracle admin evidence | Immutability prevents emergency repair | Live defects, typo, abandoned funds, and lost keys cannot be repaired | No deployment until frozen checksums/admin state are verified | New version with explicit authority analysis; never mutate funded v1 |
-| [013](adrs/ADR-013-resolution-liveness.md) | Proposed | Accept disclosed unbounded unanswered state; accept numeric bounty/timeouts only via §4 | R3 sequences; A2 failure analysis | Bounty does not guarantee an answer; repeated counters remain possible | Funds may remain locked indefinitely | No launch; Merge remains the only unresolved liability-reducing exit | Audited oracle-preserving bounded re-question design |
-| [014](adrs/ADR-014-answer-bytes-and-template.md) | Proposed | Accept exact bytes/JCS only with §5 bounds | R3 byte table and typed document | Semantic clarity cannot be enforced; storage/gas unmeasured | Unknown bytes settle neutral; malformed prose can still be binding | No implementation | Versioned template with golden vectors and measured gas; never reinterpret live bytes |
-| [015](adrs/ADR-015-offchain-trust.md) | Proposed | Accept off-chain convenience only | A1 query/event surface; R5 | Direct queries can still be unavailable or misrendered | RPC/UI/indexer can lie, lag, censor, or omit | No implementation until query/event contract in §5 is accepted | Future CLOB requires separate signing/availability ADR |
-| [016](adrs/ADR-016-product-posture.md) | Proposed; owner direction dated 2026-07-15; counsel open | Defer public interface/deployment; preserve owner-selected candidate posture | GOAL §14; R5 actor/risk matrix | No dated counsel advice or named operators | Actor- and jurisdiction-specific legal/content/operational exposure | No public interface or deployment | Dated applicable advice, named roles, exercised runbooks, and owner acceptance |
-| [017](adrs/ADR-017-juno-governance-arbitration.md) | Deferred | Remain Deferred; do not authorize dependent implementation | R3 source/sequence matrix; proposals 357/363; height snapshot | Exact verdict/payee path, failures, gas, and deadline are unrehearsed | Governance can choose wrong answer/payee or fail to execute | No dependent implementation/launch; do not substitute another authority | Separately authorized end-to-end rehearsal, or replacement owner authority decision |
-| [018](adrs/ADR-018-challenge-bond.md) | Proposed; economic acceptance open | Accept only if exact bond and all refund/slash paths in §4 are explicitly accepted | A2 path table; R3 sequences | Legitimate challenger loses bond when governance/deposit/execution fails | Challenge can become inaccessible; governance freeze incentives remain | No launch | Rehearsed paths plus accessibility/spam analysis; changed rule requires new tier |
+| [001](adrs/ADR-001-binary-fixed-expiry.md) | Accepted | Binary fixed-expiry only | R3 question/time policy; A1 lifecycle | Broader market types are excluded rather than proven unsafe | Fixed timestamps can lock in bad rules; chain time controls | Implement; no deployment authority | New version only after audited binary lifecycle and demand for another shape |
+| [002](adrs/ADR-002-fpmm.md) | Accepted | Integer FPMM under the §6 clean-room route | R1 formulas/examples; pinned Gnosis commit `6814c024`; R2 | FPMM fitness is inferred; LGPL source is excluded | Thin/manipulable quotes, LP adverse selection, implementation/provenance defects | Clean-room implementation only; no deployment authority | License sign-off plus independent arithmetic review; later mechanism reconsideration after observed flow/depth |
+| [003](adrs/ADR-003-internal-positions.md) | Accepted | Non-transferable internal balances | R1; A1 accounting | Sacrifices composability and wallet transfer | Lost keys and abandonment lock claims forever | Implement; no deployment authority | Independently audited token standard and concrete router/CLOB need |
+| [004](adrs/ADR-004-isolated-topology.md) | Accepted | Immutable factory plus isolated market | A1; R4 | Gas/storage is unmeasured | Repeated instantiate cost; bugs cannot be repaired | Implement and measure; no deployment authority | Implementation-phase gas evidence and safety proof; never migrate funded v1 |
+| [005](adrs/ADR-005-native-ujuno.md) | Accepted | Native `ujuno` only | GOAL §14; R4 denom evidence | Owner direction does not prove economic suitability | JUNO volatility and dual collateral/governance concentration | Implement; no deployment authority | New audited collateral version after explicit owner decision |
+| [006](adrs/ADR-006-neutral-invalid.md) | Accepted | Deterministic neutral fallback | R1 dust accounting; R3 byte table | Neutral can reward ambiguous markets and lets governance escape | Canonical wrong 0/1 still redirects value; half-dust goes to LP | Implement and test; no deployment authority | Audited bounded re-question design in a new version |
+| [007](adrs/ADR-007-market-owned-question.md) | Accepted | Atomic market-owned question | R3 source matrix/ID derivation; A1 activation | Local ID compatibility is brittle and build provenance is open | Omitted oracle fields or source changes could bind the wrong guarantees | Implement fail-closed creation; no deployment authority | Audited oracle response/prediction API in a new frozen dependency |
+| [008](adrs/ADR-008-oracle-tiers-and-caps.md) | Accepted | Exact canary recommendation and every dated value in §4 | A2; Juno/Osmosis evidence snapshots | Oracle/governance corruption cost is unquantified; external liquidity does not secure resolution | Up to capped principal can follow a wrong canonical result | No deployment; no uncapped factory | Rehearsal, named monitor capital, current governance/concentration evidence, and explicit risk acceptance |
+| [009](adrs/ADR-009-locked-initial-liquidity.md) | Accepted | One creator=LP, fixed and locked | R1 lifecycle/payoffs; A1 | LP capital can be locked indefinitely and cannot rebalance | LP loss, unanswered lock, lost LP key | Implement and test; no deployment authority | Audited fee accumulator/withdrawal design plus operating data |
+| [010](adrs/ADR-010-fees-and-dust.md) | Accepted | Exact 200 bps and documented dust rules | R1 worked reconciliation; A2 | Omen precedent and one-day collateral movement do not establish Juno fitness | Fee may overcharge flow or fail to compensate LP; forced excess is stranded | No launch | Measured volume/trade size/LP loss/routing; changed fee requires new factory |
+| [011](adrs/ADR-011-permissionless-creation.md) | Accepted | Objective bounds with no allowlist | GOAL §14; R5 | Permissionless scope creates spam/content/legal exposure | Harmful/illegal markets remain directly accessible | No public interface/deployment pending ADR-016 gates | New explicit owner decision; existing factory remains immutable |
+| [012](adrs/ADR-012-no-admin-or-pause.md) | Accepted | No admin/migration/pause/recovery/sweep | A1 authority matrix; R3 deployed-oracle admin evidence | Immutability prevents emergency repair | Live defects, typo, abandoned funds, and lost keys cannot be repaired | No deployment until frozen checksums/admin state are verified | New version with explicit authority analysis; never mutate funded v1 |
+| [013](adrs/ADR-013-resolution-liveness.md) | Accepted | Disclosed unbounded unanswered state and §4 bounty/timeouts | R3 sequences; A2 failure analysis | Bounty does not guarantee an answer; repeated counters remain possible | Funds may remain locked indefinitely | No launch; Merge remains the only unresolved liability-reducing exit | Audited oracle-preserving bounded re-question design |
+| [014](adrs/ADR-014-answer-bytes-and-template.md) | Accepted | Exact bytes/JCS with §5 bounds | R3 byte table and typed document | Semantic clarity cannot be enforced; storage/gas unmeasured | Unknown bytes settle neutral; malformed prose can still be binding | Implement and measure; no deployment authority | Versioned template with golden vectors and measured gas; never reinterpret live bytes |
+| [015](adrs/ADR-015-offchain-trust.md) | Accepted | Off-chain convenience only | A1 query/event surface; R5 | Direct queries can still be unavailable or misrendered | RPC/UI/indexer can lie, lag, censor, or omit | Implement the accepted §5 query/event contract; no deployment authority | Future CLOB requires separate signing/availability ADR |
+| [016](adrs/ADR-016-product-posture.md) | Accepted; legal/operational readiness evidence remains open | Experimental, value-bearing, permissionless/no-entity architecture; public operation/deployment remains gated by issue #26 | GOAL §14; R5 actor/risk matrix | No dated counsel advice or named operators | Actor- and jurisdiction-specific legal/content/operational exposure | No public interface or deployment | Dated applicable advice, named roles, exercised runbooks, and owner acceptance |
+| [017](adrs/ADR-017-juno-governance-arbitration.md) | Accepted; rehearsal evidence remains issue #4 | Market controller relays verdicts from Juno `x/gov`, the ultimate authority | R3 source/sequence matrix; proposals 357/363; height snapshot | Exact verdict/payee path, failures, gas, and deadline are unrehearsed | Governance can choose wrong answer/payee or fail to execute | Implement/tool only; no rehearsal transaction or deployment authority; do not substitute another authority | Separately authorized end-to-end rehearsal, or replacement owner authority decision |
+| [018](adrs/ADR-018-challenge-bond.md) | Accepted | Exact bond and all documented refund/slash paths in §4 | A2 path table; R3 sequences | Legitimate challenger loses bond when governance/deposit/execution fails | Challenge can become inaccessible; governance freeze incentives remain | No launch | Rehearsed paths plus accessibility/spam analysis; changed rule requires new tier |
 
 ### Owner disposition record
 
-The owner completes this only after the four reviews above.
+Completed after the four reviews above.
 
-- **Owner identity:** _required_
-- **Decision date:** _required (YYYY-MM-DD)_
-- **ADRs accepted:** _list exact IDs, or “none”_
-- **ADRs replaced:** _list IDs and link exact replacement text, or “none”_
-- **ADRs deferred:** _list IDs, safe default, and trigger, or “none”_
-- **ADRs rejected:** _list exact IDs, or “none”_
-- **Dissent preserved:** _link/comment or “none”_
-- **Implementation authorization:** _AUTHORIZED / NOT AUTHORIZED_
-- **Authorized scope:** _required if authorized; approval of docs is not approval of code, deployment, funds, legal posture, or rehearsal_
+- **Owner identity:** Jake Hartnell
+- **Decision date:** 2026-07-16
+- **ADRs accepted:** ADR-001 through ADR-018
+- **ADRs replaced:** none
+- **ADRs deferred:** none; ADR-017 implementation is accepted while rehearsal evidence remains issue #4 work
+- **ADRs rejected:** none
+- **Dissent preserved:** none recorded
+- **Implementation authorization:** **AUTHORIZED**
+- **Authorized scope:** contract code, tests/models, SDK, frontend, indexer, and operations tooling for the milestone. Deployment, fund movement, legal-readiness claims, and mainnet governance-rehearsal transaction execution are not authorized.
 
 ## 4. Critical numeric decision register
 
-**Recommendation date for every row:** 2026-07-15. **Acceptance date:** unset. These are candidate canary values, not accepted parameters.
+**Recommendation date for every row:** 2026-07-15. **Acceptance date:** 2026-07-16. Jake Hartnell and Juno AI (delegated by Jake Hartnell) accepted every value exactly as recommended, together with the listed limitations and residual risk. Acceptance authorizes implementation, not deployment.
 
-| Parameter | Exact recommendation | Rationale / limitation | Required decision | Acceptance date / reviewer |
+| Parameter | Accepted value | Rationale / limitation | Recorded decision | Acceptance date / reviewer |
 | --- | ---: | --- | --- | --- |
-| Initial liquidity/principal | minimum `100,000,000 ujuno`; even ujuno | Keeps a representative 1-JUNO balanced-pool buy under about 0.5 quote points in R1; usage/gas unmeasured | Accept or replace | _unset_ |
-| Locked principal `P` | maximum `200,000,000 ujuno` | Containment only; 20× initial oracle bond is not a corruption-cost proof | Accept or replace | _unset_ |
-| Per-address outcome exposure | maximum `20,000,000` units per side | Accidental concentration control; Sybil-bypassable | Accept, replace, or remove explicitly | _unset_ |
-| LP fee | exactly `200 bps` (`2%`) | Worked and precedent-backed, not empirically fit for Juno event flow | Accept or replace | _unset_ |
-| Protocol fee | exactly `0 bps` | Avoids protocol recipient/sweep surface | Accept or replace | _unset_ |
-| Minimum buy / requested sell / Split | `10,000 ujuno` | Bounds dust/spam; gas unmeasured | Accept or replace | _unset_ |
-| Per-call trade bound | net split or merge `<= floor(min(reserve_yes,reserve_no)/4)`; result must leave both reserves `>=1` | Limits one-call reserve movement, not cumulative trading | Accept or replace | _unset_ |
-| Oracle initial bond floor | `10,000,000 ujuno` | 5% of cap; no proof of adequate deterrence | Accept or replace | _unset_ |
-| Oracle bounty | `1,000,000 ujuno` funded separately at creation | Incentive only; no service guarantee | Accept or replace | _unset_ |
-| Answer timeout | exactly `86,400 seconds` | Current production floor and documented precedent; resets after each accepted later answer | Accept or replace | _unset_ |
-| Challenge bond | `max(10,000,000 ujuno, current_oracle_bond)` | Prevents free freeze but may be inaccessible | Accept or replace | _unset_ |
-| Arbitration timeout | exactly `1,814,400 seconds` (21 days) | 10-day deposit + 5-day vote + 6-day margin; exact flow unrehearsed | Accept only after ADR-017 trigger, or replace | _unset_ |
-| Creation-to-close lead | minimum `86,400 seconds` | Monitoring/review window, not semantic proof | Accept or replace | _unset_ |
-| Maximum creation-to-close duration | `7,776,000 seconds` (90 days) | Bounds pre-close LP/operations burden; unanswered remains unbounded | Accept or replace | _unset_ |
-| Opening delay after close | `0..2,592,000 seconds` (30 days), with `opening_ts >= close_ts` | Event/source-specific; longer markets require another tier | Accept or replace | _unset_ |
-| Canonical question bytes | maximum `16,384 bytes` UTF-8 after JCS | Candidate storage/gas bound; not measured | Accept or replace | _unset_ |
-| Discovery metadata bytes | maximum `4,096 bytes` UTF-8 | Candidate index/storage bound; non-authoritative | Accept or replace | _unset_ |
-| Factory pagination | default `50`, maximum `100` records | Bounded query work; gas unmeasured | Accept or replace | _unset_ |
+| Initial liquidity/principal | minimum `100,000,000 ujuno`; even ujuno | Keeps a representative 1-JUNO balanced-pool buy under about 0.5 quote points in R1; usage/gas unmeasured | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Locked principal `P` | maximum `200,000,000 ujuno` | Containment only; 20× initial oracle bond is not a corruption-cost proof | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Per-address outcome exposure | maximum `20,000,000` units per side | Accidental concentration control; Sybil-bypassable | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| LP fee | exactly `200 bps` (`2%`) | Worked and precedent-backed, not empirically fit for Juno event flow | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Protocol fee | exactly `0 bps` | Avoids protocol recipient/sweep surface | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Minimum buy / requested sell / Split | `10,000 ujuno` | Bounds dust/spam; gas unmeasured | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Per-call trade bound | net split or merge `<= floor(min(reserve_yes,reserve_no)/4)`; result must leave both reserves `>=1` | Limits one-call reserve movement, not cumulative trading | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Oracle initial bond floor | `10,000,000 ujuno` | 5% of cap; no proof of adequate deterrence | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Oracle bounty | `1,000,000 ujuno` funded separately at creation | Incentive only; no service guarantee | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| First-counter monitoring capacity | named monitor able to post at least `20,000,000 ujuno` | Accepted operational pre-deployment commitment, not a contract parameter or guaranteed service | Accepted for implementation planning; deployment evidence remains open | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Answer timeout | exactly `86,400 seconds` | Current production floor and documented precedent; resets after each accepted later answer | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Challenge bond | `max(10,000,000 ujuno, current_oracle_bond)` | Prevents free freeze but may be inaccessible | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Arbitration timeout | exactly `1,814,400 seconds` (21 days) | 10-day deposit + 5-day vote + 6-day margin; exact flow unrehearsed | Accepted for implementation; rehearsal evidence remains issue #4 | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Creation-to-close lead | minimum `86,400 seconds` | Monitoring/review window, not semantic proof | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Maximum creation-to-close duration | `7,776,000 seconds` (90 days) | Bounds pre-close LP/operations burden; unanswered remains unbounded | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Opening delay after close | `0..2,592,000 seconds` (30 days), with `opening_ts >= close_ts` | Event/source-specific; longer markets require another tier | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Canonical question bytes | maximum `16,384 bytes` UTF-8 after JCS | Accepted storage/gas bound; not yet measured | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Discovery metadata bytes | maximum `4,096 bytes` UTF-8 | Accepted index/storage bound; non-authoritative and not yet measured | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Factory pagination | default `50`, maximum `100` records | Bounded query work; gas unmeasured | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
 
-No value may be inferred accepted from the owner directions already recorded in GOAL §14. Any replacement must state raw `ujuno`/seconds/bytes as applicable, date, reviewer, rationale, and impact on all dependent rows.
+No replacement value is implied by this acceptance. A future replacement must state raw `ujuno`/seconds/bytes as applicable, date, reviewer, rationale, and impact on all dependent rows.
 
 ## 5. Consensus/schema choices to freeze
 
-Everything in this section is a **recommendation awaiting architecture and owner acceptance**.
+Everything in this section is **accepted for implementation** as of 2026-07-16, with measurements and operational evidence still required before deployment.
 
 ### 5.1 Typed source-entry bounds
 
@@ -126,7 +128,7 @@ The market constructs JCS; callers do not submit arbitrary JSON. Lengths are UTF
 | observation `revision_policy` | `1..512` bytes |
 | `language` | exactly `en` for `juno-pm-question/1` |
 
-Whether `publication_revision_policy` becomes an explicit source-entry field rather than prose is an **owner architecture decision** because the current candidate JSON example does not include it. If not accepted, the owner must identify the exact existing field that carries publication/revision timing without ambiguity.
+`publication_revision_policy` is accepted as an explicit source-entry field. The implementation must not hide publication/revision timing in ambiguous prose.
 
 ### 5.2 Identity, LP, time, and neutral exhaustion
 
@@ -192,12 +194,12 @@ Factory registry events use the same type and identity fields. Events are non-au
 
 ## 6. License and provenance decision
 
-No route is approved today. The license/provenance reviewer and owner must choose exactly one before ADR-002 or implementation authorization can become Accepted.
+The accepted route is a clean-room independent implementation of the public mathematical mechanism from this repository's specifications and formulas under the repository's Apache-2.0 policy. Implementers must not copy, adapt, translate, or derive expression from LGPL source. Notices and citations are preserved as provenance, not as evidence of code derivation. This project authorization is not qualified legal advice.
 
 | Route | Decision text if selected | Required evidence | Current disposition |
 | --- | --- | --- | --- |
-| LGPL compliance | “The project will treat source-derived FPMM implementation as LGPL-3.0 and comply with all notice, source, relinking/modification, distribution, and dependency obligations identified by qualified review.” | Reviewer identity/date; distribution model; notices/source plan; dependency inventory; counsel advice where required | Proposed; not approved |
-| Independent expression | “The project will implement only the public mathematical mechanism without copying Gnosis expression, structure, comments, tests, or source-derived pseudocode.” | Reviewer identity/date; clean provenance plan; allowed/blocked source list; contributor attestations; independent formula/test derivation; counsel approval requested by R2 | **Recommended**, but not approved |
+| LGPL compliance | “The project will treat source-derived FPMM implementation as LGPL-3.0 and comply with all notice, source, relinking/modification, distribution, and dependency obligations identified by qualified review.” | Reviewer identity/date; distribution model; notices/source plan; dependency inventory; counsel advice where required | Not selected; LGPL source must not be copied or adapted |
+| Independent expression | “The project will implement only the public mathematical mechanism without copying Gnosis expression, structure, comments, tests, or source-derived pseudocode.” | Reviewer identity/date; clean provenance plan; allowed/blocked source list; contributor attestations; independent formula/test derivation | **Accepted 2026-07-16** |
 | Replacement mechanism | Record new mechanism ADR and its license/provenance | Full architecture/economic/license review | Not selected |
 
 Recommended provenance controls for the independent-expression route:
@@ -211,35 +213,28 @@ Recommended provenance controls for the independent-expression route:
 
 ### License disposition record
 
-- **Selected route:** _required; LGPL compliance / Independent expression / Replacement_
-- **Reviewer identity and role:** _required_
-- **Review date:** _required_
-- **Evidence/provenance record:** _required link_
-- **Dissent/conditions:** _required; “none” if none_
-- **Residual risk:** _required_
-- **Owner acceptance/date:** _required_
+- **Selected route:** Independent expression / clean-room implementation under repository Apache-2.0 policy
+- **Reviewer identity and role:** Juno AI (delegated by Jake Hartnell), license/provenance reviewer
+- **Review date:** 2026-07-16
+- **Evidence/provenance record:** R1 formulas, R2 source/citation matrix, and the controls above
+- **Dissent/conditions:** none recorded; do not copy or adapt LGPL source
+- **Residual risk:** provenance discipline must be maintained; this approval is not qualified legal advice
+- **Owner acceptance/date:** Jake Hartnell, 2026-07-16
 
 ## 7. Authorization truth and label policy
 
-Current truth:
+Current truth as of 2026-07-16:
 
-- ADR-001–016 and ADR-018 remain Proposed; ADR-017 remains Deferred.
-- No critical numeric parameter has a human acceptance date.
-- No FPMM license strategy is approved.
-- Architecture, economic-security, license, and owner sign-offs are absent.
-- Contract implementation, generated production schema, deployment, fund movement, and governance rehearsal are not authorized.
-- `blocked: decision` must not be removed from issue #2 or dependent work.
+- ADR-001–018 are Accepted; ADR-017's architecture is settled while rehearsal evidence remains issue #4 work.
+- Every critical numeric parameter is accepted exactly as recommended, dated 2026-07-16.
+- The clean-room independent-expression FPMM license/provenance strategy is approved as project policy, not legal advice.
+- Architecture, economic-security, license/provenance, and owner sign-offs are recorded above.
+- Contract code, tests/models, SDK, frontend, indexer, and operations tooling are authorized for the milestone.
+- Deployment, fund movement, and mainnet governance-rehearsal transaction execution remain unauthorized separate safety gates.
+- The authorization policy permits removal of `blocked: decision`, but label changes remain a separate owner/repository action and are not made by this PR.
 
-After real decisions are recorded, update the ADR files, this packet, GOAL checklist, review checklist, and `authorization.json` in the same owner-approved change. Removing a blocked label is a separate owner action and only applies to work whose exact scope is authorized. Never infer authorization from merge, PR approval, issue assignment, or absence of dissent.
+This owner-approved change updates the ADR files, this packet, GOAL checklist, review checklist, and `authorization.json` together. Authorization comes from the recorded owner delegation, never merely from merge, PR approval, issue assignment, or absence of dissent.
 
-## 8. Irreducible owner decisions
+## 8. Residual evidence gates
 
-Jake must explicitly decide:
-
-1. accept/replace/defer/reject each ADR-001–018, preserving a safe default and trigger for every deferral;
-2. accept or replace every row in §4, including economic loss/oracle/governance residual risk;
-3. accept or replace the §5 source bounds, nonce, creator=LP, neutral exhaustion, deadline boundary, solvency shortfall, rational quote, event, and pagination contracts;
-4. select and sign one FPMM license/provenance route, after the required review;
-5. decide whether ADR-017 remains blocking until rehearsal or replace the owner-selected authority—without authorizing rehearsal funds here;
-6. accept or replace ADR-016 only after the applicable advice/operations evidence, while acknowledging this packet is not legal advice;
-7. state the exact implementation scope, if any, that is authorized. Until then the only truthful value is **NOT AUTHORIZED**.
+The decision gate is closed, but evidence and execution gates remain. Issue #4 owns end-to-end/mainnet governance-rehearsal evidence and transaction authorization. Issue #26 owns qualified legal and operational-readiness evidence. Implementation issues must carry forward audit, reproducible-build/checksum, gas/storage, test, monitoring, and named-operator requirements. None of those artifacts or transactions is claimed complete by this acceptance.

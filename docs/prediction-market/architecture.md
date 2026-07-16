@@ -1,6 +1,6 @@
 # A1 — Architecture specification
 
-**Status:** candidate, implementation-independent specification  
+**Status:** accepted implementation specification (2026-07-16)
 **Scope:** one fixed-expiry binary market per contract; native ujuno; internal positions; FPMM; cw-reality
 
 Names below describe conceptual messages and events. They are not generated schema or production code.
@@ -78,11 +78,11 @@ At activation the market pins:
 - protocol/factory/market version and code identity used by deployment review;
 - creator and initial LP address;
 - ujuno collateral and oracle bond denom;
-- initial liquidity, 2% candidate fee, min trade, max trade/reserve ratio, collateral cap;
+- initial liquidity, accepted 2% fee, min trade, max trade/reserve ratio, collateral cap;
 - close_ts, opening_ts, maximum duration;
 - exact resolution bytes and SHA-256;
 - frozen oracle address, expected code ID/checksum/config;
-- question ID, nonce, text, Bool type, no filter, initial bond, bounty, 24-hour answer timeout, 21-day candidate arbitration timeout;
+- question ID, nonce, text, Bool type, no filter, initial bond, bounty, 24-hour answer timeout, accepted 21-day arbitration timeout;
 - market address as oracle arbitrator;
 - Juno x/gov module address;
 - challenge-bond rule and outcome;

@@ -1,6 +1,6 @@
 # ADR-016 — Experimental, value-bearing, permissionless/no-entity posture
 
-**Status:** Proposed; owner direction recorded 2026-07-15; counsel gate open  
+**Status:** Accepted 2026-07-16; issue #26 legal/operational-readiness evidence gate remains open
 **Decision:** Globally permissionless contracts, no operating entity, experimental intent, and explicit real-JUNO/participant-specific risk disclosures.
 
 ## Alternatives

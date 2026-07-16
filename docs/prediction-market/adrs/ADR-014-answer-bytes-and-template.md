@@ -1,6 +1,6 @@
 # ADR-014 — Exact answer bytes and canonical question
 
-**Status:** Proposed  
+**Status:** Accepted 2026-07-16
 **Decision:** 32-byte big-endian 0=NO, 1=YES, all-ff=INVALID, ...fffe=UNRESOLVED; all other finalized bytes neutral. Bind JCS juno-pm-question/1 bytes.
 
 ## Alternatives

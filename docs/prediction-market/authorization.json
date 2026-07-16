@@ -1,69 +1,75 @@
 {
   "schema_version": 1,
-  "as_of": "2026-07-15",
+  "as_of": "2026-07-16",
   "issue": "https://github.com/juno-ai-dev/pm/issues/2",
   "decision_packet": "issue-2-decision-packet.md",
-  "decision_packet_status": "proposed",
-  "implementation_authorized": false,
-  "authorized_scope": [],
+  "decision_packet_status": "accepted",
+  "implementation_authorized": true,
+  "authorized_scope": [
+    "contract code",
+    "tests and models",
+    "SDK",
+    "frontend",
+    "indexer",
+    "operations tooling"
+  ],
   "deployment_authorized": false,
   "fund_movement_authorized": false,
   "governance_rehearsal_authorized": false,
-  "license_strategy_approved": false,
-  "license_strategy": null,
+  "license_strategy_approved": true,
+  "license_strategy": "Clean-room independent implementation from repository specifications and formulas under Apache-2.0; do not copy or adapt LGPL source; preserve notices and citations as provenance, not code derivation.",
   "required_reviews": {
     "architecture": {
-      "status": "missing",
-      "reviewer": null,
-      "date": null
+      "status": "accepted",
+      "reviewer": "Juno AI (delegated by Jake Hartnell)",
+      "date": "2026-07-16"
     },
     "economic_security": {
-      "status": "missing",
-      "reviewer": null,
-      "date": null
+      "status": "accepted",
+      "reviewer": "Juno AI (delegated by Jake Hartnell)",
+      "date": "2026-07-16"
     },
     "license_provenance": {
-      "status": "missing",
-      "reviewer": null,
-      "date": null
+      "status": "accepted",
+      "reviewer": "Juno AI (delegated by Jake Hartnell)",
+      "date": "2026-07-16"
     },
     "owner": {
-      "status": "missing",
-      "reviewer": null,
-      "date": null
+      "status": "accepted",
+      "reviewer": "Jake Hartnell",
+      "date": "2026-07-16"
     }
   },
   "adrs": {
-    "ADR-001": "proposed",
-    "ADR-002": "proposed",
-    "ADR-003": "proposed",
-    "ADR-004": "proposed",
-    "ADR-005": "proposed",
-    "ADR-006": "proposed",
-    "ADR-007": "proposed",
-    "ADR-008": "proposed",
-    "ADR-009": "proposed",
-    "ADR-010": "proposed",
-    "ADR-011": "proposed",
-    "ADR-012": "proposed",
-    "ADR-013": "proposed",
-    "ADR-014": "proposed",
-    "ADR-015": "proposed",
-    "ADR-016": "proposed",
-    "ADR-017": "deferred",
-    "ADR-018": "proposed"
+    "ADR-001": "accepted",
+    "ADR-002": "accepted",
+    "ADR-003": "accepted",
+    "ADR-004": "accepted",
+    "ADR-005": "accepted",
+    "ADR-006": "accepted",
+    "ADR-007": "accepted",
+    "ADR-008": "accepted",
+    "ADR-009": "accepted",
+    "ADR-010": "accepted",
+    "ADR-011": "accepted",
+    "ADR-012": "accepted",
+    "ADR-013": "accepted",
+    "ADR-014": "accepted",
+    "ADR-015": "accepted",
+    "ADR-016": "accepted",
+    "ADR-017": "accepted",
+    "ADR-018": "accepted"
   },
-  "critical_parameters_accepted": false,
+  "critical_parameters_accepted": true,
   "blocked_label_policy": {
     "label": "blocked: decision",
-    "remove": false,
-    "reason": "Required ADR, parameter, license, and owner decisions are not recorded."
+    "remove": true,
+    "reason": "The owner accepted the decision packet and delegated the required reviews; implementation within the recorded scope is authorized. Label removal remains a separate repository action."
   },
   "out_of_scope": [
-    "contract code",
     "deployment",
     "fund movement",
     "legal advice",
-    "governance rehearsal"
+    "mainnet governance rehearsal transaction execution"
   ]
 }

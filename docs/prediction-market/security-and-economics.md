@@ -1,6 +1,6 @@
 # A2 — Economic and security specification
 
-**Status:** candidate; numeric canary tier requires explicit owner risk acceptance  
+**Status:** accepted 2026-07-16; numeric canary tier and documented residual risks explicitly accepted
 **Security posture:** fully collateralized claims prevent insolvency; they do not prevent a wrong oracle result, harmful market, thin quote, governance failure, or JUNO loss of value
 
 ## Financial invariants
@@ -30,42 +30,42 @@ Notation: P locked principal; Y/N total outcome supply; rY/rN pool reserves; F L
 
 Each invariant must be a property test and a multi-contract model assertion, not merely a comment.
 
-## Candidate canary security tier
+## Accepted canary security tier
 
-These values make a reviewable first-release envelope. They are recommendations, not accepted facts.
+These values are the accepted first-release implementation envelope. Acceptance does not prove economic security or authorize deployment or scaling.
 
-| Parameter | Candidate | Basis and limitation |
+| Parameter | Accepted canary value | Basis and limitation |
 | --- | ---: | --- |
 | Initial liquidity | at least 100 JUNO | R1: a 1-JUNO balanced-pool buy moves end quote about 0.49 points at 2% |
-| Locked-principal cap P | 200 JUNO | Contains first-release loss; equals 20× initial oracle bond. It is small versus two observed Osmosis reserves, but the oracle ratio still needs risk acceptance. |
+| Locked-principal cap P | 200 JUNO | Contains first-release loss; equals 20× initial oracle bond. The ratio is accepted for the canary; further deployment and scaling still require current economic-security evidence. |
 | Per-address outcome exposure | 20 JUNO terminal units per side | Accidental concentration limiter; trivial to bypass with wallets and not a security identity control |
 | LP fee | exact 200 bps | Omen precedent and worked accounting; one-day JUNO/ATOM movement is measured, but prediction-event adverse selection/profitability remain unmeasured |
 | Protocol fee | 0 | Avoids owner/sweep accounting and legal/economic scope |
 | Minimum trade/split increment | 0.01 JUNO | Keeps 2% fee at 200 ujuno and reduces dust/spam; gas still unmeasured |
 | Per-call trade | net split/merge <= 25% of smaller reserve | Bounds one-call impact/denominator; users can trade again at new state |
 | Minimum oracle initial bond | 10 JUNO | 5% of cap; first honest counter-answer costs at least 20 JUNO |
-| Oracle bounty | 1 JUNO | Candidate answerer incentive; no evidence it guarantees service |
+| Oracle bounty | 1 JUNO | Accepted answerer incentive; no evidence it guarantees service |
 | Answer timeout | 86,400 seconds | Existing production floor and Reality.eth's usual recommendation |
 | Challenge bond | max(10 JUNO, current oracle bond) | Prevents free governance freeze; can become inaccessible after high escalation |
 | Arbitration timeout | 1,814,400 seconds (21 days) | 10-day deposit + 5-day vote + 6-day margin; generic x/gov wasm precedent exists, exact rehearsal open |
 | Creation-to-close lead | at least 24 hours | Gives review/monitoring time; not a semantic-safety guarantee |
 | Maximum market duration | 90 days to close | Bounds LP lock/monitoring burden before resolution |
 | Opening delay | event-specific; opening_ts >= close_ts and <= close_ts + 30 days | Must reflect source availability; longer cases need a new tier/review |
-| Question bytes | <= 16 KiB | Candidate storage/gas bound; measurement missing |
-| Discovery metadata | <= 4 KiB | Candidate index/storage bound; measurement missing |
+| Question bytes | <= 16 KiB | Accepted storage/gas bound; measurement missing |
+| Discovery metadata | <= 4 KiB | Accepted index/storage bound; measurement missing |
 | Market creation rate | No on-chain address rate limit | Sybil-ineffective; 100-JUNO seed plus gas is economic friction |
 
 Raw canary bounds: P <= 200,000,000 ujuno, so any reserve product is <= 40,000,000,000,000,000 (4 × 10^16), far below 256-bit capacity. Fee numerator for a capped 25% call is also far below 128-bit capacity. The implementation still uses checked arithmetic; bounds are not an excuse for unchecked operations.
 
 The factory is fixed to one tier. It does not expose ranges a creator can maximize adversarially. A later factory can use a different accepted tier after a new review.
 
-The [Osmosis supplement](evidence/2026-07-15-osmosis-juno-liquidity.md) is parameter context, not acceptance. Its two observed pools held 1.068 million JUNO, and a 200-JUNO single-pool sale was under 0.057% of either JUNO reserve. Its one-day TWAP sample is too short and collateral-focused to price event-outcome informed flow. The cap, bond ratio, and fee therefore remain rejected by default.
+The [Osmosis supplement](evidence/2026-07-15-osmosis-juno-liquidity.md) is parameter context, not the source of acceptance. Its two observed pools held 1.068 million JUNO, and a 200-JUNO single-pool sale was under 0.057% of either JUNO reserve. Its one-day TWAP sample is too short and collateral-focused to price event-outcome informed flow. The cap, bond ratio, and fee are nevertheless explicitly accepted for implementation with that residual uncertainty; deployment and scaling need current evidence.
 
 ## Oracle economic-security relationship
 
 The maximum value redirected by choosing YES rather than NO is bounded by P, but profit depends on acquired positions, AMM slippage, fees, counter-answer bonds, challenge cost, and governance control. Solvency does not constrain answer corruption.
 
-The candidate relationship is:
+The accepted canary relationship is:
 
 ~~~text
 P_cap <= 20 × minimum_initial_oracle_bond
@@ -149,7 +149,7 @@ Every valid higher bond resets 24 hours, up to cw-reality's round cap and practi
 
 ### Stalled governance
 
-Freeze is bounded to 21 days per the candidate question. At deadline, public cancellation restarts the latest answer's 24-hour clock and C is slashed. Since one challenge is allowed, governance cannot be invoked repeatedly for that market.
+Freeze is bounded to 21 days per the accepted question configuration. At deadline, public cancellation restarts the latest answer's 24-hour clock and C is slashed. Since one challenge is allowed, governance cannot be invoked repeatedly for that market.
 
 ### Chain halt/time jump
 
@@ -225,4 +225,4 @@ The audit report, commit, optimized wasm hashes, severity dispositions, and resi
 
 ## Acceptance boundary
 
-The canary tier is rejected by default until a human accepts the ratios and residual governance risk. Passing arithmetic tests proves solvency, not oracle or legal safety. A higher cap cannot be justified by copying the 20× ratio; it needs fresh evidence.
+The canary tier and residual governance risk were explicitly accepted for implementation on 2026-07-16. Passing arithmetic tests still proves solvency, not oracle or legal safety, and does not authorize deployment. A higher cap cannot be justified by copying the 20× ratio; it needs fresh evidence and a new decision.

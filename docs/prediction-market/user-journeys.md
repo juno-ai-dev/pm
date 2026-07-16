@@ -1,9 +1,9 @@
 # A3 — User journeys and acceptance cases
 
-**Status:** candidate acceptance specification  
-**Example tier:** 100-JUNO initial pool, 200-JUNO cap, 2% fee, 10-JUNO oracle/challenge floor, 1-JUNO bounty
+**Status:** accepted specification (2026-07-16)
+**Accepted canary tier:** 100-JUNO initial pool, 200-JUNO cap, 2% fee, 10-JUNO oracle/challenge floor, 1-JUNO bounty
 
-The amounts are candidate examples, not launch authorization.
+The amounts are accepted for implementation, not launch authorization.
 
 ## Creator and initial LP
 

@@ -1,6 +1,6 @@
 # ADR-012 — No admin, migration, pause, recovery, or sweep
 
-**Status:** Proposed  
+**Status:** Accepted 2026-07-16
 **Decision:** Factory, funded markets, and recommended oracle have empty chain admins; oracle stored admin is None. No pause/recovery/sweep execute exists.
 
 ## Alternatives

@@ -1,6 +1,6 @@
 # ADR-015 — Indexer and frontend are non-authoritative
 
-**Status:** Proposed  
+**Status:** Accepted 2026-07-16
 **Decision:** Every financial fact is directly queryable. Indexers/UIs provide discovery, history, and warnings but cannot create balances, close, resolve, or alter rules.
 
 ## Alternatives

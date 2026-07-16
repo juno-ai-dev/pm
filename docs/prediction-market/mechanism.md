@@ -1,7 +1,7 @@
 # R1 — Mechanism and market microstructure
 
-**Status:** candidate recommendation  
-**Evidence date:** 2026-07-15  
+**Status:** accepted architecture specification (2026-07-16)
+**Evidence date:** 2026-07-15
 **Decision:** binary complete sets plus a constant-product FPMM; one initial LP position locked until resolution
 
 ## Recommendation
@@ -10,7 +10,7 @@ The v1 market should use two internal outcome ledgers and one FPMM reserve pair.
 
 Only the market creator supplies liquidity during atomic creation. The contract mints a fixed, non-transferable LP supply to that address. No later add-liquidity, remove-liquidity, or fee withdrawal is allowed before resolution. This is intentionally less flexible than the Gnosis FPMM. It removes fee sniping, asymmetric LP deposits, pre-close runs, and a large share-accumulator surface from the first audit. Permissionless creation still lets any address become an LP by creating a market.
 
-The candidate fee is 2% of collateral flow, all owned by the initial LP; there is no protocol fee. Omen documents a 2% purchase fee as production precedent, but that is not evidence that 2% fits Juno flow. Human risk acceptance or measurements must approve the value before this ADR becomes accepted.
+The accepted canary fee is 2% of collateral flow, all owned by the initial LP; there is no protocol fee. Omen documents a 2% purchase fee as production precedent, but that is not evidence that 2% fits Juno flow. The owner accepted this residual risk; measurements remain required before deployment or scaling.
 
 ## Units and accounting domains
 
@@ -38,7 +38,7 @@ For a YES buy with gross collateral g:
 
 The NO formula swaps Y and N. The ceiling on ending reserve rounds output down. The post-trade product cannot be below the pre-trade product. Execution rejects zero d, zero output, an expired deadline, output below min_out, or d greater than 25% of the smaller pre-trade reserve.
 
-The 25% bound is a candidate safety/usability limit, not a solvency requirement. It makes extreme one-call quotes visibly unavailable and bounds denominator distance for sells. A trader can submit another bounded trade at the new price.
+The accepted 25% canary bound is a safety/usability limit, not a solvency requirement. It makes extreme one-call quotes visibly unavailable and bounds denominator distance for sells. A trader can submit another bounded trade at the new price.
 
 ### Sell for exact collateral
 
@@ -67,7 +67,7 @@ This is a reserve-derived quote, not a calibrated forecast. The UI must separate
 
 ## Hand-worked conservation example
 
-The example uses a 2% candidate fee and begins with 100 JUNO of creator collateral:
+The example uses the accepted 2% canary fee and begins with 100 JUNO of creator collateral:
 
 ~~~text
 initial bank balance          100,000,000 ujuno
@@ -137,9 +137,9 @@ The following table applies one isolated YES buy to an initially balanced pool w
 | 1,000 JUNO | 1 JUNO | 1.959040 | 0.510454 | 50.049% |
 | 1,000 JUNO | 10 JUNO | 19.504892 | 0.512692 | 50.488% |
 
-Inference: a 10-JUNO pool makes a 1-JUNO order move the marginal quote by about 4.66 percentage points before any competing information. A 100-JUNO pool keeps that representative order below 0.5 points. Therefore 100 JUNO is the candidate minimum initial liquidity if the product calls 1 JUNO a normal order. If observed Juno users trade materially smaller or larger sizes, the minimum must change rather than preserve a cosmetically convenient value.
+Inference: a 10-JUNO pool makes a 1-JUNO order move the marginal quote by about 4.66 percentage points before any competing information. A 100-JUNO pool keeps that representative order below 0.5 points. Therefore 100 JUNO is the accepted canary minimum initial liquidity if the product calls 1 JUNO a normal order. If observed Juno users trade materially smaller or larger sizes, a future tier should change rather than preserve a cosmetically convenient value.
 
-Candidate activation bounds:
+Accepted canary activation bounds:
 
 - initial liquidity: at least 100 JUNO and even in ujuno only for cleaner neutral examples;
 - minimum gross buy / requested sell return: 10,000 ujuno (0.01 JUNO);
@@ -147,7 +147,7 @@ Candidate activation bounds:
 - reserves must remain at least one outcome unit;
 - creator supplies oracle bounty and initial pool principal as separately labeled funds.
 
-These are recommendations pending owner risk acceptance and future gas/usage measurements.
+These bounds are accepted for implementation with their residual risks. Future gas and usage measurements remain deployment and scaling evidence; they do not reopen the accepted implementation values.
 
 ## LP lifecycle and fees
 

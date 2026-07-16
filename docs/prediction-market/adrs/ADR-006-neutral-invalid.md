@@ -1,6 +1,6 @@
 # ADR-006 — Neutral invalid and unrecognized results
 
-**Status:** Proposed  
+**Status:** Accepted 2026-07-16
 **Decision:** INVALID, UNRESOLVED, and every finalized byte string other than exact 32-byte 0/1 pay YES and NO one-half each.
 
 ## Alternatives
