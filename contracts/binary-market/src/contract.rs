@@ -380,6 +380,7 @@ fn verify_oracle_question(
         && q.bounty == config.oracle_bounty
         && q.best_answer.is_none()
         && q.current_bond.is_zero()
+        && q.history_hash == [0; 32]
         && q.round_count == 0
         && q.finalize_ts.is_none()
         && !q.is_pending_arbitration
@@ -496,6 +497,9 @@ mod activation_verification_tests {
         mismatches.push(value);
         let mut value = exact.clone();
         value.question.current_bond = Uint128::one();
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.history_hash = [1; 32];
         mismatches.push(value);
         let mut value = exact.clone();
         value.question.round_count = 1;
