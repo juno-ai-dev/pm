@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://juno-ai.dev/schemas/pm/interface-policy-1.json",
+  "title": "Juno prediction-market interface policy fixture",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "policy_id",
+    "policy_version",
+    "promoted_discovery_enabled",
+    "report_intake_enabled",
+    "retention",
+    "transitions",
+    "reports",
+    "appeals"
+  ],
+  "properties": {
+    "policy_id": { "const": "juno-pm-reference-discovery" },
+    "policy_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-z0-9.-]+)?$" },
+    "promoted_discovery_enabled": { "type": "boolean" },
+    "report_intake_enabled": { "type": "boolean" },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "accepted_report_days", "legal_hold_requires_documented_authority"],
+      "properties": {
+        "status": { "enum": ["draft", "counsel_approved"] },
+        "accepted_report_days": { "type": "integer", "minimum": 1 },
+        "legal_hold_requires_documented_authority": { "const": true }
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/transition" }
+    },
+    "reports": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/report" }
+    },
+    "appeals": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/appeal" }
+    }
+  },
+  "$defs": {
+    "market": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chain_id", "address"],
+      "properties": {
+        "chain_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "address": { "type": "string", "pattern": "^juno1[0-9a-z]{20,100}$" }
+      }
+    },
+    "evidence_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(https://|ipfs://|chain://|policy://)\\S+$"
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id", "market", "from", "to", "visibility", "quarantined",
+        "actor_id", "actor_role", "occurred_at", "reason_code",
+        "reason", "policy_version", "evidence_refs"
+      ],
+      "properties": {
+        "event_id": { "type": "string", "pattern": "^evt-[0-9a-z-]+$" },
+        "market": { "$ref": "#/$defs/market" },
+        "from": { "enum": ["Unlisted", "Listed", "Warning", "Duplicate", "Unsafe"] },
+        "to": { "enum": ["Unlisted", "Listed", "Warning", "Duplicate", "Unsafe"] },
+        "visibility": { "enum": ["exact_address_only", "promoted"] },
+        "quarantined": { "type": "boolean" },
+        "actor_id": { "type": "string", "pattern": "^actor-[0-9a-z-]+$" },
+        "actor_role": { "enum": ["automation", "reviewer", "appeal_reviewer", "incident_responder", "policy_admin"] },
+        "occurred_at": { "type": "string", "format": "date-time" },
+        "reason_code": { "type": "string", "pattern": "^[a-z][a-z0-9_]{2,63}$" },
+        "reason": { "type": "string", "minLength": 8, "maxLength": 1000 },
+        "policy_version": { "type": "string", "minLength": 1 },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/evidence_ref" }
+        },
+        "emergency": { "type": "boolean", "default": false },
+        "supersedes_event_id": { "type": "string", "pattern": "^evt-[0-9a-z-]+$" }
+      }
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["report_id", "market", "category", "description", "evidence_refs", "submitted_at", "status", "follow_up_consent"],
+      "properties": {
+        "report_id": { "type": "string", "pattern": "^rpt-[0-9a-z-]+$" },
+        "market": { "$ref": "#/$defs/market" },
+        "category": { "enum": ["harm", "illegal", "privacy", "defamation", "manipulation", "duplicate", "impersonation", "ambiguous_rules", "security", "other"] },
+        "description": { "type": "string", "minLength": 8, "maxLength": 2000 },
+        "evidence_refs": { "type": "array", "maxItems": 10, "uniqueItems": true, "items": { "$ref": "#/$defs/evidence_ref" } },
+        "submitted_at": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["received", "triaged", "closed"] },
+        "follow_up_consent": { "type": "boolean" }
+      }
+    },
+    "appeal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["appeal_id", "challenged_event_id", "basis", "evidence_refs", "submitted_at", "status"],
+      "properties": {
+        "appeal_id": { "type": "string", "pattern": "^apl-[0-9a-z-]+$" },
+        "challenged_event_id": { "type": "string", "pattern": "^evt-[0-9a-z-]+$" },
+        "basis": { "type": "string", "minLength": 8, "maxLength": 2000 },
+        "evidence_refs": { "type": "array", "maxItems": 10, "uniqueItems": true, "items": { "$ref": "#/$defs/evidence_ref" } },
+        "submitted_at": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["pending", "upheld", "modified", "reversed", "dismissed"] },
+        "reviewer_actor_id": { "type": "string", "pattern": "^actor-[0-9a-z-]+$" },
+        "decided_at": { "type": "string", "format": "date-time" },
+        "disposition_transition_id": { "type": "string", "pattern": "^evt-[0-9a-z-]+$" },
+        "rationale": { "type": "string", "minLength": 8, "maxLength": 2000 }
+      }
+    }
+  }
+}
