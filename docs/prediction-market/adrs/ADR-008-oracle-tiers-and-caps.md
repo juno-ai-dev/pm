@@ -19,4 +19,4 @@ Canary cap is containment, not proof. P <= 20× initial bond is an accepted cana
 
 ## Safe default and revisit
 
-No deployment until accepted. Revisit with observed volume, committed monitoring capital, governance rehearsal, and current chain evidence; do not copy the ratio automatically.
+Acceptance authorizes implementation only. Deployment remains separately unauthorized until current chain evidence, committed monitoring capacity, governance rehearsal, audit/readiness gates, and an explicit deployment decision exist. Revisit with observed volume; do not copy the ratio automatically.

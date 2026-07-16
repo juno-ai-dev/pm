@@ -147,7 +147,7 @@ Accepted canary activation bounds:
 - reserves must remain at least one outcome unit;
 - creator supplies oracle bounty and initial pool principal as separately labeled funds.
 
-These are recommendations pending owner risk acceptance and future gas/usage measurements.
+These bounds are accepted for implementation with their residual risks. Future gas and usage measurements remain deployment and scaling evidence; they do not reopen the accepted implementation values.
 
 ## LP lifecycle and fees
 

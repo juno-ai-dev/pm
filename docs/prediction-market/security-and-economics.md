@@ -59,7 +59,7 @@ Raw canary bounds: P <= 200,000,000 ujuno, so any reserve product is <= 40,000,0
 
 The factory is fixed to one tier. It does not expose ranges a creator can maximize adversarially. A later factory can use a different accepted tier after a new review.
 
-The [Osmosis supplement](evidence/2026-07-15-osmosis-juno-liquidity.md) is parameter context, not acceptance. Its two observed pools held 1.068 million JUNO, and a 200-JUNO single-pool sale was under 0.057% of either JUNO reserve. Its one-day TWAP sample is too short and collateral-focused to price event-outcome informed flow. The cap, bond ratio, and fee therefore remain rejected by default.
+The [Osmosis supplement](evidence/2026-07-15-osmosis-juno-liquidity.md) is parameter context, not the source of acceptance. Its two observed pools held 1.068 million JUNO, and a 200-JUNO single-pool sale was under 0.057% of either JUNO reserve. Its one-day TWAP sample is too short and collateral-focused to price event-outcome informed flow. The cap, bond ratio, and fee are nevertheless explicitly accepted for implementation with that residual uncertainty; deployment and scaling need current evidence.
 
 ## Oracle economic-security relationship
 
@@ -225,4 +225,4 @@ The audit report, commit, optimized wasm hashes, severity dispositions, and resi
 
 ## Acceptance boundary
 
-The canary tier is rejected by default until a human accepts the ratios and residual governance risk. Passing arithmetic tests proves solvency, not oracle or legal safety. A higher cap cannot be justified by copying the 20× ratio; it needs fresh evidence.
+The canary tier and residual governance risk were explicitly accepted for implementation on 2026-07-16. Passing arithmetic tests still proves solvency, not oracle or legal safety, and does not authorize deployment. A higher cap cannot be justified by copying the 20× ratio; it needs fresh evidence and a new decision.

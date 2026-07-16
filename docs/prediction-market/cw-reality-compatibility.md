@@ -166,7 +166,7 @@ The [Cosmos SDK v0.50 x/gov specification](https://docs.cosmos.network/sdk/v0.50
 }
 ~~~
 
-This is not a rehearsed proposal file. Juno CLI/protobuf encoding, signer acceptance, gas, and wasm submessage execution remain open. The 21-day timeout must not be accepted until an authorized rehearsal covers:
+This is not a rehearsed proposal file. Juno CLI/protobuf encoding, signer acceptance, gas, and wasm submessage execution remain open. The 21-day timeout is accepted for implementation, but transaction execution and deployment remain unauthorized until issue #4 rehearses:
 
 1. proposal creation with this exact inner sender and no funds;
 2. deposit sponsorship and maximum deposit-period timing;

@@ -20,4 +20,4 @@ Legitimate challenger can lose due to governance/deposit failure. C is segregate
 
 ## Safe default and revisit
 
-No launch until amount/payee rule is accepted and governance flows are rehearsed. Revisit from challenge accessibility, spam cost, cap, and observed governance response in a new tier/version.
+The amount/payee rule is accepted for implementation only. Launch remains separately unauthorized until governance flows are rehearsed, readiness gates close, and an explicit deployment decision exists. Revisit from challenge accessibility, spam cost, cap, and observed governance response in a new tier/version.

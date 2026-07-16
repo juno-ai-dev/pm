@@ -89,6 +89,7 @@ Completed after the four reviews above.
 | Per-call trade bound | net split or merge `<= floor(min(reserve_yes,reserve_no)/4)`; result must leave both reserves `>=1` | Limits one-call reserve movement, not cumulative trading | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
 | Oracle initial bond floor | `10,000,000 ujuno` | 5% of cap; no proof of adequate deterrence | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
 | Oracle bounty | `1,000,000 ujuno` funded separately at creation | Incentive only; no service guarantee | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| First-counter monitoring capacity | named monitor able to post at least `20,000,000 ujuno` | Accepted operational pre-deployment commitment, not a contract parameter or guaranteed service | Accepted for implementation planning; deployment evidence remains open | 2026-07-16; Jake Hartnell / delegated Juno AI |
 | Answer timeout | exactly `86,400 seconds` | Current production floor and documented precedent; resets after each accepted later answer | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
 | Challenge bond | `max(10,000,000 ujuno, current_oracle_bond)` | Prevents free freeze but may be inaccessible | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
 | Arbitration timeout | exactly `1,814,400 seconds` (21 days) | 10-day deposit + 5-day vote + 6-day margin; exact flow unrehearsed | Accepted for implementation; rehearsal evidence remains issue #4 | 2026-07-16; Jake Hartnell / delegated Juno AI |
