@@ -28,6 +28,21 @@ def _require(condition: bool, message: str) -> None:
         raise PacketError(message)
 
 
+def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        _require(key not in result, f"duplicate JSON field: {key}")
+        result[key] = value
+    return result
+
+
+def _decode_json(value: bytes | str, field: str) -> Any:
+    try:
+        return json.loads(value, object_pairs_hook=_unique_object)
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise PacketError(f"{field} must be valid UTF-8 JSON") from error
+
+
 def _polymod(values: list[int]) -> int:
     generators = (0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3)
     chk = 1
@@ -191,9 +206,12 @@ def validate_packet(packet: Any) -> dict[str, Any]:
     _require(message["contract"] == preflight.get("market"), "inner market mismatch")
     _require(message["funds"] == [], "governance verdict must attach no funds")
     try:
-        execute = json.loads(base64.b64decode(message["msg"], validate=True))
-    except (binascii.Error, json.JSONDecodeError, TypeError) as error:
+        raw_execute = base64.b64decode(message["msg"], validate=True)
+    except (binascii.Error, TypeError) as error:
         raise PacketError("inner msg must be base64-encoded JSON") from error
+    _require(base64.b64encode(raw_execute).decode() == message["msg"],
+             "inner msg must use canonical base64")
+    execute = _decode_json(raw_execute, "inner msg")
     expected_execute = {
         "governance_verdict": {
             "question_id": preflight.get("question_id"),
@@ -210,7 +228,7 @@ def validate_packet(packet: Any) -> dict[str, Any]:
 
 
 def _load(path: str) -> Any:
-    return json.loads(Path(path).read_text())
+    return _decode_json(Path(path).read_bytes(), str(path))
 
 
 def _write(path: str, value: Any) -> None:

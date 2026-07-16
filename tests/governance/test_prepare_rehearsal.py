@@ -130,6 +130,36 @@ class RehearsalPacketTests(unittest.TestCase):
         with self.assertRaises(MODULE.PacketError):
             MODULE.validate_packet(packet)
 
+    def test_rejects_duplicate_json_fields_and_noncanonical_payload_base64(self):
+        packet = MODULE.build_packet(valid_request())
+        preflight = packet["preflight"]
+        duplicate = (
+            '{"governance_verdict":{"question_id":'
+            + json.dumps(preflight["question_id"])
+            + ',"answer":"shadowed","answer":'
+            + json.dumps(preflight["answer"])
+            + ',"payee":'
+            + json.dumps(preflight["payee"])
+            + "}}"
+        )
+        packet["proposal"]["messages"][0]["msg"] = base64.b64encode(duplicate.encode()).decode()
+        with self.assertRaises(MODULE.PacketError):
+            MODULE.validate_packet(packet)
+
+        packet = MODULE.build_packet(valid_request())
+        encoded = packet["proposal"]["messages"][0]["msg"]
+        alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+        replacement = alphabet[(alphabet.index(encoded[-2]) + 1) % 64]
+        packet["proposal"]["messages"][0]["msg"] = encoded[:-2] + replacement + "="
+        with self.assertRaises(MODULE.PacketError):
+            MODULE.validate_packet(packet)
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "duplicate.json"
+            path.write_text('{"chain_id":"juno-1","chain_id":"uni-6"}')
+            with self.assertRaises(MODULE.PacketError):
+                MODULE._load(str(path))
+
 
 if __name__ == "__main__":
     unittest.main()
