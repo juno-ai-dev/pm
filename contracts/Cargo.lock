@@ -55,11 +55,17 @@ version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cw-multi-test",
+ "cw-reality",
  "cw-storage-plus",
+ "hex",
  "num-bigint",
  "num-traits",
  "pm-types",
  "proptest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
  "thiserror",
 ]
 

@@ -3,6 +3,7 @@ use binary_market::{
     error::ContractError,
     guards,
     msg::{ExecuteMsg, InstantiateMsg, LifecycleStatus},
+    question::{ObservationInput, QuestionInput, SourceInput},
     state::{self, Challenge, ReplyInProgress},
 };
 use cosmwasm_std::{
@@ -22,14 +23,35 @@ fn msg() -> InstantiateMsg {
         oracle: "oracle".into(),
         governance: "governance".into(),
         tier: TierId(1),
-        question: "Will it happen?".into(),
-        question_hash: answer(9),
+        question: QuestionInput {
+            title: "Example outcome?".into(),
+            proposition: "Will the published example outcome be yes?".into(),
+            definitions: vec![],
+            invalid_conditions: vec!["The source is permanently unavailable.".into()],
+            primary_sources: vec![SourceInput {
+                publisher: "Example Authority".into(),
+                identifier: "example/final".into(),
+                url: "https://example.com/final".into(),
+                retrieval: "HTTPS JSON".into(),
+                publication_revision_policy: "Corrections before opening control.".into(),
+                fallback_condition: "Unavailable for 72 hours.".into(),
+            }],
+            secondary_sources: vec![],
+            source_disagreement_policy: "The primary source controls.".into(),
+            observation: ObservationInput {
+                start_ts: 1_571_900_000,
+                end_ts: 1_572_000_000,
+                cutoff_ts: 1_572_000_000,
+                inclusivity: "inclusive".into(),
+                revision_policy: "Corrections before opening control.".into(),
+            },
+        },
         nonce: 7,
-        close_ts: 1_000,
-        opening_ts: 1_001,
+        close_ts: 1_572_000_000,
+        opening_ts: 1_572_000_000,
         initial_liquidity: Uint128::new(100),
-        oracle_bounty: Uint128::new(10),
-        oracle_initial_bond: Uint128::new(5),
+        oracle_bounty: Uint128::new(1_000_000),
+        oracle_initial_bond: Uint128::new(10_000_000),
         answer_timeout_secs: 86_400,
         arbitration_timeout_secs: 1_814_400,
         fee_bps: 200,
@@ -37,10 +59,6 @@ fn msg() -> InstantiateMsg {
         max_trade_bps: 2_500,
         collateral_cap: Uint128::new(10_000),
         challenge_bond: Uint128::new(20),
-        yes_answer: answer(1),
-        no_answer: answer(2),
-        invalid_answer: answer(3),
-        unresolved_answer: answer(4),
     }
 }
 fn init() -> cosmwasm_std::OwnedDeps<
@@ -52,7 +70,7 @@ fn init() -> cosmwasm_std::OwnedDeps<
     instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("factory", &[coin(110, "ujuno")]),
+        mock_info("factory", &[coin(1_000_100, "ujuno")]),
         msg(),
     )
     .unwrap();
@@ -66,7 +84,7 @@ fn instantiate_is_initializing_and_nonfinancial() {
     let accounting = state::ACCOUNTING.load(&deps.storage).unwrap();
     assert_eq!(
         guards::derived_lifecycle(
-            999,
+            1_571_999_999,
             &state::CONFIG.load(&deps.storage).unwrap(),
             &lifecycle,
             None
@@ -85,8 +103,8 @@ fn instantiate_is_initializing_and_nonfinancial() {
 fn instantiate_rejects_wrong_no_multiple_funds_and_sender() {
     for funds in [
         vec![],
-        vec![coin(109, "ujuno")],
-        vec![coin(110, "uatom")],
+        vec![coin(1_000_099, "ujuno")],
+        vec![coin(1_000_100, "uatom")],
         vec![coin(100, "ujuno"), coin(10, "ujuno")],
     ] {
         let mut deps = mock_dependencies();
@@ -105,7 +123,7 @@ fn instantiate_rejects_wrong_no_multiple_funds_and_sender() {
         instantiate(
             deps.as_mut(),
             mock_env(),
-            mock_info("intruder", &[coin(110, "ujuno")]),
+            mock_info("intruder", &[coin(1_000_100, "ujuno")]),
             msg()
         )
         .unwrap_err(),
@@ -116,24 +134,24 @@ fn instantiate_rejects_wrong_no_multiple_funds_and_sender() {
 #[test]
 fn instantiate_validation_rejects_bad_boundaries() {
     let mut invalid = msg();
-    invalid.opening_ts = 999;
+    invalid.opening_ts = invalid.close_ts - 1;
     let mut deps = mock_dependencies();
     assert!(matches!(
         instantiate(
             deps.as_mut(),
             mock_env(),
-            mock_info("factory", &[coin(110, "ujuno")]),
+            mock_info("factory", &[coin(1_000_100, "ujuno")]),
             invalid
         ),
         Err(ContractError::InvalidConfig(_))
     ));
     let mut invalid = msg();
-    invalid.yes_answer = answer(2);
+    invalid.question.title.clear();
     assert!(matches!(
         instantiate(
             deps.as_mut(),
             mock_env(),
-            mock_info("factory", &[coin(110, "ujuno")]),
+            mock_info("factory", &[coin(1_000_100, "ujuno")]),
             invalid
         ),
         Err(ContractError::InvalidConfig(_))
@@ -147,17 +165,17 @@ fn trading_rejects_exact_close_boundary_and_deadline_is_inclusive() {
     let mut lifecycle = state::LIFECYCLE.load(&deps.storage).unwrap();
     lifecycle.activated = true;
     let mut env = mock_env();
-    env.block.time = Timestamp::from_seconds(999);
+    env.block.time = Timestamp::from_seconds(1_571_999_999);
     assert!(guards::trading(&env, &config, &lifecycle).is_ok());
-    assert!(guards::user_deadline(&env, 999).is_ok());
-    env.block.time = Timestamp::from_seconds(1_000);
+    assert!(guards::user_deadline(&env, 1_571_999_999).is_ok());
+    env.block.time = Timestamp::from_seconds(1_572_000_000);
     assert_eq!(
         guards::trading(&env, &config, &lifecycle).unwrap_err(),
         ContractError::MarketClosed
     );
-    env.block.time = Timestamp::from_seconds(1_001);
+    env.block.time = Timestamp::from_seconds(1_572_000_001);
     assert_eq!(
-        guards::user_deadline(&env, 1_000).unwrap_err(),
+        guards::user_deadline(&env, 1_572_000_000).unwrap_err(),
         ContractError::DeadlineExpired
     );
 }
@@ -255,7 +273,9 @@ fn reply_ids_are_bound_to_their_rollback_state() {
         .unwrap_err(),
         ContractError::ReplyStateMismatch
     );
-    assert_eq!(
+    let lifecycle_before = state::LIFECYCLE.load(&deps.storage).unwrap();
+    let accounting_before = state::ACCOUNTING.load(&deps.storage).unwrap();
+    assert!(matches!(
         reply(
             deps.as_mut(),
             mock_env(),
@@ -263,9 +283,16 @@ fn reply_ids_are_bound_to_their_rollback_state() {
                 id: REPLY_ACTIVATION,
                 result
             }
-        )
-        .unwrap_err(),
-        ContractError::NotImplemented
+        ),
+        Err(ContractError::Std(_))
+    ));
+    assert_eq!(
+        state::LIFECYCLE.load(&deps.storage).unwrap(),
+        lifecycle_before
+    );
+    assert_eq!(
+        state::ACCOUNTING.load(&deps.storage).unwrap(),
+        accounting_before
     );
 }
 
