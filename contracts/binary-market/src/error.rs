@@ -36,6 +36,8 @@ pub enum ContractError {
     UnknownReplyId(u64),
     #[error("reply state does not match reply id")]
     ReplyStateMismatch,
+    #[error("oracle activation verification failed: {0}")]
+    ActivationMismatch(String),
     #[error("action is specified but implemented by a later issue")]
     NotImplemented,
 }

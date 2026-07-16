@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
-    StdError, StdResult, Uint128,
+    entry_point, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Reply,
+    ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 
 use crate::{
@@ -10,7 +10,15 @@ use crate::{
         ConfigResponse, ExecuteMsg, IdentityResponse, InstantiateMsg, LifecycleStatus,
         PositionResponse, QueryMsg, QuestionResponse, StateResponse,
     },
-    state::{self, Accounting, Config, Lifecycle, ReplyInProgress},
+    question,
+    state::{self, Accounting, Config, Lifecycle, Position, ReplyInProgress},
+};
+use cw_reality::{
+    msg::{
+        ExecuteMsg as OracleExecuteMsg, QueryMsg as OracleQueryMsg,
+        QuestionResponse as OracleQuestionResponse,
+    },
+    state::{AnswerType, State as OracleState},
 };
 use pm_types::{ProtocolVersion, UJUNO_DENOM};
 
@@ -22,24 +30,45 @@ pub const REPLY_STALLED_CANCELLATION: u64 = 4;
 #[entry_point]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    validate_instantiate(&msg)?;
+    validate_instantiate(&msg, env.block.time.seconds())?;
     let required = msg.initial_liquidity.checked_add(msg.oracle_bounty)?;
     guards::exact_funds(&info.funds, UJUNO_DENOM, required)?;
     let factory = deps.api.addr_validate(&msg.factory)?;
-    // Market instances may only be created by their immutable factory.
     guards::sender(&info.sender, &factory)?;
     let creator = deps.api.addr_validate(&msg.creator)?;
+    let oracle = deps.api.addr_validate(&msg.oracle)?;
+    let governance = deps.api.addr_validate(&msg.governance)?;
+    let (question_text, question_hash) = question::canonical_question(
+        &msg.question,
+        &env.contract.address,
+        &oracle,
+        &governance,
+        msg.close_ts,
+        msg.opening_ts,
+        msg.oracle_initial_bond,
+        env.block.time.seconds(),
+    )?;
+    let expected_question_id = question::question_id(
+        deps.api,
+        &oracle,
+        &env.contract.address,
+        msg.nonce,
+        &question::hash_array(&question_hash)?,
+        msg.answer_timeout_secs,
+        msg.oracle_initial_bond,
+        msg.opening_ts,
+    )?;
     let config = Config {
         protocol_version: ProtocolVersion::V1,
         factory,
         initial_lp: creator.clone(),
         creator,
-        oracle: deps.api.addr_validate(&msg.oracle)?,
-        governance: deps.api.addr_validate(&msg.governance)?,
+        oracle,
+        governance,
         tier: msg.tier,
         collateral_denom: UJUNO_DENOM.to_owned(),
         close_ts: msg.close_ts,
@@ -54,12 +83,14 @@ pub fn instantiate(
         max_trade_bps: msg.max_trade_bps,
         collateral_cap: msg.collateral_cap,
         challenge_bond: msg.challenge_bond,
-        yes_answer: msg.yes_answer,
-        no_answer: msg.no_answer,
-        invalid_answer: msg.invalid_answer,
-        unresolved_answer: msg.unresolved_answer,
-        question: msg.question,
-        question_hash: msg.question_hash,
+        yes_answer: Binary::from(hex::decode(question::YES_HEX).expect("valid constant")),
+        no_answer: Binary::from(hex::decode(question::NO_HEX).expect("valid constant")),
+        invalid_answer: Binary::from(hex::decode(question::INVALID_HEX).expect("valid constant")),
+        unresolved_answer: Binary::from(
+            hex::decode(question::UNRESOLVED_HEX).expect("valid constant"),
+        ),
+        question: question_text.clone(),
+        question_hash: question_hash.clone(),
         nonce: msg.nonce,
     };
     state::CONFIG.save(deps.storage, &config)?;
@@ -74,7 +105,6 @@ pub fn instantiate(
             challenge_used: false,
         },
     )?;
-    // No financial position or supply exists before the oracle activation reply.
     state::ACCOUNTING.save(
         deps.storage,
         &Accounting {
@@ -94,20 +124,44 @@ pub fn instantiate(
             terminal_liability_twice: None,
         },
     )?;
+    state::REPLY_IN_PROGRESS.save(
+        deps.storage,
+        &ReplyInProgress::Activation {
+            expected_question_id: expected_question_id.clone(),
+        },
+    )?;
+    let ask = OracleExecuteMsg::AskQuestion {
+        text: question_text,
+        answer_type: AnswerType::Bool,
+        bond_denom: UJUNO_DENOM.to_owned(),
+        initial_bond: msg.oracle_initial_bond,
+        answer_timeout_secs: msg.answer_timeout_secs,
+        arbitrator: Some(env.contract.address.to_string()),
+        arbitration_timeout_secs: Some(msg.arbitration_timeout_secs),
+        answer_schema: None,
+        opening_ts: Some(msg.opening_ts),
+        nonce: msg.nonce,
+    };
+    let submsg = SubMsg {
+        id: REPLY_ACTIVATION,
+        msg: CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: config.oracle.to_string(),
+            msg: to_json_binary(&ask)?,
+            funds: vec![cosmwasm_std::coin(msg.oracle_bounty.u128(), UJUNO_DENOM)],
+        }),
+        gas_limit: None,
+        reply_on: ReplyOn::Success,
+    };
     Ok(Response::new()
+        .add_submessage(submsg)
         .add_attribute("action", "instantiate")
         .add_attribute("status", "initializing"))
 }
 
-fn validate_instantiate(msg: &InstantiateMsg) -> Result<(), ContractError> {
-    if msg.question.is_empty() || msg.question_hash.len() != 32 {
+fn validate_instantiate(msg: &InstantiateMsg, creation_ts: u64) -> Result<(), ContractError> {
+    if msg.close_ts <= creation_ts || msg.opening_ts < msg.close_ts {
         return Err(ContractError::InvalidConfig(
-            "question and 32-byte hash are required".into(),
-        ));
-    }
-    if msg.close_ts == 0 || msg.opening_ts < msg.close_ts {
-        return Err(ContractError::InvalidConfig(
-            "opening_ts must be at or after close_ts".into(),
+            "opening_ts must be at or after a future close_ts".into(),
         ));
     }
     if msg.initial_liquidity.is_zero() || msg.collateral_cap < msg.initial_liquidity {
@@ -115,14 +169,14 @@ fn validate_instantiate(msg: &InstantiateMsg) -> Result<(), ContractError> {
             "liquidity must be positive and within cap".into(),
         ));
     }
-    if msg.oracle_bounty.is_zero()
-        || msg.oracle_initial_bond.is_zero()
-        || msg.answer_timeout_secs == 0
-        || msg.arbitration_timeout_secs == 0
+    if msg.oracle_bounty < Uint128::new(question::MIN_ORACLE_BOUNTY)
+        || msg.oracle_initial_bond < Uint128::new(question::MIN_ORACLE_INITIAL_BOND)
+        || msg.answer_timeout_secs != question::ANSWER_TIMEOUT_SECS
+        || msg.arbitration_timeout_secs != question::ARBITRATION_TIMEOUT_SECS
         || msg.challenge_bond.is_zero()
     {
         return Err(ContractError::InvalidConfig(
-            "oracle and challenge parameters must be nonzero".into(),
+            "oracle parameters must match accepted v1 bounds".into(),
         ));
     }
     if msg.fee_bps > 10_000
@@ -133,24 +187,6 @@ fn validate_instantiate(msg: &InstantiateMsg) -> Result<(), ContractError> {
         return Err(ContractError::InvalidConfig(
             "invalid fee or trade bounds".into(),
         ));
-    }
-    let answers = [
-        &msg.yes_answer,
-        &msg.no_answer,
-        &msg.invalid_answer,
-        &msg.unresolved_answer,
-    ];
-    if answers.iter().any(|a| a.len() != 32) {
-        return Err(ContractError::InvalidConfig(
-            "all result values must be 32 bytes".into(),
-        ));
-    }
-    for (index, answer) in answers.iter().enumerate() {
-        if answers.iter().skip(index + 1).any(|other| other == answer) {
-            return Err(ContractError::InvalidConfig(
-                "result values must be distinct".into(),
-            ));
-        }
     }
     Ok(())
 }
@@ -232,7 +268,7 @@ pub fn execute(
 }
 
 #[entry_point]
-pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, ContractError> {
+pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, ContractError> {
     let pending = state::REPLY_IN_PROGRESS.load(deps.storage)?;
     let matches = matches!(
         (reply.id, &pending),
@@ -260,7 +296,100 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contrac
         }
         return Err(ContractError::ReplyStateMismatch);
     }
-    Err(ContractError::NotImplemented)
+    if reply.id != REPLY_ACTIVATION {
+        return Err(ContractError::NotImplemented);
+    }
+    reply
+        .result
+        .into_result()
+        .map_err(ContractError::ActivationMismatch)?;
+    let ReplyInProgress::Activation {
+        expected_question_id,
+    } = pending
+    else {
+        return Err(ContractError::ReplyStateMismatch);
+    };
+    let config = state::CONFIG.load(deps.storage)?;
+    let actual: OracleQuestionResponse = deps.querier.query_wasm_smart(
+        config.oracle.clone(),
+        &OracleQueryMsg::Question {
+            question_id: expected_question_id.clone(),
+        },
+    )?;
+    verify_oracle_question(
+        &actual,
+        &expected_question_id,
+        &config,
+        &env.contract.address,
+    )?;
+    state::QUESTION_ID.save(deps.storage, &expected_question_id)?;
+    state::LIFECYCLE.update(deps.storage, |mut lifecycle| -> StdResult<_> {
+        lifecycle.activated = true;
+        Ok(lifecycle)
+    })?;
+    state::ACCOUNTING.update(deps.storage, |mut accounting| -> StdResult<_> {
+        accounting.principal = config.initial_liquidity;
+        accounting.pool_yes = config.initial_liquidity;
+        accounting.pool_no = config.initial_liquidity;
+        accounting.total_yes = config.initial_liquidity;
+        accounting.total_no = config.initial_liquidity;
+        accounting.lp_supply = config.initial_liquidity;
+        Ok(accounting)
+    })?;
+    state::POSITIONS.save(deps.storage, &config.initial_lp, &Position::default())?;
+    state::REPLY_IN_PROGRESS.remove(deps.storage);
+    Ok(Response::new().add_event(
+        cosmwasm_std::Event::new("juno_pm_v1")
+            .add_attribute("action", "market_activated")
+            .add_attribute("protocol_version", "1")
+            .add_attribute("factory", config.factory.to_string())
+            .add_attribute("market", env.contract.address.to_string())
+            .add_attribute("height", env.block.height.to_string())
+            .add_attribute("block_time", env.block.time.seconds().to_string())
+            .add_attribute("creator", config.creator.to_string())
+            .add_attribute("lp", config.initial_lp.to_string())
+            .add_attribute("question_id", expected_question_id.to_base64())
+            .add_attribute("question_hash", config.question_hash.to_base64())
+            .add_attribute("close_ts", config.close_ts.to_string())
+            .add_attribute("opening_ts", config.opening_ts.to_string()),
+    ))
+}
+
+fn verify_oracle_question(
+    actual: &OracleQuestionResponse,
+    expected_id: &Binary,
+    config: &Config,
+    market: &cosmwasm_std::Addr,
+) -> Result<(), ContractError> {
+    let q = &actual.question;
+    let matches = actual.question_id == *expected_id
+        && actual.state == OracleState::OpenUnanswered
+        && q.asker == *market
+        && q.text.as_bytes() == config.question.as_bytes()
+        && q.answer_type == AnswerType::Bool
+        && q.bond_denom == UJUNO_DENOM
+        && q.initial_bond == config.oracle_initial_bond
+        && q.min_bond == config.oracle_initial_bond
+        && q.answer_timeout_secs == config.answer_timeout_secs
+        && q.arbitrator.as_ref() == Some(market)
+        && q.arbitration_timeout_secs == config.arbitration_timeout_secs
+        && q.arbitration_deadline.is_none()
+        && q.answer_schema.is_none()
+        && q.nonce == config.nonce
+        && q.opening_ts == Some(config.opening_ts)
+        && q.bounty == config.oracle_bounty
+        && q.best_answer.is_none()
+        && q.current_bond.is_zero()
+        && q.round_count == 0
+        && q.finalize_ts.is_none()
+        && !q.is_pending_arbitration
+        && !q.is_claimed;
+    if !matches {
+        return Err(ContractError::ActivationMismatch(
+            "queried question does not exactly match immutable market parameters".into(),
+        ));
+    }
+    Ok(())
 }
 
 #[entry_point]

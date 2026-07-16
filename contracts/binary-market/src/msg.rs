@@ -1,5 +1,6 @@
 //! Binary-market public wire protocol.
 
+use crate::question::QuestionInput;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Binary, Uint128};
 use pm_types::{Outcome, Payout, ProtocolVersion, TierId};
@@ -11,8 +12,8 @@ pub struct InstantiateMsg {
     pub oracle: String,
     pub governance: String,
     pub tier: TierId,
-    pub question: String,
-    pub question_hash: Binary,
+    /// Typed semantic source. The market constructs authoritative JCS bytes.
+    pub question: QuestionInput,
     pub nonce: u64,
     pub close_ts: u64,
     pub opening_ts: u64,
@@ -28,10 +29,6 @@ pub struct InstantiateMsg {
     pub max_trade_bps: u16,
     pub collateral_cap: Uint128,
     pub challenge_bond: Uint128,
-    pub yes_answer: Binary,
-    pub no_answer: Binary,
-    pub invalid_answer: Binary,
-    pub unresolved_answer: Binary,
 }
 
 #[cw_serde]

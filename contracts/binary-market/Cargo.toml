@@ -12,10 +12,16 @@ crate-type = ["cdylib", "rlib"]
 cosmwasm-schema.workspace = true
 cosmwasm-std.workspace = true
 cw-storage-plus.workspace = true
+cw-reality = { path = "../cw-reality", features = ["library"] }
+hex.workspace = true
 pm-types = { path = "../pm-types" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
+cw-multi-test.workspace = true
 num-bigint = "0.4"
 num-traits = "0.2"
 pm-types = { path = "../pm-types", features = ["test-utils"] }

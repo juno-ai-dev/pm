@@ -17,20 +17,15 @@
       "fee_bps",
       "governance",
       "initial_liquidity",
-      "invalid_answer",
       "max_trade_bps",
       "min_trade",
-      "no_answer",
       "nonce",
       "opening_ts",
       "oracle",
       "oracle_bounty",
       "oracle_initial_bond",
       "question",
-      "question_hash",
-      "tier",
-      "unresolved_answer",
-      "yes_answer"
+      "tier"
     ],
     "properties": {
       "answer_timeout_secs": {
@@ -72,9 +67,6 @@
       "initial_liquidity": {
         "$ref": "#/definitions/Uint128"
       },
-      "invalid_answer": {
-        "$ref": "#/definitions/Binary"
-      },
       "max_trade_bps": {
         "description": "Maximum gross trade as a numerator over 10,000 of the selected reserve.",
         "type": "integer",
@@ -83,9 +75,6 @@
       },
       "min_trade": {
         "$ref": "#/definitions/Uint128"
-      },
-      "no_answer": {
-        "$ref": "#/definitions/Binary"
       },
       "nonce": {
         "type": "integer",
@@ -107,28 +96,138 @@
         "$ref": "#/definitions/Uint128"
       },
       "question": {
-        "type": "string"
-      },
-      "question_hash": {
-        "$ref": "#/definitions/Binary"
+        "description": "Typed semantic source. The market constructs authoritative JCS bytes.",
+        "allOf": [
+          {
+            "$ref": "#/definitions/QuestionInput"
+          }
+        ]
       },
       "tier": {
         "type": "integer",
         "format": "uint16",
         "minimum": 0.0
-      },
-      "unresolved_answer": {
-        "$ref": "#/definitions/Binary"
-      },
-      "yes_answer": {
-        "$ref": "#/definitions/Binary"
       }
     },
     "additionalProperties": false,
     "definitions": {
-      "Binary": {
-        "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
-        "type": "string"
+      "ObservationInput": {
+        "type": "object",
+        "required": [
+          "cutoff_ts",
+          "end_ts",
+          "inclusivity",
+          "revision_policy",
+          "start_ts"
+        ],
+        "properties": {
+          "cutoff_ts": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          "end_ts": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          "inclusivity": {
+            "type": "string"
+          },
+          "revision_policy": {
+            "type": "string"
+          },
+          "start_ts": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          }
+        },
+        "additionalProperties": false
+      },
+      "QuestionInput": {
+        "type": "object",
+        "required": [
+          "definitions",
+          "invalid_conditions",
+          "observation",
+          "primary_sources",
+          "proposition",
+          "secondary_sources",
+          "source_disagreement_policy",
+          "title"
+        ],
+        "properties": {
+          "definitions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "invalid_conditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "observation": {
+            "$ref": "#/definitions/ObservationInput"
+          },
+          "primary_sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/SourceInput"
+            }
+          },
+          "proposition": {
+            "type": "string"
+          },
+          "secondary_sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/SourceInput"
+            }
+          },
+          "source_disagreement_policy": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SourceInput": {
+        "type": "object",
+        "required": [
+          "fallback_condition",
+          "identifier",
+          "publication_revision_policy",
+          "publisher",
+          "retrieval",
+          "url"
+        ],
+        "properties": {
+          "fallback_condition": {
+            "type": "string"
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "publication_revision_policy": {
+            "type": "string"
+          },
+          "publisher": {
+            "type": "string"
+          },
+          "retrieval": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "Uint128": {
         "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
