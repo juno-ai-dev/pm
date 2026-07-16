@@ -16,12 +16,12 @@ use crate::{
 };
 use cw_reality::{
     msg::{
-        ExecuteMsg as OracleExecuteMsg, QueryMsg as OracleQueryMsg,
-        QuestionResponse as OracleQuestionResponse,
+        ExecuteMsg as OracleExecuteMsg, FinalAnswerResponse as OracleFinalAnswerResponse,
+        QueryMsg as OracleQueryMsg, QuestionResponse as OracleQuestionResponse,
     },
     state::{AnswerType, State as OracleState},
 };
-use pm_types::{Outcome, ProtocolVersion, UJUNO_DENOM};
+use pm_types::{Outcome, Payout, ProtocolVersion, UJUNO_DENOM};
 
 pub const REPLY_ACTIVATION: u64 = 1;
 pub const REPLY_CHALLENGE: u64 = 2;
@@ -123,6 +123,10 @@ pub fn instantiate(
             lp_accrual: Uint128::zero(),
             principal_at_resolution: None,
             terminal_liability_twice: None,
+            pool_yes_at_resolution: None,
+            pool_no_at_resolution: None,
+            total_yes_at_resolution: None,
+            total_no_at_resolution: None,
         },
     )?;
     state::REPLY_IN_PROGRESS.save(
@@ -271,7 +275,20 @@ pub fn execute(
         }
         ExecuteMsg::Resolve {} => {
             guards::no_funds(&info.funds)?;
-            guards::unresolved(&lifecycle)?;
+            if guards::derived_lifecycle(
+                env.block.time.seconds(),
+                &config,
+                &lifecycle,
+                challenge.as_ref(),
+            ) != LifecycleStatus::AwaitingResolution
+            {
+                return Err(if lifecycle.payout.is_some() {
+                    ContractError::AlreadyResolved
+                } else {
+                    ContractError::ResolutionMismatch("market is not awaiting resolution".into())
+                });
+            }
+            return execute_resolve(deps, env, &config);
         }
         ExecuteMsg::RedeemPositions { .. }
         | ExecuteMsg::RedeemLp { .. }
@@ -283,6 +300,127 @@ pub fn execute(
         }
     }
     Err(ContractError::NotImplemented)
+}
+
+fn execute_resolve(deps: DepsMut, env: Env, config: &Config) -> Result<Response, ContractError> {
+    let question_id = state::QUESTION_ID.load(deps.storage)?;
+    let final_answer: OracleFinalAnswerResponse = deps.querier.query_wasm_smart(
+        config.oracle.clone(),
+        &OracleQueryMsg::FinalAnswerIfMatches {
+            question_id: question_id.clone(),
+            min_bond: Some(config.challenge_bond),
+            min_timeout_secs: Some(config.answer_timeout_secs),
+            required_arbitrator: Some(env.contract.address.to_string()),
+            required_denom: Some(config.collateral_denom.clone()),
+        },
+    )?;
+    let question: OracleQuestionResponse = deps.querier.query_wasm_smart(
+        config.oracle.clone(),
+        &OracleQueryMsg::Question {
+            question_id: question_id.clone(),
+        },
+    )?;
+    verify_resolution(
+        &final_answer,
+        &question,
+        &question_id,
+        config,
+        &env.contract.address,
+    )?;
+
+    let payout = if final_answer.final_answer == config.yes_answer {
+        Payout::for_outcome(Outcome::Yes)
+    } else if final_answer.final_answer == config.no_answer {
+        Payout::for_outcome(Outcome::No)
+    } else {
+        Payout::neutral()
+    };
+    let mut accounting = state::ACCOUNTING.load(deps.storage)?;
+    assert_pre_resolution(&accounting)?;
+    let principal = accounting.principal;
+    let terminal_liability_twice = principal.checked_mul(Uint128::new(2))?;
+    accounting.principal_at_resolution = Some(principal);
+    accounting.terminal_liability_twice = Some(terminal_liability_twice);
+    accounting.pool_yes_at_resolution = Some(accounting.pool_yes);
+    accounting.pool_no_at_resolution = Some(accounting.pool_no);
+    accounting.total_yes_at_resolution = Some(accounting.total_yes);
+    accounting.total_no_at_resolution = Some(accounting.total_no);
+
+    let mut lifecycle = state::LIFECYCLE.load(deps.storage)?;
+    if lifecycle.payout.is_some() {
+        return Err(ContractError::AlreadyResolved);
+    }
+    lifecycle.payout = Some(payout.clone());
+    lifecycle.resolution_answer = Some(final_answer.final_answer.clone());
+    lifecycle.resolution_height = Some(env.block.height);
+    lifecycle.resolution_time = Some(env.block.time.seconds());
+    state::ACCOUNTING.save(deps.storage, &accounting)?;
+    state::LIFECYCLE.save(deps.storage, &lifecycle)?;
+
+    Ok(Response::new().add_event(
+        Event::new("juno_pm_v1")
+            .add_attribute("action", "market_resolved")
+            .add_attribute("protocol_version", "1")
+            .add_attribute("factory", config.factory.to_string())
+            .add_attribute("market", env.contract.address.to_string())
+            .add_attribute("question_id", question_id.to_base64())
+            .add_attribute(
+                "answer_hex",
+                hex::encode(final_answer.final_answer.as_slice()),
+            )
+            .add_attribute("answer_base64", final_answer.final_answer.to_base64())
+            .add_attribute("final_bond", final_answer.final_bond.to_string())
+            .add_attribute("payout_yes_num", payout.yes_numerator.to_string())
+            .add_attribute("payout_no_num", payout.no_numerator.to_string())
+            .add_attribute("payout_den", payout.denominator.to_string())
+            .add_attribute("principal_at_resolution", principal.to_string())
+            .add_attribute(
+                "terminal_liability_numerator",
+                terminal_liability_twice.to_string(),
+            )
+            .add_attribute("height", env.block.height.to_string())
+            .add_attribute("block_time", env.block.time.seconds().to_string()),
+    ))
+}
+
+fn verify_resolution(
+    final_answer: &OracleFinalAnswerResponse,
+    actual: &OracleQuestionResponse,
+    expected_id: &Binary,
+    config: &Config,
+    market: &cosmwasm_std::Addr,
+) -> Result<(), ContractError> {
+    let q = &actual.question;
+    let terminal_state = matches!(actual.state, OracleState::Finalized | OracleState::Claimed);
+    let matches = terminal_state
+        && final_answer.question_id == *expected_id
+        && actual.question_id == *expected_id
+        && q.asker == *market
+        && q.text.as_bytes() == config.question.as_bytes()
+        && q.answer_type == AnswerType::Bool
+        && q.bond_denom == config.collateral_denom
+        && q.initial_bond == config.oracle_initial_bond
+        && q.min_bond == config.oracle_initial_bond
+        && q.answer_timeout_secs == config.answer_timeout_secs
+        && q.arbitrator.as_ref() == Some(market)
+        && q.arbitration_timeout_secs == config.arbitration_timeout_secs
+        && q.arbitration_deadline.is_none()
+        && q.answer_schema.is_none()
+        && q.nonce == config.nonce
+        && q.opening_ts == Some(config.opening_ts)
+        && q.bounty >= config.oracle_bounty
+        && q.best_answer.as_ref() == Some(&final_answer.final_answer)
+        && q.current_bond == final_answer.final_bond
+        && q.current_bond >= config.challenge_bond
+        && q.finalize_ts.is_some()
+        && !q.is_pending_arbitration
+        && q.is_claimed == matches!(actual.state, OracleState::Claimed);
+    if !matches {
+        return Err(ContractError::ResolutionMismatch(
+            "final-answer and full-question responses do not exactly match the bound market".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_amount(amount: Uint128, minimum: Uint128) -> Result<(), ContractError> {
@@ -752,12 +890,12 @@ fn verify_oracle_question(
 #[cfg(test)]
 #[allow(clippy::items_after_test_module)]
 mod activation_verification_tests {
-    use super::verify_oracle_question;
+    use super::{verify_oracle_question, verify_resolution};
     use crate::{question, state::Config};
     use cosmwasm_std::{Addr, Binary, Uint128};
     use cw_reality::{
         filter::AnswerSchemaFilter,
-        msg::QuestionResponse,
+        msg::{FinalAnswerResponse, QuestionResponse},
         state::{AnswerType, Question, State},
     };
     use pm_types::{ProtocolVersion, TierId};
@@ -873,6 +1011,138 @@ mod activation_verification_tests {
         for mismatch in mismatches {
             assert!(verify_oracle_question(&mismatch, &expected_id, &config, &market).is_err());
         }
+    }
+
+    fn resolution_fixture() -> (Config, Addr, Binary, FinalAnswerResponse, QuestionResponse) {
+        let (config, market, expected_id, mut question) = fixture();
+        question.state = State::Finalized;
+        question.question.best_answer = Some(config.yes_answer.clone());
+        question.question.current_bond = config.challenge_bond;
+        question.question.history_hash = [7; 32];
+        question.question.round_count = 1;
+        question.question.finalize_ts = Some(config.opening_ts + config.answer_timeout_secs as u64);
+        let final_answer = FinalAnswerResponse {
+            question_id: expected_id.clone(),
+            final_answer: config.yes_answer.clone(),
+            final_bond: config.challenge_bond,
+        };
+        (config, market, expected_id, final_answer, question)
+    }
+
+    #[test]
+    fn final_and_claimed_exact_responses_pass_but_conflicts_and_weak_bonds_reject() {
+        let (config, market, expected_id, final_answer, question) = resolution_fixture();
+        assert!(
+            verify_resolution(&final_answer, &question, &expected_id, &config, &market).is_ok()
+        );
+
+        let mut claimed = question.clone();
+        claimed.state = State::Claimed;
+        claimed.question.is_claimed = true;
+        assert!(verify_resolution(&final_answer, &claimed, &expected_id, &config, &market).is_ok());
+
+        for state in [
+            State::NotCreated,
+            State::OpenUnanswered,
+            State::OpenAnswered,
+            State::PendingArbitration,
+        ] {
+            let mut value = question.clone();
+            value.state = state;
+            assert!(
+                verify_resolution(&final_answer, &value, &expected_id, &config, &market).is_err()
+            );
+        }
+        let mut conflict = question.clone();
+        conflict.question.best_answer = Some(config.no_answer.clone());
+        assert!(
+            verify_resolution(&final_answer, &conflict, &expected_id, &config, &market).is_err()
+        );
+        let mut conflict = question.clone();
+        conflict.question.current_bond += Uint128::one();
+        assert!(
+            verify_resolution(&final_answer, &conflict, &expected_id, &config, &market).is_err()
+        );
+        let mut weak_final = final_answer.clone();
+        weak_final.final_bond = config.challenge_bond - Uint128::one();
+        let mut weak_question = question.clone();
+        weak_question.question.current_bond = weak_final.final_bond;
+        assert!(
+            verify_resolution(&weak_final, &weak_question, &expected_id, &config, &market).is_err()
+        );
+    }
+
+    #[test]
+    fn every_bound_question_field_mismatch_rejects_resolution() {
+        let (config, market, expected_id, final_answer, exact) = resolution_fixture();
+        let mut mismatches = Vec::new();
+        let mut value = exact.clone();
+        value.question_id = Binary::from(vec![8; 32]);
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.asker = Addr::unchecked("other-market");
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.text.push('!');
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.answer_type = AnswerType::Uint;
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.bond_denom = "other".into();
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.initial_bond += Uint128::one();
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.min_bond += Uint128::one();
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.answer_timeout_secs += 1;
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.arbitrator = Some(Addr::unchecked("other-market"));
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.arbitration_timeout_secs += 1;
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.arbitration_deadline = Some(config.opening_ts);
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.answer_schema = Some(AnswerSchemaFilter {
+            contract: "filter".into(),
+            filter: serde_json::json!({}),
+        });
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.nonce += 1;
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.opening_ts = Some(config.opening_ts + 1);
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.bounty = config.oracle_bounty - Uint128::one();
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.finalize_ts = None;
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.is_pending_arbitration = true;
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.is_claimed = true;
+        mismatches.push(value);
+
+        for mismatch in mismatches {
+            assert!(
+                verify_resolution(&final_answer, &mismatch, &expected_id, &config, &market)
+                    .is_err()
+            );
+        }
+        let mut wrong_id = final_answer.clone();
+        wrong_id.question_id = Binary::from(vec![9; 32]);
+        assert!(verify_resolution(&wrong_id, &exact, &expected_id, &config, &market).is_err());
     }
 }
 
@@ -1000,6 +1270,17 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 address: address.into(),
                 yes: position.yes,
                 no: position.no,
+            })
+        }
+        QueryMsg::Resolution {} => {
+            let lifecycle = state::LIFECYCLE.load(deps.storage)?;
+            let accounting = state::ACCOUNTING.load(deps.storage)?;
+            to_json_binary(&crate::msg::ResolutionResponse {
+                answer: lifecycle.resolution_answer,
+                payout: lifecycle.payout,
+                height: lifecycle.resolution_height,
+                time: lifecycle.resolution_time,
+                principal_at_resolution: accounting.principal_at_resolution,
             })
         }
         QueryMsg::Question {} => to_json_binary(&QuestionResponse {

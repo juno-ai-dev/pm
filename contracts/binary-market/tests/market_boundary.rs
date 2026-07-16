@@ -339,6 +339,10 @@ fn merge_rejects_below_minimum_and_resolved_state_before_mutation() {
                 lp_accrual: Uint128::zero(),
                 principal_at_resolution: None,
                 terminal_liability_twice: None,
+                pool_yes_at_resolution: None,
+                pool_no_at_resolution: None,
+                total_yes_at_resolution: None,
+                total_no_at_resolution: None,
             },
         )
         .unwrap();

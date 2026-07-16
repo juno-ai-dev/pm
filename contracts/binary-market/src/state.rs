@@ -66,6 +66,10 @@ pub struct Accounting {
     pub principal_at_resolution: Option<Uint128>,
     /// T2: unpaid position liability in half-ujuno numerator units.
     pub terminal_liability_twice: Option<Uint128>,
+    pub pool_yes_at_resolution: Option<Uint128>,
+    pub pool_no_at_resolution: Option<Uint128>,
+    pub total_yes_at_resolution: Option<Uint128>,
+    pub total_no_at_resolution: Option<Uint128>,
 }
 
 #[cw_serde]

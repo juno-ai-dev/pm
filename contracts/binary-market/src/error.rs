@@ -50,6 +50,8 @@ pub enum ContractError {
     ReplyStateMismatch,
     #[error("oracle activation verification failed: {0}")]
     ActivationMismatch(String),
+    #[error("oracle resolution verification failed: {0}")]
+    ResolutionMismatch(String),
     #[error("action is specified but implemented by a later issue")]
     NotImplemented,
 }
