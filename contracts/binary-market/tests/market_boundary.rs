@@ -273,6 +273,8 @@ fn reply_ids_are_bound_to_their_rollback_state() {
         .unwrap_err(),
         ContractError::ReplyStateMismatch
     );
+    let lifecycle_before = state::LIFECYCLE.load(&deps.storage).unwrap();
+    let accounting_before = state::ACCOUNTING.load(&deps.storage).unwrap();
     assert!(matches!(
         reply(
             deps.as_mut(),
@@ -284,6 +286,14 @@ fn reply_ids_are_bound_to_their_rollback_state() {
         ),
         Err(ContractError::Std(_))
     ));
+    assert_eq!(
+        state::LIFECYCLE.load(&deps.storage).unwrap(),
+        lifecycle_before
+    );
+    assert_eq!(
+        state::ACCOUNTING.load(&deps.storage).unwrap(),
+        accounting_before
+    );
 }
 
 #[test]

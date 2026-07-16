@@ -99,6 +99,43 @@ fn python_jcs_and_canonical_address_length_vectors_match() {
         );
         assert_eq!(hex::encode(id), expected);
     }
+
+    let canonical = vec![3u8; 32];
+    let id = question_id_from_canonical(
+        &canonical,
+        &canonical,
+        7,
+        &content_hash,
+        &canonical,
+        86_400,
+        Uint128::new(10_000_000),
+        1_800_086_400,
+    );
+    let collision = question_id_from_canonical(
+        &canonical,
+        &canonical,
+        7,
+        &content_hash,
+        &canonical,
+        86_400,
+        Uint128::new(10_000_000),
+        1_800_086_400,
+    );
+    let distinct_nonce = question_id_from_canonical(
+        &canonical,
+        &canonical,
+        8,
+        &content_hash,
+        &canonical,
+        86_400,
+        Uint128::new(10_000_000),
+        1_800_086_400,
+    );
+    assert_eq!(id, collision, "the oracle rejects this duplicate ID");
+    assert_ne!(
+        id, distinct_nonce,
+        "a distinct nonce must avoid the collision"
+    );
 }
 
 #[test]
@@ -186,4 +223,77 @@ fn instantiate_asks_and_exact_reply_activates_atomically() {
         bound.text.as_bytes()
     );
     assert_eq!(oracle_question.question.bounty, Uint128::new(1_000_000));
+}
+
+#[test]
+fn rejected_oracle_ask_rolls_back_question_and_funds() {
+    let factory = Addr::unchecked("factory");
+    let mut app: App = AppBuilder::new().build(|router, _, storage| {
+        router
+            .bank
+            .init_balance(storage, &factory, vec![coin(2_000_000, "ujuno")])
+            .unwrap();
+    });
+    app.update_block(|block| block.time = cosmwasm_std::Timestamp::from_seconds(1_799_800_000));
+    let oracle_code = app.store_code(oracle_contract());
+    let oracle = app
+        .instantiate_contract(
+            oracle_code,
+            factory.clone(),
+            &OracleInstantiateMsg {
+                admin: None,
+                min_initial_bond_floor: Uint128::new(20_000_000),
+                min_answer_timeout_secs: 86_400,
+            },
+            &[],
+            "rejecting oracle",
+            None,
+        )
+        .unwrap();
+    let market_code = app.store_code(market_contract());
+    let before = app.wrap().query_balance(&factory, "ujuno").unwrap();
+    let err = app
+        .instantiate_contract(
+            market_code,
+            factory.clone(),
+            &InstantiateMsg {
+                factory: factory.to_string(),
+                creator: "creator".into(),
+                oracle: oracle.to_string(),
+                governance: "governance".into(),
+                tier: TierId(1),
+                question: question(),
+                nonce: 0,
+                close_ts: 1_800_000_000,
+                opening_ts: 1_800_086_400,
+                initial_liquidity: Uint128::new(100),
+                oracle_bounty: Uint128::new(1_000_000),
+                oracle_initial_bond: Uint128::new(10_000_000),
+                answer_timeout_secs: 86_400,
+                arbitration_timeout_secs: 1_814_400,
+                fee_bps: 200,
+                min_trade: Uint128::one(),
+                max_trade_bps: 2_500,
+                collateral_cap: Uint128::new(10_000),
+                challenge_bond: Uint128::new(10_000_000),
+            },
+            &[coin(1_000_100, "ujuno")],
+            "market",
+            None,
+        )
+        .unwrap_err();
+    assert!(err.to_string().contains("initial_bond"));
+    assert_eq!(app.wrap().query_balance(&factory, "ujuno").unwrap(), before);
+    let questions: cw_reality::msg::QuestionsListResponse = app
+        .wrap()
+        .query_wasm_smart(
+            oracle,
+            &OracleQueryMsg::List {
+                start_after: None,
+                limit: None,
+                status: None,
+            },
+        )
+        .unwrap();
+    assert!(questions.questions.is_empty());
 }

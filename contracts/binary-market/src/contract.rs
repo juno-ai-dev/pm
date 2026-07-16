@@ -392,6 +392,130 @@ fn verify_oracle_question(
     Ok(())
 }
 
+#[cfg(test)]
+#[allow(clippy::items_after_test_module)]
+mod activation_verification_tests {
+    use super::verify_oracle_question;
+    use crate::{question, state::Config};
+    use cosmwasm_std::{Addr, Binary, Uint128};
+    use cw_reality::{
+        filter::AnswerSchemaFilter,
+        msg::QuestionResponse,
+        state::{AnswerType, Question, State},
+    };
+    use pm_types::{ProtocolVersion, TierId};
+
+    fn fixture() -> (Config, Addr, Binary, QuestionResponse) {
+        let market = Addr::unchecked("market");
+        let expected_id = Binary::from(vec![7; 32]);
+        let config = Config {
+            protocol_version: ProtocolVersion::V1,
+            factory: Addr::unchecked("factory"),
+            creator: Addr::unchecked("creator"),
+            initial_lp: Addr::unchecked("creator"),
+            oracle: Addr::unchecked("oracle"),
+            governance: Addr::unchecked("governance"),
+            tier: TierId(1),
+            collateral_denom: "ujuno".into(),
+            close_ts: 1_800_000_000,
+            opening_ts: 1_800_086_400,
+            initial_liquidity: Uint128::new(100),
+            oracle_bounty: Uint128::new(1_000_000),
+            oracle_initial_bond: Uint128::new(10_000_000),
+            answer_timeout_secs: question::ANSWER_TIMEOUT_SECS,
+            arbitration_timeout_secs: question::ARBITRATION_TIMEOUT_SECS,
+            fee_bps: 200,
+            min_trade: Uint128::one(),
+            max_trade_bps: 2_500,
+            collateral_cap: Uint128::new(10_000),
+            challenge_bond: Uint128::new(10_000_000),
+            yes_answer: Binary::from(vec![1; 32]),
+            no_answer: Binary::from(vec![0; 32]),
+            invalid_answer: Binary::from(vec![255; 32]),
+            unresolved_answer: Binary::from(vec![254; 32]),
+            question: "canonical question".into(),
+            question_hash: Binary::from(vec![9; 32]),
+            nonce: 11,
+        };
+        let response = QuestionResponse {
+            question_id: expected_id.clone(),
+            state: State::OpenUnanswered,
+            question: Question {
+                asker: market.clone(),
+                text: config.question.clone(),
+                answer_type: AnswerType::Bool,
+                bond_denom: "ujuno".into(),
+                initial_bond: config.oracle_initial_bond,
+                min_bond: config.oracle_initial_bond,
+                answer_timeout_secs: config.answer_timeout_secs,
+                arbitrator: Some(market.clone()),
+                arbitration_timeout_secs: config.arbitration_timeout_secs,
+                arbitration_deadline: None,
+                answer_schema: None,
+                nonce: config.nonce,
+                opening_ts: Some(config.opening_ts),
+                bounty: config.oracle_bounty,
+                best_answer: None,
+                current_bond: Uint128::zero(),
+                history_hash: [0; 32],
+                round_count: 0,
+                finalize_ts: None,
+                is_pending_arbitration: false,
+                is_claimed: false,
+            },
+        };
+        (config, market, expected_id, response)
+    }
+
+    #[test]
+    fn every_id_omitted_or_initial_state_field_mismatch_rejects_activation() {
+        let (config, market, expected_id, exact) = fixture();
+        assert!(verify_oracle_question(&exact, &expected_id, &config, &market).is_ok());
+
+        let mut mismatches = Vec::new();
+        let mut value = exact.clone();
+        value.question.answer_type = AnswerType::Uint;
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.arbitration_timeout_secs += 1;
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.answer_schema = Some(AnswerSchemaFilter {
+            contract: "filter".into(),
+            filter: serde_json::json!({}),
+        });
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.bounty += Uint128::one();
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.arbitration_deadline = Some(config.opening_ts);
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.best_answer = Some(Binary::from(vec![1; 32]));
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.current_bond = Uint128::one();
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.round_count = 1;
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.finalize_ts = Some(config.opening_ts);
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.is_pending_arbitration = true;
+        mismatches.push(value);
+        let mut value = exact.clone();
+        value.question.is_claimed = true;
+        mismatches.push(value);
+
+        for mismatch in mismatches {
+            assert!(verify_oracle_question(&mismatch, &expected_id, &config, &market).is_err());
+        }
+    }
+}
+
 #[entry_point]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     let config = state::CONFIG.load(deps.storage)?;
