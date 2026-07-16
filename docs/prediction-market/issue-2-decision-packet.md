@@ -96,8 +96,8 @@ Completed after the four reviews above.
 | Creation-to-close lead | minimum `86,400 seconds` | Monitoring/review window, not semantic proof | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
 | Maximum creation-to-close duration | `7,776,000 seconds` (90 days) | Bounds pre-close LP/operations burden; unanswered remains unbounded | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
 | Opening delay after close | `0..2,592,000 seconds` (30 days), with `opening_ts >= close_ts` | Event/source-specific; longer markets require another tier | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
-| Canonical question bytes | maximum `16,384 bytes` UTF-8 after JCS | Candidate storage/gas bound; not measured | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
-| Discovery metadata bytes | maximum `4,096 bytes` UTF-8 | Candidate index/storage bound; non-authoritative | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Canonical question bytes | maximum `16,384 bytes` UTF-8 after JCS | Accepted storage/gas bound; not yet measured | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
+| Discovery metadata bytes | maximum `4,096 bytes` UTF-8 | Accepted index/storage bound; non-authoritative and not yet measured | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
 | Factory pagination | default `50`, maximum `100` records | Bounded query work; gas unmeasured | Accepted | 2026-07-16; Jake Hartnell / delegated Juno AI |
 
 No replacement value is implied by this acceptance. A future replacement must state raw `ujuno`/seconds/bytes as applicable, date, reviewer, rationale, and impact on all dependent rows.

@@ -187,8 +187,8 @@ This is a future planning gate, not authorization:
 4. audit market/factory code and reproduce both wasm checksums;
 5. benchmark worst-case factory instantiate/reply, trade, challenge, resolution, and batched redemption against current Juno gas;
 6. query current chain ID/software, consensus, wasm access, governance params/module account, and every code/contract admin at one finalized height;
-7. execute the authorized governance verdict rehearsal;
-8. obtain parameter risk acceptance, legal advice, content/runbook review, and named monitoring coverage;
+7. obtain separate authorization for, then execute, the governance verdict rehearsal;
+8. refresh parameter risk evidence and obtain qualified legal advice, content/runbook review, and named monitoring coverage;
 9. deploy factory with admin None and verify its code/checksum/config;
 10. create a capped canary market only under a separately authorized phase; reconcile every liability and event before broader discovery.
 

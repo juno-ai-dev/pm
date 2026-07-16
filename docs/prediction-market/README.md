@@ -36,7 +36,7 @@ Every memo uses these labels:
 - **Observed fact:** directly established by source, schema, test output, or a height-pinned query.
 - **Author claim:** a paper or project describes its own mechanism or policy.
 - **Inference:** a conclusion derived from cited evidence; it is not directly asserted by the source.
-- **Recommendation:** the architecture proposed for review.
+- **Recommendation:** an implementation detail or future evidence action supported by the analysis; it does not reopen an accepted owner decision unless explicitly marked **Open gate**.
 - **Owner decision:** an input already accepted in GOAL.md section 14.
 - **Open gate:** evidence or authority is still missing; implementation must not fill it in.
 
