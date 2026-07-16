@@ -4,8 +4,6 @@ on:
   push:
     branches: [main]
     paths:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
       - 'rust-toolchain.toml'
       - 'contracts/**'
       - 'scripts/check-schema.sh'
@@ -13,8 +11,6 @@ on:
       - '.github/workflows/contract.yml'
   pull_request:
     paths:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
       - 'rust-toolchain.toml'
       - 'contracts/**'
       - 'scripts/check-schema.sh'
@@ -32,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # master, reviewed 2026-07-15
-      - run: cargo fmt --all -- --check
+      - run: cargo fmt --manifest-path contracts/Cargo.toml --all -- --check
 
   clippy:
     name: clippy
@@ -41,7 +37,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # master, reviewed 2026-07-15
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo clippy --manifest-path contracts/Cargo.toml --workspace --all-targets --locked -- -D warnings
 
   test:
     name: test (57 incl. proptests)
@@ -50,7 +46,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # master, reviewed 2026-07-15
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-      - run: cargo test --workspace --locked
+      - run: cargo test --manifest-path contracts/Cargo.toml --workspace --locked
 
   wasm:
     name: wasm build (sanity)
@@ -60,7 +56,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # master, reviewed 2026-07-15
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       # This is a compile sanity check, not the optimizer-produced deployable artifact.
-      - run: cargo build --release --target wasm32-unknown-unknown --lib --locked -p cw-reality
+      - run: >-
+          cargo build --manifest-path contracts/Cargo.toml --release
+          --target wasm32-unknown-unknown --lib --locked
+          -p binary-market -p cw-reality -p market-factory
 
   schema:
     name: schema drift

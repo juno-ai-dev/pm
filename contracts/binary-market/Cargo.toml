@@ -1,0 +1,15 @@
+[package]
+name = "binary-market"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pm-types = { path = "../pm-types" }
+
+[dev-dependencies]
+pm-types = { path = "../pm-types", features = ["test-utils"] }
