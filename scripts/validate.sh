@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --locked
+root=$(git rev-parse --show-toplevel)
+manifest="$root/contracts/Cargo.toml"
+
+cargo fmt --manifest-path "$manifest" --all -- --check
+cargo clippy --manifest-path "$manifest" --workspace --all-targets --locked -- -D warnings
+cargo test --manifest-path "$manifest" --workspace --locked
+cargo build --manifest-path "$manifest" --release --target wasm32-unknown-unknown \
+  --lib --locked -p binary-market -p cw-reality -p market-factory
 python3 -m unittest tests/oracle/test_verify_deployment.py
 ./scripts/check-schema.sh
 ./scripts/check-ui-policy.sh
