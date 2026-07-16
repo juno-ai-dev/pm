@@ -1,0 +1,41 @@
+use cosmwasm_std::{OverflowError, StdError};
+use thiserror::Error;
+
+#[derive(Error, Debug, PartialEq)]
+pub enum ContractError {
+    #[error("{0}")]
+    Std(#[from] StdError),
+    #[error("arithmetic overflow")]
+    Overflow(#[from] OverflowError),
+    #[error("invalid configuration: {0}")]
+    InvalidConfig(String),
+    #[error("expected exactly one {expected} coin of {denom}")]
+    InvalidFunds {
+        expected: cosmwasm_std::Uint128,
+        denom: String,
+    },
+    #[error("no funds accepted")]
+    UnexpectedFunds,
+    #[error("unauthorized")]
+    Unauthorized,
+    #[error("market is not activated")]
+    NotActivated,
+    #[error("market is closed")]
+    MarketClosed,
+    #[error("deadline expired")]
+    DeadlineExpired,
+    #[error("market already resolved")]
+    AlreadyResolved,
+    #[error("market is not resolved")]
+    NotResolved,
+    #[error("no challenge is pending")]
+    NoPendingChallenge,
+    #[error("governance verdict deadline reached")]
+    ArbitrationDeadlineReached,
+    #[error("unknown reply id {0}")]
+    UnknownReplyId(u64),
+    #[error("reply state does not match reply id")]
+    ReplyStateMismatch,
+    #[error("action is specified but implemented by a later issue")]
+    NotImplemented,
+}

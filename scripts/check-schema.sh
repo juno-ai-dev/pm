@@ -6,15 +6,18 @@ set -euo pipefail
 root=$(git rev-parse --show-toplevel)
 reality_schema="$root/contracts/cw-reality/schema/cw-reality.json"
 types_schema="$root/contracts/pm-types/schema/pm-types.json"
+market_schema="$root/contracts/binary-market/schema/binary-market.json"
 snapshot=$(mktemp -d)
 cleanup() {
   cp "$snapshot/cw-reality.json" "$reality_schema"
   cp "$snapshot/pm-types.json" "$types_schema"
+  cp "$snapshot/binary-market.json" "$market_schema"
   rm -rf "$snapshot"
 }
 trap cleanup EXIT
 cp "$reality_schema" "$snapshot/cw-reality.json"
 cp "$types_schema" "$snapshot/pm-types.json"
+cp "$market_schema" "$snapshot/binary-market.json"
 (
   cd "$root/contracts/cw-reality"
   cargo run --locked --example schema >/dev/null
@@ -23,7 +26,12 @@ cp "$types_schema" "$snapshot/pm-types.json"
   cd "$root/contracts"
   cargo run --locked -p pm-types --example pm_types_schema >/dev/null
 )
+(
+  cd "$root/contracts/binary-market"
+  cargo run --locked --example binary_market_schema >/dev/null
+)
 # cosmwasm-schema also emits ignored per-message files; the maintained artifact
 # in this repository is the combined schema only.
 cmp "$snapshot/cw-reality.json" "$reality_schema"
 cmp "$snapshot/pm-types.json" "$types_schema"
+cmp "$snapshot/binary-market.json" "$market_schema"
