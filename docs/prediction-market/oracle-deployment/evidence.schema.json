@@ -18,7 +18,7 @@
     },
     "contract_info": {
       "type": "object", "additionalProperties": false, "required": ["address", "code_id", "admin"],
-      "properties": {"address": {"type": "string", "pattern": "^juno1"}, "code_id": {"type": "integer", "minimum": 1}, "admin": {"type": ["string", "null"]}}
+      "properties": {"address": {"type": "string", "pattern": "^juno1[023456789acdefghjklmnpqrstuvwxyz]{58}$"}, "code_id": {"type": "integer", "minimum": 1}, "admin": {"type": ["string", "null"]}}
     },
     "config": {
       "type": "object", "additionalProperties": false,

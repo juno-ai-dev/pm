@@ -25,7 +25,7 @@
   "deployment": {
     "chain_id": "juno-1",
     "code_id": 7000,
-    "contract_address": "juno1fixturecontract0000000000000000000000000",
+    "contract_address": "juno1qqqsyqcyq5rqwzqfpg9scrgwpugpzysnzs23v9ccrydpk8qarc0s9c0m82",
     "chain_admin": null,
     "stored_admin": null,
     "config": {

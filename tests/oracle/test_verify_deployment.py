@@ -90,7 +90,11 @@ class VerifyDeploymentTests(unittest.TestCase):
             ("bond floor", lambda m: m["deployment"]["config"].__setitem__("min_initial_bond_floor", "1")),
             ("timeout floor", lambda m: m["deployment"]["config"].__setitem__("min_answer_timeout_secs", 1)),
             ("code id", lambda m: m["deployment"].__setitem__("code_id", 0)),
-            ("address", lambda m: m["deployment"].__setitem__("contract_address", "cosmos1wrong")),
+            ("address wrong HRP", lambda m: m["deployment"].__setitem__("contract_address", "cosmos1qqqsyqcyq5rqwzqfpg9scrgwpugpzysnzs23v9ccrydpk8qarc0s9c0m82")),
+            ("address truncated", lambda m: m["deployment"].__setitem__("contract_address", "juno1")),
+            ("address invalid character", lambda m: m["deployment"].__setitem__("contract_address", "juno1NOTBECH32")),
+            ("address bad checksum", lambda m: m["deployment"].__setitem__("contract_address", "juno1qqqsyqcyq5rqwzqfpg9scrgwpugpzysnzs23v9ccrydpk8qarc0s9c0m8q")),
+            ("account-length address", lambda m: m["deployment"].__setitem__("contract_address", "juno1qqqsyqcyq5rqwzqfpg9scrgwpugpzysn4yjpk9")),
             ("audit", lambda m: m["audit"].__setitem__("status", "pending")),
         ]
         for label, mutate in mutations:

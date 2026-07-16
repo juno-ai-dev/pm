@@ -21,6 +21,7 @@ TRUSTED_OPTIMIZER_DIGEST = "sha256:7e0b9229c1a4118d0c9a2af2e7f5d95a91f264c26a2ce
 TRUSTED_CHAIN_ID = "juno-1"
 TRUSTED_MIN_BOND = "10000000"
 TRUSTED_MIN_TIMEOUT = 86400
+BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
 
 class VerificationError(Exception):
@@ -58,6 +59,46 @@ def require_sha256(value: str, label: str) -> str:
     if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
         fail(f"{label} must be a lowercase 64-character SHA-256")
     return value
+
+
+def validate_contract_address(address: str) -> None:
+    """Validate a canonical Juno Bech32 contract address with a 32-byte payload."""
+    if address != address.lower() or len(address) > 90:
+        fail("contract address must be canonical lowercase Bech32")
+    separator = address.rfind("1")
+    if separator < 1 or address[:separator] != "juno" or len(address) - separator - 1 < 7:
+        fail("contract address must use the juno Bech32 HRP")
+    try:
+        values = [BECH32_CHARSET.index(char) for char in address[separator + 1:]]
+    except ValueError:
+        fail("contract address contains invalid Bech32 characters")
+
+    expanded_hrp = [ord(char) >> 5 for char in "juno"] + [0]
+    expanded_hrp += [ord(char) & 31 for char in "juno"]
+    polymod = 1
+    generators = (0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3)
+    for value in expanded_hrp + values:
+        top = polymod >> 25
+        polymod = (polymod & 0x1FFFFFF) << 5 ^ value
+        for bit, generator in enumerate(generators):
+            if (top >> bit) & 1:
+                polymod ^= generator
+    if polymod != 1:
+        fail("contract address has an invalid Bech32 checksum")
+
+    accumulator = 0
+    bits = 0
+    decoded = bytearray()
+    for value in values[:-6]:
+        accumulator = (accumulator << 5) | value
+        bits += 5
+        while bits >= 8:
+            bits -= 8
+            decoded.append((accumulator >> bits) & 0xFF)
+    if bits >= 5 or (bits and ((accumulator << (8 - bits)) & 0xFF)):
+        fail("contract address has non-canonical Bech32 padding")
+    if len(decoded) != 32:
+        fail("contract address must contain a 32-byte CosmWasm contract payload")
 
 
 def git(repo: Path, *args: str) -> str:
@@ -136,8 +177,9 @@ def verify(manifest: dict[str, Any], evidence: dict[str, Any], artifact: Path, r
         fail("deployment chain must be juno-1")
     code_id = field(deployment, "code_id", int, "manifest.deployment")
     address = field(deployment, "contract_address", str, "manifest.deployment")
-    if code_id <= 0 or not address.startswith("juno1"):
-        fail("deployment code ID and contract address must identify a Juno contract")
+    if code_id <= 0:
+        fail("deployment code ID must be positive")
+    validate_contract_address(address)
     nullable(deployment, "chain_admin", "manifest.deployment")
     nullable(deployment, "stored_admin", "manifest.deployment")
     expected_config = field(deployment, "config", dict, "manifest.deployment")
