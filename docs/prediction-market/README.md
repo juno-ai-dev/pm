@@ -29,6 +29,7 @@ This directory is the accepted review packet required by [GOAL.md](../../GOAL.md
 - [Height-pinned Juno and oracle snapshot](evidence/2026-07-15-juno.md)
 - [Byte-exact two-provider Juno archive](evidence/raw/39830878/README.md)
 - [Deployed-oracle wasm reproducibility attempt](evidence/oracle-wasm-reproducibility.md)
+- [Frozen oracle artifact/deployment runbook and verifier](oracle-deployment/README.md)
 - [Height-pinned Osmosis JUNO liquidity and one-day volatility](evidence/2026-07-15-osmosis-juno-liquidity.md)
 
 Every memo uses these labels:
