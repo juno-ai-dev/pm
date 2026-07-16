@@ -1,0 +1,4 @@
+# CosmWasm contracts intentionally import VM host functions that wasm-ld cannot
+# resolve locally. Keep this scoped to the Wasm contract workspace.
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-arg=--allow-undefined"]
