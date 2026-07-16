@@ -61,11 +61,11 @@ fn setup(cap: u128) -> (App, Addr) {
             .unwrap();
         router
             .bank
-            .init_balance(storage, &alice, vec![coin(1_000, "ujuno")])
+            .init_balance(storage, &alice, vec![coin(10_000, "ujuno")])
             .unwrap();
         router
             .bank
-            .init_balance(storage, &bob, vec![coin(1_000, "ujuno")])
+            .init_balance(storage, &bob, vec![coin(10_000, "ujuno")])
             .unwrap();
     });
     app.update_block(|block| block.time = cosmwasm_std::Timestamp::from_seconds(NOW));
@@ -279,52 +279,74 @@ fn merge_works_after_close_and_failed_bank_send_rolls_back() {
 }
 
 #[test]
-fn forced_funds_and_deterministic_sequences_do_not_create_claims() {
-    let (mut app, market) = setup(10_000);
-    let tracked = accounting(&app, &market);
-    app.send_tokens(
-        Addr::unchecked("alice"),
-        market.clone(),
-        &[coin(7, "ujuno")],
-    )
-    .unwrap();
-    assert_eq!(accounting(&app, &market), tracked);
+fn forced_funds_and_seeded_random_sequences_do_not_create_claims() {
+    // Fixed seeds make failures reproducible while exercising varied owners,
+    // amounts, split/merge ordering, and forced bank transfers.
+    for initial_seed in [1u64, 0x5eed, 0xdead_beef] {
+        let (mut app, market) = setup(10_000);
+        let mut alice = 0u128;
+        let mut bob = 0u128;
+        let mut forced_excess = 0u128;
+        let mut random = initial_seed;
 
-    let mut alice = 0u128;
-    let mut bob = 0u128;
-    for step in 0..64u128 {
-        let (owner, balance) = if step % 2 == 0 {
-            ("alice", &mut alice)
-        } else {
-            ("bob", &mut bob)
-        };
-        if step % 3 != 2 || *balance < 10 {
-            app.execute_contract(
-                Addr::unchecked(owner),
-                market.clone(),
-                &ExecuteMsg::Split {
-                    amount: Uint128::new(10),
-                },
-                &[coin(10, "ujuno")],
-            )
-            .unwrap();
-            *balance += 10;
-        } else {
-            app.execute_contract(
-                Addr::unchecked(owner),
-                market.clone(),
-                &ExecuteMsg::Merge {
-                    amount: Uint128::new(10),
-                },
-                &[],
-            )
-            .unwrap();
-            *balance -= 10;
+        for step in 0..96u64 {
+            random = random
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1);
+            let (owner, balance) = if random & 1 == 0 {
+                ("alice", &mut alice)
+            } else {
+                ("bob", &mut bob)
+            };
+            let amount = (((random >> 8) % 5) as u128 + 1) * 10;
+
+            if (random >> 16) & 1 == 1 && *balance >= amount {
+                app.execute_contract(
+                    Addr::unchecked(owner),
+                    market.clone(),
+                    &ExecuteMsg::Merge {
+                        amount: Uint128::new(amount),
+                    },
+                    &[],
+                )
+                .unwrap();
+                *balance -= amount;
+            } else {
+                app.execute_contract(
+                    Addr::unchecked(owner),
+                    market.clone(),
+                    &ExecuteMsg::Split {
+                        amount: Uint128::new(amount),
+                    },
+                    &[coin(amount, "ujuno")],
+                )
+                .unwrap();
+                *balance += amount;
+            }
+
+            if step % 11 == 0 {
+                let forced = ((random >> 24) % 7) as u128 + 1;
+                app.send_tokens(
+                    Addr::unchecked("factory"),
+                    market.clone(),
+                    &[coin(forced, "ujuno")],
+                )
+                .unwrap();
+                forced_excess += forced;
+            }
+
+            let a = accounting(&app, &market);
+            assert_eq!(a.total_yes, a.principal);
+            assert_eq!(a.total_no, a.principal);
+            assert_eq!(a.pool_yes.u128() + alice + bob, a.total_yes.u128());
+            assert_eq!(a.pool_no.u128() + alice + bob, a.total_no.u128());
+            assert_eq!(
+                app.wrap()
+                    .query_balance(market.to_string(), "ujuno")
+                    .unwrap()
+                    .amount,
+                a.principal + Uint128::new(forced_excess)
+            );
         }
-        let a = accounting(&app, &market);
-        assert_eq!(a.total_yes, a.principal);
-        assert_eq!(a.total_no, a.principal);
-        assert_eq!(a.pool_yes.u128() + alice + bob, a.total_yes.u128());
-        assert_eq!(a.pool_no.u128() + alice + bob, a.total_no.u128());
     }
 }
