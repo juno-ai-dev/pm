@@ -1,6 +1,6 @@
 # R4 — Juno, collateral, and contract topology
 
-**Status:** candidate topology decision  
+**Status:** accepted topology decision (2026-07-16); deployment evidence remains open
 **Chain evidence:** juno-1 heights 39,829,829 and 39,830,878; Osmosis height 66,387,548
 
 ## Decision
@@ -77,7 +77,7 @@ Observed values and raw evidence are in [the snapshot](evidence/2026-07-15-juno.
 | Governance precedent | Passed proposals 357 and 363 used x/gov-originated `MsgExecuteContract` |
 | Single-venue liquidity | Osmosis pools 497/498 held 1.068m JUNO total; one-day TWAP sample only |
 
-Block limits are not safe transaction limits. The phase has no market wasm artifact, so it cannot honestly report instantiate, storage, trade, or resolution gas. Candidate 16-KiB question and 4-KiB discoverability-metadata limits remain contingent on implementation-phase gas measurement. That measurement must cover worst-case events and reply queries, not just a happy-path simulation.
+Block limits are not safe transaction limits. The phase has no market wasm artifact, so it cannot honestly report instantiate, storage, trade, or resolution gas. The accepted 16-KiB question and 4-KiB discoverability-metadata limits remain contingent on implementation-phase gas measurement before deployment. That measurement must cover worst-case events and reply queries, not just a happy-path simulation.
 
 wasmd v0.54 exposes Instantiate2 at the platform version level. The architecture does not depend on it: the instantiated market knows its own address and asks its question from instantiate/reply. If future indexing uses predictable addresses, Juno must separately rehearse creator, salt, checksum, and canonical-address derivation.
 
@@ -104,7 +104,7 @@ multi-market total =
   one instantiate + N × (market-key prefixes + market state)
 ~~~
 
-The multi-market design will be cheaper in repeated base state and address indexing. Exact difference is missing because generating a candidate contract solely to benchmark it is prohibited in this phase. The safety benefit of directly auditable isolated balances is load-bearing and outweighs an unmeasured cost optimization for v1. A future change requires measured gas/storage, an incident-blast-radius review, and an ADR; it cannot migrate old balances.
+The multi-market design will be cheaper in repeated base state and address indexing. Exact difference remains missing and is now authorized implementation-measurement work. The safety benefit of directly auditable isolated balances is load-bearing and outweighs an unmeasured cost optimization for v1. A future change requires measured gas/storage, an incident-blast-radius review, and an ADR; it cannot migrate old balances.
 
 ## Factory
 
@@ -130,7 +130,7 @@ Objective factory bounds include:
 - market code ID/checksum represented by the factory;
 - close/open ordering, minimum lead time, and maximum duration;
 - initial liquidity, fee, question/metadata size, oracle bond/bounty, challenge bond, and collateral cap ranges;
-- AnswerType Bool, answer_schema None, 24-hour answer timeout, and candidate 21-day arbitration timeout.
+- AnswerType Bool, answer_schema None, 24-hour answer timeout, and accepted 21-day arbitration timeout.
 
 It cannot enforce prose quality, legality, geographic eligibility, or source truth.
 

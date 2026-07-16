@@ -1,6 +1,6 @@
 # R5 — Product, legal, content, and operations
 
-**Status:** candidate risk and operations specification  
+**Status:** architecture/product posture accepted 2026-07-16; issue #26 legal and operational-readiness evidence remains open
 **Not legal advice:** qualified counsel must advise the actual contributors and interface/indexer operators in every jurisdiction they touch
 
 ## Product posture
@@ -193,4 +193,4 @@ Names, time zones, contact methods, backup coverage, and authority limits are an
 
 ## Launch acceptance
 
-The product/operations workstream is not accepted until counsel advice is attached, content reviewers and incident roles are named, monitoring is exercised against test/canary events, every warning is usability-tested, and an independent reviewer confirms that unlisting cannot influence settlement.
+The product/operations architecture is accepted, but issue #26 remains the readiness gate until counsel advice is attached, content reviewers and incident roles are named, monitoring is exercised against test/canary events, every warning is usability-tested, and an independent reviewer confirms that unlisting cannot influence settlement. No qualified legal advice is claimed here.

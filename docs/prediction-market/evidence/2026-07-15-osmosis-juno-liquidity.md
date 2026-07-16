@@ -45,7 +45,7 @@ counter_out = counter_reserve × net_in / (juno_reserve + net_in)
 | 497 | 0.056207% | 126.825572894 OSMO | 0.056007% | 0.355839% |
 | 498 | 0.028094% | 2.742881636 ATOM | 0.028002% | 0.327918% |
 
-Inference: the candidate 200-JUNO market collateral cap is small relative to these two observed external reserves. That helps bound an ordinary holder's exit-slippage concern at this snapshot. It does **not** prove that 200 JUNO is a safe prediction-market cap: oracle corruption value, event-driven inventory risk, governance delay, user concentration, and native-Juno venue availability remain separate constraints.
+Inference: the then-candidate, now-accepted 200-JUNO market collateral cap is small relative to these two observed external reserves. That helps bound an ordinary holder's exit-slippage concern at this snapshot. It does **not** prove that 200 JUNO is a safe prediction-market cap: oracle corruption value, event-driven inventory risk, governance delay, user concentration, and native-Juno venue availability remain separate constraints.
 
 ## One-day JUNO/ATOM movement
 
@@ -91,8 +91,8 @@ This is only one day, one pair, and a TWAP-smoothed series. It is deliberately n
 
 ## Parameter consequence
 
-This snapshot supplies a primary, reproducible single-venue measurement that was previously absent. It supports keeping a canary market small relative to external reserves, but it does not close either quantitative gate:
+This snapshot supplies a primary, reproducible single-venue measurement that was previously absent. It supports the accepted small-canary decision relative to external reserves, but it does not close deployment or scaling evidence gates:
 
-- the 200-JUNO cap still needs explicit risk acceptance against the 10-JUNO oracle/challenge economics and correlated positions;
-- the candidate 2% LP fee is not validated by a one-day collateral series because adverse selection is driven mainly by the event outcome and time-to-resolution;
+- the accepted 200-JUNO cap retains explicitly accepted risk against the 10-JUNO oracle/challenge economics and correlated positions;
+- the now-accepted 2% LP fee is not validated by a one-day collateral series because adverse selection is driven mainly by the event outcome and time-to-resolution;
 - venue-complete liquidity, longer-window volatility, and repeat measurements at stressed dates remain deployment-planning work.

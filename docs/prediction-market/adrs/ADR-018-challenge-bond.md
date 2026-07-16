@@ -1,6 +1,6 @@
 # ADR-018 — One-shot challenge bond
 
-**Status:** Proposed; economic risk acceptance open  
+**Status:** Accepted 2026-07-16; documented economic residual risks retained
 **Decision:** One pre-finality challenge per market escrows max(10 JUNO, current oracle bond). Governance changes snapshot: refund. Same answer or no executed pre-deadline verdict: full LP slash.
 
 ## Alternatives

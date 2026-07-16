@@ -1,6 +1,6 @@
 # R3 — Canonical question and resolution specification
 
-**Status:** candidate protocol document  
+**Status:** accepted protocol document (2026-07-16)
 **Encoding version:** juno-pm-question/1
 
 ## Binding rule
@@ -146,7 +146,7 @@ The following is illustrative, not an approved real market:
 
 The factory/market can enforce:
 
-- byte size at or below the accepted maximum (candidate 16 KiB);
+- byte size at or below the accepted maximum (16 KiB);
 - valid typed strings and exact market-constructed JCS bytes;
 - version exactly juno-pm-question/1;
 - timestamps and ordering;

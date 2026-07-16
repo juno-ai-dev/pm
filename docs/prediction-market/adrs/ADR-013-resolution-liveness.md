@@ -1,7 +1,7 @@
 # ADR-013 — Unanswered and stalled resolution
 
-**Status:** Proposed  
-**Decision:** Fund a candidate 1-JUNO bounty and operate alerts/keepers. Unanswered remains nonterminal indefinitely. Challenged arbitration cancels publicly after 21 days, slashes challenge bond, and restarts 24-hour answer finality.
+**Status:** Accepted 2026-07-16
+**Decision:** Fund a 1-JUNO bounty and operate alerts/keepers. Unanswered remains nonterminal indefinitely. Challenged arbitration cancels publicly after 21 days, slashes challenge bond, and restarts 24-hour answer finality.
 
 ## Alternatives
 

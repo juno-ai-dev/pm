@@ -1,7 +1,7 @@
 # R3 — cw-reality compatibility
 
-**Status:** candidate integration specification  
-**Canonical source:** local commit ee641534fd7b7b3677bd48d30390422ee3fbe5ed  
+**Status:** accepted integration specification (2026-07-16); audit/build and issue #4 rehearsal evidence remain open
+**Canonical source:** local commit ee641534fd7b7b3677bd48d30390422ee3fbe5ed
 **Schema:** checked-in cw-reality 0.1.0-alpha.1 combined schema, SHA-256 a50ecbb0…20af
 **Deployment snapshot:** Juno height 39,829,829
 
@@ -9,7 +9,7 @@
 
 Use cw-reality unchanged. Each market is its question's configured arbitrator-controller. Public users answer and counter-answer directly on cw-reality. A public market challenge escrows a separate bond and makes the market atomically call RequestArbitration. Only the pinned Juno x/gov module address may invoke the market's GovernanceVerdict path, which forwards SubmitArbitration so cw-reality observes the configured market sender.
 
-No existing cw-reality production address is acceptable as an immutable dependency. The recommended canary dependency is a new instance of the independently audited code, instantiated with no chain migration admin and InstantiateMsg.admin = None, a 10,000,000-ujuno initial-bond floor, and an 86,400-second answer-timeout floor. Factory tiers also pin its address, code ID, checksum, and config. These candidate values inherit the ADR-008 risk-acceptance gate.
+No existing cw-reality production address is acceptable as an immutable dependency. The accepted canary dependency is a new instance of independently audited code, instantiated with no chain migration admin and InstantiateMsg.admin = None, a 10,000,000-ujuno initial-bond floor, and an 86,400-second answer-timeout floor. Factory tiers also pin its address, code ID, checksum, and config. These values are accepted for implementation; audit, reproducible-build, and deployment evidence remain open.
 
 ## Field-by-field gate
 
@@ -24,7 +24,7 @@ No existing cw-reality production address is acceptable as an immutable dependen
 | Initial/min bond | Stored and enters ID | Must equal accepted tier floor or higher |
 | Answer timeout | Stored and enters ID | Exactly 86,400 seconds for v1 |
 | Arbitrator | Stored and enters ID | Must equal market address |
-| Arbitration timeout | Stored but omitted from ID | Exactly accepted value; candidate 1,814,400 seconds (21 days) |
+| Arbitration timeout | Stored but omitted from ID | Exactly accepted value: 1,814,400 seconds (21 days) |
 | Answer schema | Stored but omitted from ID | None in v1; a filter is not a financial safety boundary |
 | Opening timestamp | Stored and enters ID | Must equal immutable market opening_ts and be at or after close_ts |
 | Nonce | Stored and enters ID | Factory-assigned immutable nonce |
@@ -103,7 +103,7 @@ Trading fails at block.time >= close_ts independently of whether any close call 
 
 ## Public challenge and governance verdict
 
-Candidate canary challenge bond:
+Accepted canary challenge bond:
 
 ~~~text
 required = max(10,000,000 ujuno, oracle.current_bond)
@@ -152,7 +152,7 @@ Observed at height 39,829,829:
 - standard minimum deposit: 5,000 JUNO;
 - maximum deposit period: 10 days;
 - voting period: 5 days;
-- candidate arbitration window: 21 days, leaving six days after the maximum standard timeline.
+- accepted arbitration window: 21 days, leaving six days after the maximum standard timeline.
 
 The [Cosmos SDK v0.50 x/gov specification](https://docs.cosmos.network/sdk/v0.50/build/modules/gov/README) says accepted proposal messages are executed by the governance module account. The intended inner message is conceptually:
 
@@ -185,7 +185,7 @@ Stalled arbitration is bounded: at 21 days, public cancellation is possible, the
 
 An unanswered question has no protocol terminal state. V1 does not add a privileged neutral override because success requires settlement from a finalized oracle answer. Controls are:
 
-- creation-funded oracle bounty; candidate minimum 1 JUNO;
+- creation-funded oracle bounty; accepted minimum 1 JUNO;
 - monitoring at opening, +1 hour, +12 hours, +24 hours, and daily thereafter;
 - a keeper runbook that submits a canonical answer with the required oracle bond;
 - UI disclosure that no answer means collateral remains locked;
