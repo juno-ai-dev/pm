@@ -692,7 +692,16 @@ checksum = "616ec5685824bcc94416c6d4a7a446eea774a31efd7062c8480ba6fd06d7a6e5"
 name = "market-factory"
 version = "0.1.0"
 dependencies = [
+ "binary-market",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test",
+ "cw-reality",
+ "cw-storage-plus",
+ "cw-utils",
+ "cw2",
  "pm-types",
+ "thiserror",
 ]
 
 [[package]]
