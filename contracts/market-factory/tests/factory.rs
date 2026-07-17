@@ -125,7 +125,7 @@ fn app() -> App {
             .init_balance(
                 storage,
                 &Addr::unchecked("creator"),
-                vec![coin(2_000_000_000, UJUNO_DENOM), coin(10, "uatom")],
+                vec![coin(20_000_000_000, UJUNO_DENOM), coin(10, "uatom")],
             )
             .unwrap();
     })
@@ -141,7 +141,7 @@ fn tier() -> TierConfig {
         answer_timeout_secs: question::ANSWER_TIMEOUT_SECS,
         arbitration_timeout_secs: question::ARBITRATION_TIMEOUT_SECS,
         fee_bps: 200,
-        min_trade: Uint128::new(1_000_000),
+        min_trade: Uint128::new(10_000),
         max_trade_bps: 2_500,
         collateral_cap: Uint128::new(200_000_000),
         challenge_bond: Uint128::new(10_000_000),
@@ -317,13 +317,6 @@ fn exact_profile_factory_nonce_and_identity_rich_events() {
 
     let info = app.wrap().query_wasm_contract_info(&record.market).unwrap();
     assert_eq!(info.admin, None);
-    assert_eq!(
-        info.code_id,
-        app.wrap()
-            .query_wasm_contract_info(&record.market)
-            .unwrap()
-            .code_id
-    );
     let factory_info = app.wrap().query_wasm_contract_info(&factory).unwrap();
     assert_eq!(factory_info.admin, None);
 
@@ -340,6 +333,7 @@ fn exact_profile_factory_nonce_and_identity_rich_events() {
     assert_eq!(config.verdict_authority, DAO);
     assert_eq!(config.collateral_denom, UJUNO_DENOM);
     assert!(!config.market_checksum.is_empty());
+    assert_eq!(info.code_id, config.market_code_id);
 
     for action in ["market_created", "market_activated"] {
         let event = response
@@ -546,7 +540,7 @@ fn instantiate_rejects_every_profile_deviation_and_weak_oracle() {
         |m| m.tier.answer_timeout_secs += 1,
         |m| m.tier.arbitration_timeout_secs += 1,
         |m| m.tier.fee_bps = 201,
-        |m| m.tier.min_trade = Uint128::new(999_999),
+        |m| m.tier.min_trade = Uint128::new(9_999),
         |m| m.tier.max_trade_bps = 2_499,
         |m| m.tier.challenge_bond = Uint128::new(9_999_999),
         |m| m.oracle_min_initial_bond_floor = Uint128::new(9_999_999),
@@ -710,6 +704,17 @@ fn rejects_wrong_oracle_code_checksum_admin_and_market_checksum() {
             None
         )
         .is_err());
+
+    assert!(app
+        .instantiate_contract(
+            codes.factory_id,
+            Addr::unchecked("creator"),
+            &factory_msg(&codes, &oracle),
+            &[coin(1, UJUNO_DENOM)],
+            "funded-factory",
+            None
+        )
+        .is_err());
 }
 
 #[test]
@@ -755,7 +760,7 @@ fn wrong_child_identity_config_or_question_reverts_everything() {
 #[test]
 fn pagination_default_max_zero_rejection_and_next_cursor() {
     let (mut app, factory) = setup();
-    for _ in 0..3 {
+    for _ in 0..101 {
         execute_create(&mut app, &factory, create()).unwrap();
     }
     let first: ListMarketsResponse = app
@@ -785,14 +790,16 @@ fn pagination_default_max_zero_rejection_and_next_cursor() {
         .unwrap();
     assert_eq!(
         second.markets.iter().map(|m| m.nonce).collect::<Vec<_>>(),
-        vec![2]
+        vec![2, 3]
     );
-    assert_eq!(second.next_start_after_nonce, None);
+    assert_eq!(second.next_start_after_nonce, Some(3));
 
     let default = list(&app, &factory, None);
-    assert_eq!(default.markets.len(), 3);
+    assert_eq!(default.markets.len(), 50);
+    assert_eq!(default.next_start_after_nonce, Some(49));
     let capped = list(&app, &factory, Some(u32::MAX));
-    assert_eq!(capped.markets.len(), 3);
+    assert_eq!(capped.markets.len(), 100);
+    assert_eq!(capped.next_start_after_nonce, Some(99));
     assert!(app
         .wrap()
         .query_wasm_smart::<ListMarketsResponse>(

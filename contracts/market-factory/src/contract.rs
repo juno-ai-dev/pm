@@ -36,9 +36,12 @@ pub const V1_VERDICT_AUTHORITY: &str =
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+    if !info.funds.is_empty() {
+        return Err(ContractError::InvalidFunds);
+    }
     validate_tier(&msg)?;
     let oracle = deps.api.addr_validate(&msg.oracle)?;
     let verdict_authority = deps.api.addr_validate(&msg.verdict_authority)?;
@@ -112,7 +115,7 @@ fn validate_tier(msg: &InstantiateMsg) -> Result<(), ContractError> {
         || t.answer_timeout_secs != question::ANSWER_TIMEOUT_SECS
         || t.arbitration_timeout_secs != question::ARBITRATION_TIMEOUT_SECS
         || t.fee_bps != 200
-        || t.min_trade != Uint128::new(1_000_000)
+        || t.min_trade != Uint128::new(10_000)
         || t.max_trade_bps != 2_500
         || t.challenge_bond != Uint128::new(10_000_000)
         || msg.oracle_min_initial_bond_floor != Uint128::new(10_000_000)
