@@ -34,7 +34,7 @@ The interoperable representation is JSON Canonicalization Scheme (JCS) as specif
   "close_ts": 0,
   "collateral_denom": "ujuno",
   "definitions": [],
-  "governance_verdict_authority": "juno10d07y265gmmuvt4z0w9aw880jnsr700jvss730",
+  "verdict_authority": "juno18k65at7fkf8elhece0fnhsvuxggqg6cved6trp5fyk3lftfn93xsmpeaac",
   "invalid_conditions": [],
   "language": "en",
   "market_controller": "<market address>",
@@ -122,7 +122,7 @@ The following is illustrative, not an approved real market:
   "close_ts":1798671600,
   "collateral_denom":"ujuno",
   "definitions":["Published means visible in the named JSON feed with a non-null final field."],
-  "governance_verdict_authority":"juno10d07y265gmmuvt4z0w9aw880jnsr700jvss730",
+  "verdict_authority":"juno18k65at7fkf8elhece0fnhsvuxggqg6cved6trp5fyk3lftfn93xsmpeaac",
   "invalid_conditions":["The named feed is permanently retired and its stated archival fallback is unavailable by the revision deadline."],
   "language":"en",
   "market_controller":"<market address>",
@@ -151,7 +151,7 @@ The factory/market can enforce:
 - version exactly juno-pm-question/1;
 - timestamps and ordering;
 - ujuno collateral/bond denoms;
-- pinned oracle, market controller, and governance authority;
+- pinned oracle, market controller, and immutable verdict authority (the Juno Agents DAO core in v1; x/gov compatibility is deferred);
 - tier bond/timeouts/caps;
 - exact answer and payout tables;
 - nonempty title, proposition, source list, invalid conditions, and policies.

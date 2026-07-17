@@ -403,7 +403,6 @@ fn execute_challenge_at(
             oracle_bond,
             started_at: now,
             deadline,
-            refundable: true,
             oracle_snapshot: actual.question,
         },
     )?;
@@ -437,14 +436,19 @@ fn execute_challenge_at(
         .add_event(
             Event::new("juno_pm_v1")
                 .add_attribute("action", "challenge_requested")
+                .add_attribute("protocol_version", "1")
+                .add_attribute("factory", config.factory.to_string())
                 .add_attribute("market", env.contract.address)
-                .add_attribute("verdict_authority", config.verdict_authority.to_string())
+                .add_attribute("height", env.block.height.to_string())
+                .add_attribute("block_time", env.block.time.seconds().to_string())
+                .add_attribute("authority", config.verdict_authority.to_string())
                 .add_attribute("challenger", info.sender)
                 .add_attribute("question_id", question_id.to_base64())
+                .add_attribute("answer_hex", hex::encode(answer.as_slice()))
                 .add_attribute("answer_base64", answer.to_base64())
                 .add_attribute("oracle_bond", oracle_bond)
                 .add_attribute("challenge_bond", required)
-                .add_attribute("deadline", deadline.to_string()),
+                .add_attribute("arbitration_deadline", deadline.to_string()),
         ))
 }
 
@@ -470,7 +474,7 @@ fn verify_pending_challenge(
 
 fn execute_governance_verdict(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     config: &Config,
     challenge: &state::Challenge,
     question_id: Binary,
@@ -498,7 +502,7 @@ fn execute_governance_verdict(
     )?;
     let submit = OracleExecuteMsg::SubmitArbitration {
         question_id: question_id.clone(),
-        winning_answer: answer,
+        winning_answer: answer.clone(),
         payee: payee.to_string(),
     };
     Ok(Response::new()
@@ -510,9 +514,20 @@ fn execute_governance_verdict(
             },
             REPLY_GOVERNANCE_VERDICT,
         ))
-        .add_attribute("action", "governance_verdict_forwarded")
-        .add_attribute("verdict_authority", config.verdict_authority.to_string())
-        .add_attribute("question_id", question_id.to_base64()))
+        .add_event(
+            Event::new("juno_pm_v1")
+                .add_attribute("action", "governance_verdict_forwarded")
+                .add_attribute("protocol_version", "1")
+                .add_attribute("factory", config.factory.to_string())
+                .add_attribute("market", env.contract.address)
+                .add_attribute("height", env.block.height.to_string())
+                .add_attribute("block_time", env.block.time.seconds().to_string())
+                .add_attribute("authority", config.verdict_authority.to_string())
+                .add_attribute("question_id", question_id.to_base64())
+                .add_attribute("answer_hex", hex::encode(answer.as_slice()))
+                .add_attribute("answer_base64", answer.to_base64())
+                .add_attribute("payee", payee.to_string()),
+        ))
 }
 
 fn verify_finalized_verdict(
@@ -585,10 +600,30 @@ fn settle_challenge(
     state::CHALLENGE.remove(deps.storage);
     state::REPLY_IN_PROGRESS.remove(deps.storage);
     let event = Event::new("juno_pm_v1")
-        .add_attribute("action", "challenge_settled")
+        .add_attribute(
+            "action",
+            if refund {
+                "challenge_refunded"
+            } else {
+                "challenge_slashed"
+            },
+        )
+        .add_attribute("protocol_version", "1")
+        .add_attribute("factory", config.factory.to_string())
         .add_attribute("market", env.contract.address.to_string())
+        .add_attribute("height", env.block.height.to_string())
+        .add_attribute("block_time", env.block.time.seconds().to_string())
+        .add_attribute("authority", config.verdict_authority.to_string())
         .add_attribute("challenger", challenge.challenger.to_string())
         .add_attribute("amount", amount)
+        .add_attribute(
+            "recipient",
+            if refund {
+                challenge.challenger.to_string()
+            } else {
+                config.initial_lp.to_string()
+            },
+        )
         .add_attribute(
             "disposition",
             if refund { "refunded" } else { "slashed_to_lp" },
@@ -1268,9 +1303,14 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
                 Ok(Response::new().add_event(
                     Event::new("juno_pm_v1")
                         .add_attribute("action", "challenge_pending")
+                        .add_attribute("protocol_version", "1")
+                        .add_attribute("factory", config.factory.to_string())
                         .add_attribute("market", env.contract.address)
+                        .add_attribute("height", env.block.height.to_string())
+                        .add_attribute("block_time", env.block.time.seconds().to_string())
+                        .add_attribute("authority", config.verdict_authority.to_string())
                         .add_attribute("question_id", question_id.to_base64())
-                        .add_attribute("deadline", challenge.deadline.to_string()),
+                        .add_attribute("arbitration_deadline", challenge.deadline.to_string()),
                 ))
             }
             ReplyInProgress::GovernanceVerdict { answer, payee } => {
@@ -1684,7 +1724,6 @@ mod activation_verification_tests {
             oracle_bond: pre.question.current_bond,
             started_at: 10_000,
             deadline: 11_000,
-            refundable: true,
             oracle_snapshot: pre.question.clone(),
         };
         let mut actual = pre;
@@ -2064,7 +2103,6 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 oracle_bond: challenge.as_ref().map(|value| value.oracle_bond),
                 started_at: challenge.as_ref().map(|value| value.started_at),
                 deadline: challenge.as_ref().map(|value| value.deadline),
-                refundable: challenge.as_ref().is_some_and(|value| value.refundable),
             })
         }
         QueryMsg::Solvency {} => {

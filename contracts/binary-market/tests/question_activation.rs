@@ -72,17 +72,17 @@ fn python_jcs_and_canonical_address_length_vectors_match() {
     );
     assert_eq!(
         hex::encode(hash.as_slice()),
-        "1468cf7ea1f2f55ada3949e577c5b6ae1b934170b130785dfbc725dafa503262"
+        "32d83b69bf05ee6756537ae42aec171a9766de7b17e84a921cb646ddf7677866"
     );
     let content_hash: [u8; 32] = hash.as_slice().try_into().unwrap();
     for (length, expected) in [
         (
             20usize,
-            "2e8c9073429ebc634f6f8b25a69346676615fe3cd496de9454874f7cac743321",
+            "60705ad7ffcc9b3447d35053343d1e89b6559c5bb42da0d1fddf095fbfe5f1e9",
         ),
         (
             32usize,
-            "9003cb12ed3142fcdc1b13f1102cb43ea0b99a50c0ae8216f31ba4aa810418e9",
+            "f1dd19b4b83108b4073d0a2469f93bb0c88cc850436774aeed73e60cc20b3e3e",
         ),
     ] {
         let oracle: Vec<u8> = (0..length as u8).collect();

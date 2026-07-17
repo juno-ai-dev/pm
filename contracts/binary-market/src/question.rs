@@ -65,7 +65,6 @@ struct CanonicalDocument<'a> {
     close_ts: u64,
     collateral_denom: &'static str,
     definitions: &'a [String],
-    governance_verdict_authority: &'a str,
     invalid_conditions: &'a [String],
     language: &'static str,
     market_controller: &'a str,
@@ -82,6 +81,7 @@ struct CanonicalDocument<'a> {
     secondary_sources: Vec<SourceDocument<'a>>,
     source_disagreement_policy: &'a str,
     title: &'a str,
+    verdict_authority: &'a str,
 }
 
 #[derive(Serialize)]
@@ -253,7 +253,6 @@ pub fn canonical_question(
         close_ts,
         collateral_denom: "ujuno",
         definitions: &input.definitions,
-        governance_verdict_authority: governance.as_str(),
         invalid_conditions: &input.invalid_conditions,
         language: "en",
         market_controller: market.as_str(),
@@ -287,6 +286,7 @@ pub fn canonical_question(
             .collect(),
         source_disagreement_policy: &input.source_disagreement_policy,
         title: &input.title,
+        verdict_authority: governance.as_str(),
     };
     let bytes = serde_json::to_vec(&document)
         .map_err(|e| ContractError::InvalidConfig(format!("question JCS encoding failed: {e}")))?;

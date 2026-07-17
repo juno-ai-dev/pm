@@ -23,7 +23,7 @@ Notation: P locked principal; Y/N total outcome supply; rY/rN pool reserves; F L
 14. **Dust ownership:** each division has the immutable rule in R1. No action splitting improves caller entitlement.
 15. **Path independence:** per-address neutral and LP claims use cumulative floors; equivalent partitions have the same final whole payout.
 16. **Challenge segregation:** C never enters P, reserves, bounty, F, or spendable surplus and is released/slashed exactly once.
-17. **Verdict authorization:** only the immutable x/gov address can make a pending pre-deadline market forward SubmitArbitration.
+17. **Verdict authorization:** only the immutable `verdict_authority` can make a pending pre-deadline market forward `SubmitArbitration`; v1 pins the Juno Agents DAO core (`juno18k65at7fkf8elhece0fnhsvuxggqg6cved6trp5fyk3lftfn93xsmpeaac`). x/gov is deferred compatibility, not the v1 authority.
 18. **Immutability:** chain admins for factory/market/oracle are empty; no message mutates economic config.
 19. **Cap:** any Split/Buy that would make P exceed the market tier cap rejects before state change.
 20. **No sweep:** no address can convert forced funds, abandoned positions, or live redemption liabilities into an admin balance.
@@ -47,7 +47,7 @@ These values are the accepted first-release implementation envelope. Acceptance 
 | Oracle bounty | 1 JUNO | Accepted answerer incentive; no evidence it guarantees service |
 | Answer timeout | 86,400 seconds | Existing production floor and Reality.eth's usual recommendation |
 | Challenge bond | max(10 JUNO, current oracle bond) | Prevents free governance freeze; can become inaccessible after high escalation |
-| Arbitration timeout | 1,814,400 seconds (21 days) | 10-day deposit + 5-day vote + 6-day margin; generic x/gov wasm precedent exists, exact rehearsal open |
+| Arbitration timeout | 1,814,400 seconds (21 days) | 10-day deposit + 5-day vote + 6-day margin for the pinned Juno Agents DAO process; x/gov compatibility is deferred |
 | Creation-to-close lead | at least 24 hours | Gives review/monitoring time; not a semantic-safety guarantee |
 | Maximum market duration | 90 days to close | Bounds LP lock/monitoring burden before resolution |
 | Opening delay | event-specific; opening_ts >= close_ts and <= close_ts + 30 days | Must reflect source availability; longer cases need a new tier/review |

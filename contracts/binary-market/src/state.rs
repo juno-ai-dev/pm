@@ -101,7 +101,6 @@ pub struct Challenge {
     pub oracle_bond: Uint128,
     pub started_at: u64,
     pub deadline: u64,
-    pub refundable: bool,
     /// Exact oracle state before `RequestArbitration`. All later arbitration
     /// transitions are verified against this consensus snapshot.
     pub oracle_snapshot: OracleQuestion,

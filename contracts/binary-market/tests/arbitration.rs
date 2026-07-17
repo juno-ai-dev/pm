@@ -6,8 +6,10 @@ use binary_market::{
     },
     question::{ObservationInput, QuestionInput, SourceInput, INVALID_HEX, NO_HEX, YES_HEX},
 };
-use cosmwasm_std::{coin, Addr, Binary, Empty, Uint128};
-use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
+use cosmwasm_std::{
+    coin, Addr, Binary, DepsMut, Empty, Env, MessageInfo, Response, StdError, Uint128,
+};
+use cw_multi_test::{App, AppBuilder, AppResponse, Contract, ContractWrapper, Executor};
 use cw_reality::{
     msg::{
         ExecuteMsg as OracleExecuteMsg, InstantiateMsg as OracleInstantiateMsg,
@@ -35,10 +37,49 @@ fn market_contract() -> Box<dyn Contract<Empty>> {
 
 fn oracle_contract() -> Box<dyn Contract<Empty>> {
     Box::new(ContractWrapper::new(
-        cw_reality::contract::execute,
+        fault_injecting_oracle_execute,
         cw_reality::contract::instantiate,
         cw_reality::contract::query,
     ))
+}
+
+// Configurable by block height so a test can fail one nested transition and
+// then prove the byte-identical retry succeeds in the same app.
+fn fault_injecting_oracle_execute(
+    mut deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: OracleExecuteMsg,
+) -> Result<Response, cw_reality::error::ContractError> {
+    let (fail_height, corrupt_height, question_id) = match &msg {
+        OracleExecuteMsg::RequestArbitration { question_id, .. } => {
+            (10_001, 10_002, Some(question_id.clone()))
+        }
+        OracleExecuteMsg::SubmitArbitration { question_id, .. } => {
+            (10_003, 10_004, Some(question_id.clone()))
+        }
+        OracleExecuteMsg::CancelArbitration { question_id } => {
+            (10_005, 10_006, Some(question_id.clone()))
+        }
+        _ => (0, 0, None),
+    };
+    if env.block.height == fail_height {
+        return Err(StdError::generic_err("injected oracle execute failure").into());
+    }
+    let response = cw_reality::contract::execute(deps.branch(), env.clone(), info, msg)?;
+    if env.block.height == corrupt_height {
+        let question_id = question_id.expect("fault modes have a question id");
+        cw_reality::state::QUESTIONS.update(
+            deps.storage,
+            question_id.as_slice(),
+            |question| -> Result<_, StdError> {
+                let mut question = question.ok_or_else(|| StdError::not_found("question"))?;
+                question.best_answer = Some(Binary::from(vec![0x45]));
+                Ok(question)
+            },
+        )?;
+    }
+    Ok(response)
 }
 
 fn question() -> QuestionInput {
@@ -81,7 +122,7 @@ fn setup(initial_answer: Binary) -> Fixture {
     let mut app = AppBuilder::new().build(|router, _, storage| {
         for (address, amount) in [
             (factory.as_str(), 2_000_000u128),
-            (answerer.as_str(), 20_000_000),
+            (answerer.as_str(), 50_000_000),
             ("challenger", 20_000_000),
             (DAO, 1_000_000),
         ] {
@@ -90,7 +131,7 @@ fn setup(initial_answer: Binary) -> Fixture {
                 .init_balance(
                     storage,
                     &Addr::unchecked(address),
-                    vec![coin(amount, "ujuno")],
+                    vec![coin(amount, "ujuno"), coin(20_000_000, "uatom")],
                 )
                 .unwrap();
         }
@@ -198,6 +239,82 @@ fn verdict(
     Ok(())
 }
 
+#[derive(Debug, PartialEq)]
+struct TransactionSnapshot {
+    challenger_ujuno: Uint128,
+    market_ujuno: Uint128,
+    challenge: ChallengeResponse,
+    accounting: AccountingResponse,
+    state: StateResponse,
+    oracle: OracleQuestionResponse,
+}
+
+fn snapshot(f: &Fixture) -> TransactionSnapshot {
+    TransactionSnapshot {
+        challenger_ujuno: f
+            .app
+            .wrap()
+            .query_balance("challenger", "ujuno")
+            .unwrap()
+            .amount,
+        market_ujuno: f
+            .app
+            .wrap()
+            .query_balance(&f.market, "ujuno")
+            .unwrap()
+            .amount,
+        challenge: f
+            .app
+            .wrap()
+            .query_wasm_smart(&f.market, &QueryMsg::Challenge {})
+            .unwrap(),
+        accounting: f
+            .app
+            .wrap()
+            .query_wasm_smart(&f.market, &QueryMsg::Accounting {})
+            .unwrap(),
+        state: f
+            .app
+            .wrap()
+            .query_wasm_smart(&f.market, &QueryMsg::State {})
+            .unwrap(),
+        oracle: f
+            .app
+            .wrap()
+            .query_wasm_smart(
+                &f.oracle,
+                &OracleQueryMsg::Question {
+                    question_id: f.qid.clone(),
+                },
+            )
+            .unwrap(),
+    }
+}
+
+fn arbitration_event<'a>(response: &'a AppResponse, action: &str) -> &'a cosmwasm_std::Event {
+    response
+        .events
+        .iter()
+        .find(|event| {
+            event.ty == "wasm-juno_pm_v1"
+                && event
+                    .attributes
+                    .iter()
+                    .any(|attribute| attribute.key == "action" && attribute.value == action)
+        })
+        .unwrap_or_else(|| panic!("missing arbitration event {action}"))
+}
+
+fn attribute(event: &cosmwasm_std::Event, key: &str) -> String {
+    event
+        .attributes
+        .iter()
+        .find(|attribute| attribute.key == key)
+        .unwrap_or_else(|| panic!("missing event attribute {key}"))
+        .value
+        .clone()
+}
+
 #[test]
 fn authority_is_exact_immutable_and_different_verdict_refunds_without_contamination() {
     let mut f = setup(bytes(YES_HEX));
@@ -219,7 +336,6 @@ fn authority_is_exact_immutable_and_different_verdict_refunds_without_contaminat
     assert_eq!(pending.oracle_bond, Some(Uint128::new(BOND)));
     assert_eq!(pending.started_at, Some(OPENING));
     assert_eq!(pending.deadline, Some(OPENING + ARBITRATION_TIMEOUT));
-    assert!(pending.refundable);
     let accounting: AccountingResponse = f
         .app
         .wrap()
@@ -453,6 +569,293 @@ fn timeout_and_direct_cancellation_synchronize_once_and_second_challenge_stays_r
                 &[],
             )
             .unwrap_err();
+    }
+}
+
+#[test]
+fn nested_oracle_failures_and_reply_verification_failures_are_atomic_and_retryable() {
+    for height in [10_001, 10_002] {
+        let mut f = setup(bytes(YES_HEX));
+        let before = snapshot(&f);
+        f.app.update_block(|block| block.height = height);
+        f.app
+            .execute_contract(
+                Addr::unchecked("challenger"),
+                f.market.clone(),
+                &ExecuteMsg::Challenge {},
+                &[coin(BOND, "ujuno")],
+            )
+            .unwrap_err();
+        assert_eq!(
+            snapshot(&f),
+            before,
+            "request mode {height} must roll back all market/oracle/bank state"
+        );
+        f.app.update_block(|block| block.height = 20_000);
+        challenge(&mut f); // also proves the reply marker was rolled back
+    }
+
+    for height in [10_003, 10_004] {
+        let mut f = setup(bytes(YES_HEX));
+        challenge(&mut f);
+        let before = snapshot(&f);
+        f.app.update_block(|block| block.height = height);
+        verdict(&mut f, DAO, bytes(NO_HEX), "answerer").unwrap_err();
+        assert_eq!(
+            snapshot(&f),
+            before,
+            "submit mode {height} must roll back all market/oracle/bank state"
+        );
+        f.app.update_block(|block| block.height = 20_000);
+        verdict(&mut f, DAO, bytes(NO_HEX), "answerer").unwrap();
+    }
+
+    for height in [10_005, 10_006] {
+        let mut f = setup(bytes(YES_HEX));
+        challenge(&mut f);
+        f.app.update_block(|block| {
+            block.time = cosmwasm_std::Timestamp::from_seconds(OPENING + ARBITRATION_TIMEOUT);
+            block.height = height;
+        });
+        let before = snapshot(&f);
+        f.app
+            .execute_contract(
+                Addr::unchecked("keeper"),
+                f.market.clone(),
+                &ExecuteMsg::FinalizeStalledChallenge {},
+                &[],
+            )
+            .unwrap_err();
+        assert_eq!(
+            snapshot(&f),
+            before,
+            "cancel mode {height} must roll back all market/oracle/bank state"
+        );
+        f.app.update_block(|block| block.height = 20_000);
+        f.app
+            .execute_contract(
+                Addr::unchecked("keeper"),
+                f.market.clone(),
+                &ExecuteMsg::FinalizeStalledChallenge {},
+                &[],
+            )
+            .unwrap();
+    }
+}
+
+#[test]
+fn challenge_funding_matrix_and_dynamic_oracle_bond_are_exact() {
+    for funds in [
+        vec![coin(BOND, "uatom")],
+        vec![coin(BOND, "ujuno"), coin(1, "uatom")],
+        vec![coin(BOND - 1, "ujuno")],
+        vec![coin(BOND + 1, "ujuno")],
+    ] {
+        let mut f = setup(bytes(YES_HEX));
+        let before = snapshot(&f);
+        f.app
+            .execute_contract(
+                Addr::unchecked("challenger"),
+                f.market.clone(),
+                &ExecuteMsg::Challenge {},
+                &funds,
+            )
+            .unwrap_err();
+        assert_eq!(snapshot(&f), before, "bad funds {funds:?} mutated state");
+    }
+
+    let mut f = setup(bytes(YES_HEX));
+    f.app
+        .execute_contract(
+            Addr::unchecked("answerer"),
+            f.oracle.clone(),
+            &OracleExecuteMsg::SubmitAnswer {
+                question_id: f.qid.clone(),
+                answer: bytes(NO_HEX),
+                current_bond_seen: Some(Uint128::new(BOND)),
+            },
+            &[coin(BOND * 2, "ujuno")],
+        )
+        .unwrap();
+    f.answer = bytes(NO_HEX);
+    f.app
+        .execute_contract(
+            Addr::unchecked("challenger"),
+            f.market.clone(),
+            &ExecuteMsg::Challenge {},
+            &[coin(BOND, "ujuno")],
+        )
+        .unwrap_err();
+    f.app
+        .execute_contract(
+            Addr::unchecked("challenger"),
+            f.market.clone(),
+            &ExecuteMsg::Challenge {},
+            &[coin(BOND * 2, "ujuno")],
+        )
+        .unwrap();
+    assert_eq!(snapshot(&f).accounting.challenge, Uint128::new(BOND * 2));
+}
+
+#[test]
+fn verdict_deadline_finalize_funds_replay_and_pending_snapshot_matrix() {
+    let mut f = setup(bytes(YES_HEX));
+    challenge(&mut f);
+    f.app.update_block(|block| {
+        block.time = cosmwasm_std::Timestamp::from_seconds(OPENING + ARBITRATION_TIMEOUT - 1)
+    });
+    verdict(&mut f, DAO, bytes(NO_HEX), "answerer").unwrap();
+    verdict(&mut f, DAO, bytes(NO_HEX), "answerer").unwrap_err();
+
+    let mut f = setup(bytes(YES_HEX));
+    challenge(&mut f);
+    f.app.update_block(|block| {
+        block.time = cosmwasm_std::Timestamp::from_seconds(OPENING + ARBITRATION_TIMEOUT)
+    });
+    let before = snapshot(&f);
+    verdict(&mut f, DAO, bytes(NO_HEX), "answerer").unwrap_err();
+    assert_eq!(snapshot(&f), before);
+    f.app
+        .execute_contract(
+            Addr::unchecked("keeper"),
+            f.market.clone(),
+            &ExecuteMsg::FinalizeStalledChallenge {},
+            &[coin(1, "ujuno")],
+        )
+        .unwrap_err();
+    assert_eq!(snapshot(&f), before);
+
+    // A directly cancelled oracle no longer matches the pending snapshot;
+    // verdict forwarding rejects without changing either contract.
+    f.app
+        .execute_contract(
+            Addr::unchecked("keeper"),
+            f.oracle.clone(),
+            &OracleExecuteMsg::CancelArbitration {
+                question_id: f.qid.clone(),
+            },
+            &[],
+        )
+        .unwrap();
+    let mismatched = snapshot(&f);
+    verdict(&mut f, DAO, bytes(NO_HEX), "answerer").unwrap_err();
+    assert_eq!(snapshot(&f), mismatched);
+}
+
+#[test]
+fn exact_arbitration_events_cover_refund_identical_and_timeout_slash() {
+    let assert_identity = |event: &cosmwasm_std::Event| {
+        assert_eq!(attribute(event, "protocol_version"), "1");
+        assert_eq!(attribute(event, "factory"), "factory");
+        assert!(!attribute(event, "market").is_empty());
+        assert!(!attribute(event, "height").is_empty());
+        assert!(!attribute(event, "block_time").is_empty());
+        assert_eq!(attribute(event, "authority"), DAO);
+    };
+
+    for (answer, action, disposition, reason, recipient) in [
+        (
+            bytes(NO_HEX),
+            "challenge_refunded",
+            "refunded",
+            "different_verdict",
+            "challenger",
+        ),
+        (
+            bytes(YES_HEX),
+            "challenge_slashed",
+            "slashed_to_lp",
+            "identical_verdict",
+            "creator",
+        ),
+    ] {
+        let mut f = setup(bytes(YES_HEX));
+        let requested = f
+            .app
+            .execute_contract(
+                Addr::unchecked("challenger"),
+                f.market.clone(),
+                &ExecuteMsg::Challenge {},
+                &[coin(BOND, "ujuno")],
+            )
+            .unwrap();
+        let request_event = arbitration_event(&requested, "challenge_requested");
+        assert_identity(request_event);
+        assert_eq!(attribute(request_event, "answer_hex"), YES_HEX);
+        assert_eq!(
+            attribute(request_event, "arbitration_deadline"),
+            (OPENING + ARBITRATION_TIMEOUT).to_string()
+        );
+
+        let response = f
+            .app
+            .execute_contract(
+                Addr::unchecked(DAO),
+                f.market.clone(),
+                &ExecuteMsg::GovernanceVerdict {
+                    question_id: f.qid.clone(),
+                    answer: answer.clone(),
+                    payee: "answerer".into(),
+                },
+                &[],
+            )
+            .unwrap();
+        let forwarded = arbitration_event(&response, "governance_verdict_forwarded");
+        assert_identity(forwarded);
+        assert_eq!(
+            attribute(forwarded, "answer_hex"),
+            hex::encode(answer.as_slice())
+        );
+        assert_eq!(attribute(forwarded, "answer_base64"), answer.to_base64());
+        assert_eq!(attribute(forwarded, "payee"), "answerer");
+        assert_eq!(attribute(forwarded, "question_id"), f.qid.to_base64());
+        let settled = arbitration_event(&response, action);
+        assert_identity(settled);
+        assert_eq!(attribute(settled, "recipient"), recipient);
+        assert_eq!(attribute(settled, "disposition"), disposition);
+        assert_eq!(attribute(settled, "reason"), reason);
+        assert_eq!(attribute(settled, "amount"), BOND.to_string());
+    }
+
+    for direct in [false, true] {
+        let mut f = setup(bytes(YES_HEX));
+        challenge(&mut f);
+        f.app.update_block(|block| {
+            block.time = cosmwasm_std::Timestamp::from_seconds(OPENING + ARBITRATION_TIMEOUT)
+        });
+        if direct {
+            f.app
+                .execute_contract(
+                    Addr::unchecked("keeper"),
+                    f.oracle.clone(),
+                    &OracleExecuteMsg::CancelArbitration {
+                        question_id: f.qid.clone(),
+                    },
+                    &[],
+                )
+                .unwrap();
+        }
+        let response = f
+            .app
+            .execute_contract(
+                Addr::unchecked("keeper"),
+                f.market.clone(),
+                &ExecuteMsg::FinalizeStalledChallenge {},
+                &[],
+            )
+            .unwrap();
+        let event = arbitration_event(&response, "challenge_slashed");
+        assert_identity(event);
+        assert_eq!(attribute(event, "recipient"), "creator");
+        assert_eq!(attribute(event, "disposition"), "slashed_to_lp");
+        assert_eq!(
+            attribute(event, "reason"),
+            if direct {
+                "oracle_already_cancelled"
+            } else {
+                "arbitration_timeout"
+            }
+        );
     }
 }
 

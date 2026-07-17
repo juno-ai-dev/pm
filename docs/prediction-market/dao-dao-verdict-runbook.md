@@ -71,9 +71,7 @@ explicit DAO review.
 
 After a separately authorized execution, but before claiming success:
 
-1. Locate market events `governance_verdict_forwarded` and
-   `challenge_settled`; verify market, authority, question ID, challenger,
-   amount, reason, and disposition.
+1. Locate market events `governance_verdict_forwarded` and the exact settlement action (`challenge_refunded` or `challenge_slashed`); verify the common identity fields (`protocol_version`, `factory`, `market`, `height`, `block_time`), `authority`, question ID, answer encodings, payee, challenger, amount, recipient, reason, and disposition.
 2. Query cw-reality and require `Finalized`, the exact chosen best answer,
    unchanged user bond, no arbitration deadline, and no pending arbitration.
 3. Query market `challenge` and require no challenger/deadline/liability.

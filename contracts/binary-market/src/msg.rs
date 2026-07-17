@@ -190,7 +190,6 @@ pub struct ChallengeResponse {
     pub oracle_bond: Option<Uint128>,
     pub started_at: Option<u64>,
     pub deadline: Option<u64>,
-    pub refundable: bool,
 }
 #[cw_serde]
 pub struct ResolutionResponse {

@@ -178,8 +178,8 @@ Every market event uses type `wasm-juno_pm_v1` and includes `action`, `protocol_
 | `split` / `merge` | `account`, `amount`, `principal_after` |
 | `trade` | `account`, `side`, `outcome`, `gross`, `net`, `fee`, `input`, `output`, `reserve_yes_before`, `reserve_no_before`, `reserve_yes_after`, `reserve_no_after`, `principal_after`, `fee_liability_after` |
 | `challenge_requested` | `challenger`, `question_id`, `answer_hex`, `answer_base64`, `oracle_bond`, `challenge_bond`, `arbitration_deadline` |
-| `governance_verdict_forwarded` | `question_id`, `answer_hex`, `answer_base64`, `payee` |
-| `challenge_refunded` / `challenge_slashed` | `challenger`, `amount`, `recipient` |
+| `governance_verdict_forwarded` | `authority`, `question_id`, `answer_hex`, `answer_base64`, `payee` |
+| `challenge_refunded` / `challenge_slashed` | `authority`, `challenger`, `amount`, `recipient`, `disposition`, `reason` |
 | `arbitration_stalled` | `question_id`, `arbitration_deadline`, `challenge_bond` |
 | `market_resolved` | `question_id`, `answer_hex`, `answer_base64`, `payout_yes_num`, `payout_no_num`, `payout_den`, `principal_at_resolution`, `terminal_liability_numerator` |
 | `positions_redeemed` | `account`, `yes_burned`, `no_burned`, `paid`, `terminal_liability_numerator_after` |

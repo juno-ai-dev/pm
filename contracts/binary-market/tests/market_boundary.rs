@@ -191,7 +191,6 @@ fn governance_is_exact_sender_and_strictly_before_deadline() {
         oracle_bond: Uint128::one(),
         started_at: 100,
         deadline: 200,
-        refundable: true,
         oracle_snapshot: OracleQuestion {
             asker: Addr::unchecked("market"),
             text: config.question.clone(),

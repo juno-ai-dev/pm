@@ -178,7 +178,7 @@ Conceptual singleton records:
 - Lifecycle: activated, payout, resolution answer/time, challenge_used;
 - Accounting: P, F, C, pool Y/N, total YES/NO, LP supply/burned/paid, neutral half-dust, LP later accrual;
 - Terminal accounting after resolution: T2 (unpaid position liability measured in half-ujuno numerator units) and resolution-time pool/user claim snapshots;
-- Challenge: challenger, answer bytes, oracle bond, start, deadline, refundable/slash status.
+- Challenge: challenger, answer bytes, oracle bond, start, deadline, and exact oracle snapshot. Refund versus slash is derived only at settlement from the verdict bytes/path; no redundant refundable flag is stored.
 
 Conceptual maps:
 
