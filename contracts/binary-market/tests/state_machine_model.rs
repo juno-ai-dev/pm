@@ -4,13 +4,13 @@
 
 use binary_market::{
     contract::{execute, instantiate, query, reply},
-    msg::{ExecuteMsg, InstantiateMsg, PositionResponse, QueryMsg},
-    question::{ObservationInput, QuestionInput, SourceInput},
+    msg::{AccountingResponse, ExecuteMsg, InstantiateMsg, PositionResponse, QueryMsg},
+    question::{ObservationInput, QuestionInput, SourceInput, INVALID_HEX, NO_HEX, YES_HEX},
     state::Accounting,
 };
-use cosmwasm_std::{coin, from_json, Addr, Empty, Timestamp, Uint128};
+use cosmwasm_std::{coin, from_json, Addr, Binary, Empty, Timestamp, Uint128};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
-use cw_reality::msg::InstantiateMsg as OracleInstantiateMsg;
+use cw_reality::msg::{ExecuteMsg as OracleExecuteMsg, InstantiateMsg as OracleInstantiateMsg};
 use num_bigint::BigUint;
 use num_traits::{ToPrimitive, Zero};
 use pm_types::{Outcome, TierId};
@@ -611,4 +611,264 @@ fn aggregate_and_partitioned_complete_sets_are_path_independent() {
         position(&aggregate, &aggregate_market, "alice"),
         position(&partitioned, &partitioned_market, "alice")
     );
+}
+
+#[derive(Clone, Copy, Debug)]
+enum TerminalPayout {
+    Yes,
+    No,
+    Neutral,
+}
+
+impl TerminalPayout {
+    fn answer(self) -> Binary {
+        Binary::from(
+            hex::decode(match self {
+                Self::Yes => YES_HEX,
+                Self::No => NO_HEX,
+                Self::Neutral => INVALID_HEX,
+            })
+            .unwrap(),
+        )
+    }
+    fn nums(self) -> (BigUint, BigUint) {
+        match self {
+            Self::Yes => (big(2), BigUint::zero()),
+            Self::No => (BigUint::zero(), big(2)),
+            Self::Neutral => (big(1), big(1)),
+        }
+    }
+}
+
+fn public_accounting(app: &App, market: &Addr) -> AccountingResponse {
+    app.wrap()
+        .query_wasm_smart(market, &QueryMsg::Accounting {})
+        .unwrap()
+}
+fn market_bank(app: &App, market: &Addr) -> u128 {
+    app.wrap()
+        .query_balance(market, "ujuno")
+        .unwrap()
+        .amount
+        .u128()
+}
+
+/// Resolve through no challenge, a refunded challenge, a slashed matching
+/// verdict, or a slashed timeout. Returns independently expected LP accrual.
+fn finalize_for_model(
+    app: &mut App,
+    market: &Addr,
+    payout: TerminalPayout,
+    challenge_path: u8,
+    trace: &[Action],
+) -> BigUint {
+    let question: binary_market::msg::QuestionResponse = app
+        .wrap()
+        .query_wasm_smart(market, &QueryMsg::Question {})
+        .unwrap();
+    let qid = question.question_id.unwrap();
+    let config: binary_market::msg::ConfigResponse = app
+        .wrap()
+        .query_wasm_smart(market, &QueryMsg::Config {})
+        .unwrap();
+    let final_answer = payout.answer();
+    let initial_answer = if challenge_path == 2 {
+        match payout {
+            TerminalPayout::Yes => TerminalPayout::No.answer(),
+            _ => TerminalPayout::Yes.answer(),
+        }
+    } else {
+        final_answer.clone()
+    };
+
+    app.update_block(|b| b.time = Timestamp::from_seconds(CLOSE + 86_400));
+    app.execute_contract(
+        Addr::unchecked("factory"),
+        Addr::unchecked(config.oracle),
+        &OracleExecuteMsg::SubmitAnswer {
+            question_id: qid.clone(),
+            answer: initial_answer,
+            current_bond_seen: Some(Uint128::zero()),
+        },
+        &[coin(10_000_000, "ujuno")],
+    )
+    .unwrap();
+    if challenge_path == 0 {
+        app.update_block(|b| b.time = b.time.plus_seconds(86_400));
+    } else {
+        let before = public_accounting(app, market);
+        app.execute_contract(
+            Addr::unchecked("carol"),
+            market.clone(),
+            &ExecuteMsg::Challenge {},
+            &[coin(10_000_000, "ujuno")],
+        )
+        .unwrap();
+        let pending = public_accounting(app, market);
+        assert_eq!(
+            pending.challenge,
+            Uint128::new(10_000_000),
+            "trace={trace:#?}"
+        );
+        assert_eq!(
+            (pending.principal, pending.fees),
+            (before.principal, before.fees)
+        );
+        if challenge_path == 3 {
+            app.update_block(|b| b.time = b.time.plus_seconds(1_814_400));
+            app.execute_contract(
+                Addr::unchecked("factory"),
+                market.clone(),
+                &ExecuteMsg::FinalizeStalledChallenge {},
+                &[],
+            )
+            .unwrap();
+            app.update_block(|b| b.time = b.time.plus_seconds(86_400));
+        } else {
+            app.execute_contract(
+                Addr::unchecked("governance"),
+                market.clone(),
+                &ExecuteMsg::GovernanceVerdict {
+                    question_id: qid,
+                    answer: final_answer,
+                    payee: "factory".into(),
+                },
+                &[],
+            )
+            .unwrap();
+        }
+    }
+    app.execute_contract(
+        Addr::unchecked("factory"),
+        market.clone(),
+        &ExecuteMsg::Resolve {},
+        &[],
+    )
+    .unwrap();
+    let settled = public_accounting(app, market);
+    assert_eq!(settled.challenge, Uint128::zero(), "trace={trace:#?}");
+    let slashed = challenge_path == 1 || challenge_path == 3;
+    assert_eq!(
+        settled.lp_accrual,
+        if slashed {
+            Uint128::new(10_000_000)
+        } else {
+            Uint128::zero()
+        }
+    );
+    if slashed {
+        big(10_000_000)
+    } else {
+        BigUint::zero()
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig { cases: 24, max_shrink_iters: 512, ..ProptestConfig::default() })]
+    #[test]
+    fn challenge_resolution_and_terminal_claims_match_biguint_model(
+        alice_split in MIN_TRADE..=2_000_000u128,
+        bob_split in MIN_TRADE..=2_000_000u128,
+        gross in MIN_TRADE..=2_000_000u128,
+        payout_index in 0u8..3,
+        challenge_path in 0u8..4,
+        lp_first in 1u128..INITIAL,
+        force in 0u128..=17,
+    ) {
+        let (mut app, market) = setup();
+        let mut model = Model::new();
+        let mut trace = Vec::new();
+        for action in [
+            Action::Split { user: 0, amount: alice_split },
+            Action::Split { user: 1, amount: bob_split },
+            Action::Buy { user: 2, yes: gross % 2 == 0, gross },
+        ] {
+            trace.push(action.clone());
+            prop_assert!(model.apply(&action), "model fixture rejected; trace={:#?}", trace);
+            prop_assert!(execute_action(&mut app, &market, &action), "contract fixture rejected; trace={:#?}", trace);
+            assert_contract_matches(&app, &market, &model, &trace);
+        }
+        if force > 0 {
+            let action = Action::Force { amount: force };
+            trace.push(action.clone());
+            prop_assert!(model.apply(&action));
+            prop_assert!(execute_action(&mut app, &market, &action));
+        }
+        let payout = match payout_index { 0 => TerminalPayout::Yes, 1 => TerminalPayout::No, _ => TerminalPayout::Neutral };
+        let mut accrual = finalize_for_model(&mut app, &market, payout, challenge_path, &trace);
+        let resolved = public_accounting(&app, &market);
+        prop_assert_eq!(resolved.principal_at_resolution.unwrap().u128(), model.principal.to_u128().unwrap());
+        prop_assert_eq!(resolved.fees_at_resolution.unwrap().u128(), model.fees.to_u128().unwrap());
+        prop_assert_eq!(resolved.terminal_liability_twice.unwrap().u128(), (&model.principal * big(2)).to_u128().unwrap());
+        prop_assert_eq!(resolved.pool_yes_at_resolution.unwrap().u128(), model.pool_yes.to_u128().unwrap());
+        prop_assert_eq!(resolved.pool_no_at_resolution.unwrap().u128(), model.pool_no.to_u128().unwrap());
+
+        let (yes_num, no_num) = payout.nums();
+        let mut terminal = &model.principal * big(2);
+        let mut half_dust = 0u8;
+        for (index, user) in USERS.iter().enumerate() {
+            let p = &model.positions[index];
+            let numerator = &p.yes * &yes_num + &p.no * &no_num;
+            let before = app.wrap().query_balance(*user, "ujuno").unwrap().amount.u128();
+            app.execute_contract(Addr::unchecked(*user), market.clone(),
+                &ExecuteMsg::RedeemPositions {
+                    yes: Uint128::new(p.yes.to_u128().unwrap()),
+                    no: Uint128::new(p.no.to_u128().unwrap()),
+                }, &[]).unwrap();
+            let after = app.wrap().query_balance(*user, "ujuno").unwrap().amount.u128();
+            prop_assert_eq!(after - before, (&numerator / big(2)).to_u128().unwrap(), "trace={:#?}", trace);
+            terminal -= &numerator;
+            if (&numerator % big(2)) == big(1) {
+                if half_dust == 1 { accrual += big(1); half_dust = 0; } else { half_dust = 1; }
+            }
+            let actual = public_accounting(&app, &market);
+            prop_assert_eq!(actual.terminal_liability_twice.unwrap().u128(), terminal.to_u128().unwrap());
+            prop_assert_eq!(actual.lp_accrual.u128(), accrual.to_u128().unwrap());
+        }
+
+        let q2 = &model.pool_yes * &yes_num + &model.pool_no * &no_num;
+        let supply = big(INITIAL);
+        let mut burned = BigUint::zero();
+        for amount in [lp_first, INITIAL - lp_first] {
+            burned += big(amount);
+            let position_paid = ((&q2 * &burned / &supply) / big(2)).to_u128().unwrap();
+            let fee_paid = (&model.fees * &burned / &supply).to_u128().unwrap();
+            app.execute_contract(Addr::unchecked("creator"), market.clone(),
+                &ExecuteMsg::RedeemLp { amount: Uint128::new(amount) }, &[]).unwrap();
+            prop_assert_eq!(public_accounting(&app, &market).lp_paid.u128(), position_paid + fee_paid,
+                "LP cumulative floor; trace={:#?}", trace);
+        }
+        terminal -= &q2;
+        if (&q2 % big(2)) == big(1) {
+            if half_dust == 1 { accrual += big(1); half_dust = 0; } else { half_dust = 1; }
+        }
+        let after_lp = public_accounting(&app, &market);
+        prop_assert!(terminal.is_zero(), "terminal conservation; trace={:#?}", trace);
+        prop_assert_eq!(after_lp.terminal_liability_twice, Some(Uint128::zero()));
+        prop_assert_eq!(after_lp.neutral_half_dust, half_dust);
+        prop_assert_eq!(after_lp.lp_accrual.u128(), accrual.to_u128().unwrap());
+        if !accrual.is_zero() {
+            app.execute_contract(Addr::unchecked("creator"), market.clone(),
+                &ExecuteMsg::ClaimLpAccrual {}, &[]).unwrap();
+        }
+        let terminal_state = public_accounting(&app, &market);
+        prop_assert_eq!(terminal_state.fees, Uint128::zero());
+        prop_assert_eq!(terminal_state.challenge, Uint128::zero());
+        prop_assert_eq!(terminal_state.lp_accrual, Uint128::zero());
+        prop_assert_eq!(terminal_state.total_yes, Uint128::zero());
+        prop_assert_eq!(terminal_state.total_no, Uint128::zero());
+        prop_assert_eq!(market_bank(&app, &market), force, "forced excess/no sweep; trace={:#?}", trace);
+
+        let before_rejection = (public_accounting(&app, &market), market_bank(&app, &market));
+        let rejected = app
+            .execute_contract(
+                Addr::unchecked("creator"),
+                market.clone(),
+                &ExecuteMsg::RedeemLp { amount: Uint128::one() },
+                &[],
+            )
+            .is_err();
+        prop_assert!(rejected);
+        prop_assert_eq!((public_accounting(&app, &market), market_bank(&app, &market)), before_rejection);
+    }
 }
