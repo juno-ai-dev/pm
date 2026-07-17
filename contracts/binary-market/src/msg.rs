@@ -2,7 +2,8 @@
 
 use crate::question::QuestionInput;
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Binary, Uint128};
+use cosmwasm_std::{Binary, Uint128, Uint512};
+use cw_reality::state::Question as OracleQuestion;
 use pm_types::{Outcome, Payout, ProtocolVersion, TierId};
 
 #[cw_serde]
@@ -142,6 +143,7 @@ pub struct IdentityResponse {
     pub protocol_version: ProtocolVersion,
     pub factory: String,
     pub market: String,
+    pub nonce: u64,
     pub question_id: Option<Binary>,
 }
 #[cw_serde]
@@ -163,6 +165,12 @@ pub struct AccountingResponse {
     pub lp_paid: Uint128,
     pub neutral_half_dust: u8,
     pub lp_accrual: Uint128,
+    pub principal_at_resolution: Option<Uint128>,
+    pub fees_at_resolution: Option<Uint128>,
+    pub pool_yes_at_resolution: Option<Uint128>,
+    pub pool_no_at_resolution: Option<Uint128>,
+    pub total_yes_at_resolution: Option<Uint128>,
+    pub total_no_at_resolution: Option<Uint128>,
 }
 #[cw_serde]
 pub struct PoolResponse {
@@ -187,42 +195,83 @@ pub struct LpPositionResponse {
 pub struct ChallengeResponse {
     pub challenger: Option<String>,
     pub answer: Option<Binary>,
+    pub answer_hex: Option<String>,
+    pub answer_base64: Option<String>,
     pub oracle_bond: Option<Uint128>,
+    pub challenge_bond: Uint128,
     pub started_at: Option<u64>,
     pub deadline: Option<u64>,
+    pub oracle_snapshot: Option<OracleQuestion>,
 }
 #[cw_serde]
 pub struct ResolutionResponse {
     pub answer: Option<Binary>,
+    pub answer_hex: Option<String>,
+    pub answer_base64: Option<String>,
     pub payout: Option<Payout>,
     pub height: Option<u64>,
     pub time: Option<u64>,
     pub principal_at_resolution: Option<Uint128>,
+    pub terminal_liability_twice: Option<Uint128>,
+    pub pool_yes_at_resolution: Option<Uint128>,
+    pub pool_no_at_resolution: Option<Uint128>,
+    pub total_yes_at_resolution: Option<Uint128>,
+    pub total_no_at_resolution: Option<Uint128>,
 }
 #[cw_serde]
 pub struct SolvencyResponse {
+    pub height: u64,
+    pub block_time: u64,
     pub bank_balance: Uint128,
-    pub principal_liability: Uint128,
+    pub principal_or_terminal_liability: Uint128,
     pub fee_liability: Uint128,
     pub challenge_liability: Uint128,
-    pub lp_accrual_liability: Uint128,
-    pub accounted_total: Uint128,
+    pub lp_whole_coin_accrual: Uint128,
+    pub accounted_liability: Uint128,
     pub forced_excess: Uint128,
+    pub shortfall: Uint128,
+    pub solvent: bool,
 }
 #[cw_serde]
 pub struct QuestionResponse {
     pub text: String,
     pub hash: Binary,
+    pub hash_hex: String,
+    pub hash_base64: String,
     pub nonce: u64,
     pub question_id: Option<Binary>,
     pub oracle: String,
     pub opening_ts: u64,
     pub close_ts: u64,
+    pub yes_answer_hex: String,
+    pub yes_answer_base64: String,
+    pub no_answer_hex: String,
+    pub no_answer_base64: String,
+    pub invalid_answer_hex: String,
+    pub invalid_answer_base64: String,
+    pub unresolved_answer_hex: String,
+    pub unresolved_answer_base64: String,
 }
+
+/// Exact rational wire value. `Uint512` serializes as an unsigned decimal
+/// string and safely holds cross-products used by price impact.
+#[cw_serde]
+pub struct ExactRatio {
+    pub numerator: Uint512,
+    pub denominator: Uint512,
+}
+
+#[cw_serde]
+pub enum ImpactDirection {
+    Up,
+    Down,
+    Flat,
+}
+
 #[cw_serde]
 pub struct QuoteResponse {
     pub height: u64,
-    pub time: u64,
+    pub block_time: u64,
     pub outcome: Outcome,
     pub gross: Uint128,
     pub net: Uint128,
@@ -233,8 +282,16 @@ pub struct QuoteResponse {
     pub reserve_no_before: Uint128,
     pub reserve_yes_after: Uint128,
     pub reserve_no_after: Uint128,
-    pub average_price_bps: Uint128,
-    pub marginal_before_bps: Uint128,
-    pub marginal_after_bps: Uint128,
-    pub price_impact_bps: Uint128,
+    pub average_price: ExactRatio,
+    pub marginal_before: ExactRatio,
+    pub marginal_after: ExactRatio,
+    pub fee_rate: ExactRatio,
+    pub price_impact: ExactRatio,
+    pub impact_direction: ImpactDirection,
+    /// Buy's exact execute-side caller protection. Omitted for sells.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_out: Option<Uint128>,
+    /// Sell's exact execute-side caller protection. Omitted for buys.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_in: Option<Uint128>,
 }

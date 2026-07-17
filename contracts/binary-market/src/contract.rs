@@ -1,6 +1,7 @@
 use cosmwasm_std::{
     entry_point, to_json_binary, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env, Event,
-    MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, Uint256, WasmMsg,
+    MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, Uint256, Uint512,
+    WasmMsg,
 };
 
 use crate::{
@@ -8,8 +9,9 @@ use crate::{
     guards,
     math::{self, BuyQuote, Reserves, SellQuote},
     msg::{
-        ConfigResponse, ExecuteMsg, IdentityResponse, InstantiateMsg, LifecycleStatus,
-        PositionResponse, QueryMsg, QuestionResponse, QuoteResponse, StateResponse,
+        ConfigResponse, ExactRatio, ExecuteMsg, IdentityResponse, ImpactDirection, InstantiateMsg,
+        LifecycleStatus, PositionResponse, QueryMsg, QuestionResponse, QuoteResponse,
+        StateResponse,
     },
     question,
     state::{self, Accounting, Config, Lifecycle, Position, ReplyInProgress},
@@ -690,14 +692,27 @@ fn execute_finalize_stalled(
     if actual.state == OracleState::PendingArbitration {
         verify_pending_challenge(&actual, &question_id, challenge, challenge.deadline)?;
         state::REPLY_IN_PROGRESS.save(deps.storage, &ReplyInProgress::StalledCancellation)?;
-        return Ok(Response::new().add_submessage(SubMsg::reply_on_success(
-            WasmMsg::Execute {
-                contract_addr: config.oracle.to_string(),
-                msg: to_json_binary(&OracleExecuteMsg::CancelArbitration { question_id })?,
-                funds: vec![],
-            },
-            REPLY_STALLED_CANCELLATION,
-        )));
+        let challenge_bond = state::ACCOUNTING.load(deps.storage)?.challenge;
+        let event = Event::new("juno_pm_v1")
+            .add_attribute("action", "arbitration_stalled")
+            .add_attribute("protocol_version", "1")
+            .add_attribute("factory", config.factory.to_string())
+            .add_attribute("market", env.contract.address.to_string())
+            .add_attribute("height", env.block.height.to_string())
+            .add_attribute("block_time", env.block.time.seconds().to_string())
+            .add_attribute("question_id", question_id.to_base64())
+            .add_attribute("arbitration_deadline", challenge.deadline.to_string())
+            .add_attribute("challenge_bond", challenge_bond);
+        return Ok(Response::new()
+            .add_submessage(SubMsg::reply_on_success(
+                WasmMsg::Execute {
+                    contract_addr: config.oracle.to_string(),
+                    msg: to_json_binary(&OracleExecuteMsg::CancelArbitration { question_id })?,
+                    funds: vec![],
+                },
+                REPLY_STALLED_CANCELLATION,
+            ))
+            .add_event(event));
     }
     verify_cancelled(&actual, &question_id, challenge, env.block.time.seconds())?;
     settle_challenge(deps, &env, config, false, "oracle_already_cancelled")
@@ -777,6 +792,8 @@ fn execute_redeem_positions(
         .add_attribute("protocol_version", "1")
         .add_attribute("factory", config.factory.to_string())
         .add_attribute("market", env.contract.address.to_string())
+        .add_attribute("height", env.block.height.to_string())
+        .add_attribute("block_time", env.block.time.seconds().to_string())
         .add_attribute("action", "positions_redeemed")
         .add_attribute("account", info.sender.to_string())
         .add_attribute("yes_burned", yes.to_string())
@@ -913,10 +930,13 @@ fn execute_redeem_lp(
         .add_attribute("protocol_version", "1")
         .add_attribute("factory", config.factory.to_string())
         .add_attribute("market", env.contract.address)
+        .add_attribute("height", env.block.height.to_string())
+        .add_attribute("block_time", env.block.time.seconds().to_string())
         .add_attribute("lp", info.sender.to_string())
-        .add_attribute("units_burned", amount)
-        .add_attribute("cumulative_units_burned", burned_after)
-        .add_attribute("paid", payment);
+        .add_attribute("lp_burned", amount)
+        .add_attribute("position_paid", position_delta)
+        .add_attribute("fee_paid", fee_delta)
+        .add_attribute("lp_supply_remaining", supply.checked_sub(burned_after)?);
     let response = Response::new().add_event(event);
     if payment.is_zero() {
         Ok(response)
@@ -953,8 +973,11 @@ fn execute_claim_lp_accrual(
                 .add_attribute("protocol_version", "1")
                 .add_attribute("factory", config.factory.to_string())
                 .add_attribute("market", env.contract.address)
+                .add_attribute("height", env.block.height.to_string())
+                .add_attribute("block_time", env.block.time.seconds().to_string())
                 .add_attribute("lp", info.sender)
-                .add_attribute("paid", payment),
+                .add_attribute("amount", payment)
+                .add_attribute("lp_accrual_after", "0"),
         ))
 }
 
@@ -1116,10 +1139,12 @@ fn complete_set_event(
         .add_attribute("protocol_version", "1")
         .add_attribute("factory", config.factory.to_string())
         .add_attribute("market", env.contract.address.to_string())
+        .add_attribute("height", env.block.height.to_string())
+        .add_attribute("block_time", env.block.time.seconds().to_string())
         .add_attribute("action", action)
-        .add_attribute("caller", caller.to_string())
+        .add_attribute("account", caller.to_string())
         .add_attribute("amount", amount.to_string())
-        .add_attribute("principal", accounting.principal.to_string())
+        .add_attribute("principal_after", accounting.principal.to_string())
         .add_attribute("total_yes", accounting.total_yes.to_string())
         .add_attribute("total_no", accounting.total_no.to_string())
         .add_attribute("pool_yes", accounting.pool_yes.to_string())
@@ -1290,6 +1315,8 @@ fn trade_event(
         .add_attribute("protocol_version", "1")
         .add_attribute("factory", config.factory.to_string())
         .add_attribute("market", env.contract.address.to_string())
+        .add_attribute("height", env.block.height.to_string())
+        .add_attribute("block_time", env.block.time.seconds().to_string())
         .add_attribute("action", "trade")
         .add_attribute("side", side)
         .add_attribute(
@@ -1557,6 +1584,7 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
             .add_attribute("creator", config.creator.to_string())
             .add_attribute("verdict_authority", config.verdict_authority.to_string())
             .add_attribute("lp", config.initial_lp.to_string())
+            .add_attribute("nonce", config.nonce.to_string())
             .add_attribute("question_id", expected_question_id.to_base64())
             .add_attribute("question_hash", config.question_hash.to_base64())
             .add_attribute("close_ts", config.close_ts.to_string())
@@ -2079,22 +2107,55 @@ mod activation_verification_tests {
     }
 }
 
-fn ratio_bps(ratio: math::QuoteRatio) -> StdResult<Uint128> {
-    let value = ratio
-        .numerator
-        .checked_mul(Uint256::from(math::FEE_SCALE))
-        .map_err(|error| StdError::generic_err(error.to_string()))?
-        .checked_div(ratio.denominator)
+fn exact_ratio(ratio: math::QuoteRatio) -> ExactRatio {
+    ExactRatio {
+        numerator: Uint512::from(ratio.numerator),
+        denominator: Uint512::from(ratio.denominator),
+    }
+}
+
+fn impact(
+    before: math::QuoteRatio,
+    after: math::QuoteRatio,
+) -> StdResult<(ExactRatio, ImpactDirection)> {
+    let after_cross = Uint512::from(after.numerator)
+        .checked_mul(Uint512::from(before.denominator))
         .map_err(|error| StdError::generic_err(error.to_string()))?;
-    Uint128::try_from(value).map_err(|error| StdError::generic_err(error.to_string()))
+    let before_cross = Uint512::from(before.numerator)
+        .checked_mul(Uint512::from(after.denominator))
+        .map_err(|error| StdError::generic_err(error.to_string()))?;
+    let denominator = Uint512::from(after.denominator)
+        .checked_mul(Uint512::from(before.denominator))
+        .map_err(|error| StdError::generic_err(error.to_string()))?;
+    let (numerator, direction) = match after_cross.cmp(&before_cross) {
+        std::cmp::Ordering::Greater => (
+            after_cross
+                .checked_sub(before_cross)
+                .map_err(|error| StdError::generic_err(error.to_string()))?,
+            ImpactDirection::Up,
+        ),
+        std::cmp::Ordering::Less => (
+            before_cross
+                .checked_sub(after_cross)
+                .map_err(|error| StdError::generic_err(error.to_string()))?,
+            ImpactDirection::Down,
+        ),
+        std::cmp::Ordering::Equal => (Uint512::zero(), ImpactDirection::Flat),
+    };
+    Ok((
+        ExactRatio {
+            numerator,
+            denominator,
+        },
+        direction,
+    ))
 }
 
 fn quote_response_buy(env: &Env, outcome: Outcome, quote: BuyQuote) -> StdResult<QuoteResponse> {
-    let before = ratio_bps(quote.marginal_before)?;
-    let after = ratio_bps(quote.marginal_after)?;
+    let (price_impact, impact_direction) = impact(quote.marginal_before, quote.marginal_after)?;
     Ok(QuoteResponse {
         height: env.block.height,
-        time: env.block.time.seconds(),
+        block_time: env.block.time.seconds(),
         outcome,
         gross: quote.gross_collateral,
         net: quote.net_collateral,
@@ -2105,19 +2166,25 @@ fn quote_response_buy(env: &Env, outcome: Outcome, quote: BuyQuote) -> StdResult
         reserve_no_before: quote.reserves_before.no,
         reserve_yes_after: quote.reserves_after.yes,
         reserve_no_after: quote.reserves_after.no,
-        average_price_bps: ratio_bps(quote.average_execution)?,
-        marginal_before_bps: before,
-        marginal_after_bps: after,
-        price_impact_bps: after.abs_diff(before),
+        average_price: exact_ratio(quote.average_execution),
+        marginal_before: exact_ratio(quote.marginal_before),
+        marginal_after: exact_ratio(quote.marginal_after),
+        fee_rate: ExactRatio {
+            numerator: Uint512::from(quote.fee),
+            denominator: Uint512::from(quote.gross_collateral),
+        },
+        price_impact,
+        impact_direction,
+        min_out: Some(quote.outcome_out),
+        max_in: None,
     })
 }
 
 fn quote_response_sell(env: &Env, outcome: Outcome, quote: SellQuote) -> StdResult<QuoteResponse> {
-    let before = ratio_bps(quote.marginal_before)?;
-    let after = ratio_bps(quote.marginal_after)?;
+    let (price_impact, impact_direction) = impact(quote.marginal_before, quote.marginal_after)?;
     Ok(QuoteResponse {
         height: env.block.height,
-        time: env.block.time.seconds(),
+        block_time: env.block.time.seconds(),
         outcome,
         gross: quote.gross_collateral,
         net: quote.net_collateral,
@@ -2128,10 +2195,17 @@ fn quote_response_sell(env: &Env, outcome: Outcome, quote: SellQuote) -> StdResu
         reserve_no_before: quote.reserves_before.no,
         reserve_yes_after: quote.reserves_after.yes,
         reserve_no_after: quote.reserves_after.no,
-        average_price_bps: ratio_bps(quote.average_execution)?,
-        marginal_before_bps: before,
-        marginal_after_bps: after,
-        price_impact_bps: after.abs_diff(before),
+        average_price: exact_ratio(quote.average_execution),
+        marginal_before: exact_ratio(quote.marginal_before),
+        marginal_after: exact_ratio(quote.marginal_after),
+        fee_rate: ExactRatio {
+            numerator: Uint512::from(quote.fee),
+            denominator: Uint512::from(quote.gross_collateral),
+        },
+        price_impact,
+        impact_direction,
+        min_out: None,
+        max_in: Some(quote.outcome_in),
     })
 }
 
@@ -2141,11 +2215,11 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_json_binary(&ConfigResponse {
             protocol_version: config.protocol_version,
-            factory: config.factory.into(),
+            factory: config.factory.to_string(),
             creator: config.creator.to_string(),
-            initial_lp: config.initial_lp.into(),
-            oracle: config.oracle.into(),
-            verdict_authority: config.verdict_authority.into(),
+            initial_lp: config.initial_lp.to_string(),
+            oracle: config.oracle.to_string(),
+            verdict_authority: config.verdict_authority.to_string(),
             tier: config.tier,
             collateral_denom: config.collateral_denom,
             close_ts: config.close_ts,
@@ -2163,8 +2237,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }),
         QueryMsg::Identity {} => to_json_binary(&IdentityResponse {
             protocol_version: ProtocolVersion::V1,
-            factory: config.factory.into(),
-            market: env.contract.address.into(),
+            factory: config.factory.to_string(),
+            market: env.contract.address.to_string(),
+            nonce: config.nonce,
             question_id: state::QUESTION_ID.may_load(deps.storage)?,
         }),
         QueryMsg::State {} => {
@@ -2182,6 +2257,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             })
         }
         QueryMsg::QuoteBuy { outcome, gross } => {
+            let lifecycle = state::LIFECYCLE.load(deps.storage)?;
+            guards::trading(&env, &config, &lifecycle)
+                .map_err(|error| StdError::generic_err(error.to_string()))?;
             let accounting = state::ACCOUNTING.load(deps.storage)?;
             let quote = buy_quote(&accounting, &config, outcome.clone(), gross)
                 .map_err(|error| StdError::generic_err(error.to_string()))?;
@@ -2191,6 +2269,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             outcome,
             return_amount,
         } => {
+            let lifecycle = state::LIFECYCLE.load(deps.storage)?;
+            guards::trading(&env, &config, &lifecycle)
+                .map_err(|error| StdError::generic_err(error.to_string()))?;
             let accounting = state::ACCOUNTING.load(deps.storage)?;
             let quote = sell_quote(&accounting, &config, outcome.clone(), return_amount)
                 .map_err(|error| StdError::generic_err(error.to_string()))?;
@@ -2200,7 +2281,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             let address = deps.api.addr_validate(&address)?;
             let position = state::load_position(deps.storage, &address)?;
             to_json_binary(&PositionResponse {
-                address: address.into(),
+                address: address.to_string(),
                 yes: position.yes,
                 no: position.no,
             })
@@ -2208,22 +2289,40 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Resolution {} => {
             let lifecycle = state::LIFECYCLE.load(deps.storage)?;
             let accounting = state::ACCOUNTING.load(deps.storage)?;
+            let answer = lifecycle.resolution_answer;
             to_json_binary(&crate::msg::ResolutionResponse {
-                answer: lifecycle.resolution_answer,
+                answer_hex: answer.as_ref().map(|value| hex::encode(value.as_slice())),
+                answer_base64: answer.as_ref().map(Binary::to_base64),
+                answer,
                 payout: lifecycle.payout,
                 height: lifecycle.resolution_height,
                 time: lifecycle.resolution_time,
                 principal_at_resolution: accounting.principal_at_resolution,
+                terminal_liability_twice: accounting.terminal_liability_twice,
+                pool_yes_at_resolution: accounting.pool_yes_at_resolution,
+                pool_no_at_resolution: accounting.pool_no_at_resolution,
+                total_yes_at_resolution: accounting.total_yes_at_resolution,
+                total_no_at_resolution: accounting.total_no_at_resolution,
             })
         }
         QueryMsg::Question {} => to_json_binary(&QuestionResponse {
             text: config.question,
+            hash_hex: hex::encode(config.question_hash.as_slice()),
+            hash_base64: config.question_hash.to_base64(),
             hash: config.question_hash,
             nonce: config.nonce,
             question_id: state::QUESTION_ID.may_load(deps.storage)?,
-            oracle: config.oracle.into(),
+            oracle: config.oracle.to_string(),
             opening_ts: config.opening_ts,
             close_ts: config.close_ts,
+            yes_answer_hex: hex::encode(config.yes_answer.as_slice()),
+            yes_answer_base64: config.yes_answer.to_base64(),
+            no_answer_hex: hex::encode(config.no_answer.as_slice()),
+            no_answer_base64: config.no_answer.to_base64(),
+            invalid_answer_hex: hex::encode(config.invalid_answer.as_slice()),
+            invalid_answer_base64: config.invalid_answer.to_base64(),
+            unresolved_answer_hex: hex::encode(config.unresolved_answer.as_slice()),
+            unresolved_answer_base64: config.unresolved_answer.to_base64(),
         }),
         QueryMsg::Accounting {} => {
             let accounting = state::ACCOUNTING.load(deps.storage)?;
@@ -2239,6 +2338,12 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 lp_paid: accounting.lp_paid,
                 neutral_half_dust: accounting.neutral_half_dust,
                 lp_accrual: accounting.lp_accrual,
+                principal_at_resolution: accounting.principal_at_resolution,
+                fees_at_resolution: accounting.fees_at_resolution,
+                pool_yes_at_resolution: accounting.pool_yes_at_resolution,
+                pool_no_at_resolution: accounting.pool_no_at_resolution,
+                total_yes_at_resolution: accounting.total_yes_at_resolution,
+                total_no_at_resolution: accounting.total_no_at_resolution,
             })
         }
         QueryMsg::Pool {} => {
@@ -2260,25 +2365,32 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
         QueryMsg::Challenge {} => {
             let challenge = state::CHALLENGE.may_load(deps.storage)?;
+            let challenge_bond = state::ACCOUNTING.load(deps.storage)?.challenge;
             to_json_binary(&crate::msg::ChallengeResponse {
                 challenger: challenge.as_ref().map(|value| value.challenger.to_string()),
                 answer: challenge.as_ref().map(|value| value.answer.clone()),
+                answer_hex: challenge
+                    .as_ref()
+                    .map(|value| hex::encode(value.answer.as_slice())),
+                answer_base64: challenge.as_ref().map(|value| value.answer.to_base64()),
                 oracle_bond: challenge.as_ref().map(|value| value.oracle_bond),
+                challenge_bond,
                 started_at: challenge.as_ref().map(|value| value.started_at),
                 deadline: challenge.as_ref().map(|value| value.deadline),
+                oracle_snapshot: challenge.map(|value| value.oracle_snapshot),
             })
         }
         QueryMsg::Solvency {} => {
             let accounting = state::ACCOUNTING.load(deps.storage)?;
             let bank_balance = deps
                 .querier
-                .query_balance(env.contract.address, &config.collateral_denom)?
+                .query_balance(env.contract.address.clone(), &config.collateral_denom)?
                 .amount;
             // Before resolution principal is the backing liability. Afterwards,
             // redemptions reduce the terminal numerator while `principal` remains
             // the immutable resolution snapshot. Round the remaining half-ujuno
             // numerator up so every outstanding half remains covered.
-            let principal_liability = match accounting.terminal_liability_twice {
+            let principal_or_terminal_liability = match accounting.terminal_liability_twice {
                 Some(value) => value
                     .checked_add(Uint128::one())?
                     .checked_div(Uint128::new(2))?,
@@ -2286,20 +2398,34 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             };
             let fee_liability = accounting.fees;
             let challenge_liability = accounting.challenge;
-            let lp_accrual_liability = accounting.lp_accrual;
-            let accounted_total = principal_liability
+            let lp_whole_coin_accrual = accounting.lp_accrual;
+            let accounted_liability = principal_or_terminal_liability
                 .checked_add(fee_liability)?
                 .checked_add(challenge_liability)?
-                .checked_add(lp_accrual_liability)?;
-            let forced_excess = bank_balance.saturating_sub(accounted_total);
+                .checked_add(lp_whole_coin_accrual)?;
+            let (forced_excess, shortfall) = if bank_balance >= accounted_liability {
+                (
+                    bank_balance.checked_sub(accounted_liability)?,
+                    Uint128::zero(),
+                )
+            } else {
+                (
+                    Uint128::zero(),
+                    accounted_liability.checked_sub(bank_balance)?,
+                )
+            };
             to_json_binary(&crate::msg::SolvencyResponse {
+                height: env.block.height,
+                block_time: env.block.time.seconds(),
                 bank_balance,
-                principal_liability,
+                principal_or_terminal_liability,
                 fee_liability,
                 challenge_liability,
-                lp_accrual_liability,
-                accounted_total,
+                lp_whole_coin_accrual,
+                accounted_liability,
                 forced_excess,
+                shortfall,
+                solvent: shortfall.is_zero(),
             })
         }
     }
