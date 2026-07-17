@@ -15,7 +15,6 @@
       "creator",
       "factory",
       "fee_bps",
-      "governance",
       "initial_liquidity",
       "max_trade_bps",
       "min_trade",
@@ -25,7 +24,8 @@
       "oracle_bounty",
       "oracle_initial_bond",
       "question",
-      "tier"
+      "tier",
+      "verdict_authority"
     ],
     "properties": {
       "answer_timeout_secs": {
@@ -60,9 +60,6 @@
         "type": "integer",
         "format": "uint16",
         "minimum": 0.0
-      },
-      "governance": {
-        "type": "string"
       },
       "initial_liquidity": {
         "$ref": "#/definitions/Uint128"
@@ -107,6 +104,10 @@
         "type": "integer",
         "format": "uint16",
         "minimum": 0.0
+      },
+      "verdict_authority": {
+        "description": "Immutable exact sender authorized to forward the arbitration verdict.",
+        "type": "string"
       }
     },
     "additionalProperties": false,
@@ -866,7 +867,6 @@
         "creator",
         "factory",
         "fee_bps",
-        "governance",
         "initial_liquidity",
         "initial_lp",
         "max_trade_bps",
@@ -876,7 +876,8 @@
         "oracle_bounty",
         "oracle_initial_bond",
         "protocol_version",
-        "tier"
+        "tier",
+        "verdict_authority"
       ],
       "properties": {
         "answer_timeout_secs": {
@@ -914,9 +915,6 @@
           "format": "uint16",
           "minimum": 0.0
         },
-        "governance": {
-          "type": "string"
-        },
         "initial_liquidity": {
           "$ref": "#/definitions/Uint128"
         },
@@ -952,6 +950,10 @@
           "type": "integer",
           "format": "uint16",
           "minimum": 0.0
+        },
+        "verdict_authority": {
+          "description": "Immutable exact sender authorized to forward the arbitration verdict.",
+          "type": "string"
         }
       },
       "additionalProperties": false,
