@@ -6,7 +6,7 @@
 The amounts are accepted for implementation, not launch authorization.
 
 Current on-chain acceptance-to-test traceability is maintained in
-[`lifecycle-assurance.md`](lifecycle-assurance.md); factory, LP, UI, indexer, ops, and
+[`lifecycle-assurance.md`](lifecycle-assurance.md); factory, UI, indexer, ops, and
 live-governance follow-ups are identified there explicitly.
 
 ## Creator and initial LP
