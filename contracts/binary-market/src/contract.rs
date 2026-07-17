@@ -42,12 +42,12 @@ pub fn instantiate(
     guards::sender(&info.sender, &factory)?;
     let creator = deps.api.addr_validate(&msg.creator)?;
     let oracle = deps.api.addr_validate(&msg.oracle)?;
-    let governance = deps.api.addr_validate(&msg.governance)?;
+    let verdict_authority = deps.api.addr_validate(&msg.verdict_authority)?;
     let (question_text, question_hash) = question::canonical_question(
         &msg.question,
         &env.contract.address,
         &oracle,
-        &governance,
+        &verdict_authority,
         msg.close_ts,
         msg.opening_ts,
         msg.oracle_initial_bond,
@@ -69,7 +69,7 @@ pub fn instantiate(
         initial_lp: creator.clone(),
         creator,
         oracle,
-        governance,
+        verdict_authority,
         tier: msg.tier,
         collateral_denom: UJUNO_DENOM.to_owned(),
         close_ts: msg.close_ts,
@@ -160,6 +160,7 @@ pub fn instantiate(
     Ok(Response::new()
         .add_submessage(submsg)
         .add_attribute("action", "instantiate")
+        .add_attribute("verdict_authority", config.verdict_authority.to_string())
         .add_attribute("status", "initializing"))
 }
 
@@ -251,7 +252,6 @@ pub fn execute(
             return execute_merge(deps, env, info, &config, amount);
         }
         ExecuteMsg::Challenge {} => {
-            guards::exact_funds(&info.funds, UJUNO_DENOM, config.challenge_bond)?;
             if guards::derived_lifecycle(
                 env.block.time.seconds(),
                 &config,
@@ -262,16 +262,31 @@ pub fn execute(
             {
                 return Err(ContractError::NoPendingChallenge);
             }
+            return execute_challenge(deps, env, info, &config);
         }
-        ExecuteMsg::GovernanceVerdict { .. } => {
+        ExecuteMsg::GovernanceVerdict {
+            question_id,
+            answer,
+            payee,
+        } => {
             guards::no_funds(&info.funds)?;
             guards::governance_verdict(&env, &info.sender, &config, challenge.as_ref())?;
+            return execute_governance_verdict(
+                deps,
+                env,
+                &config,
+                challenge.as_ref().expect("guarded"),
+                question_id,
+                answer,
+                payee,
+            );
         }
         ExecuteMsg::FinalizeStalledChallenge {} => {
             guards::no_funds(&info.funds)?;
-            challenge
+            let challenge = challenge
                 .as_ref()
                 .ok_or(ContractError::NoPendingChallenge)?;
+            return execute_finalize_stalled(deps, env, &config, challenge);
         }
         ExecuteMsg::Resolve {} => {
             guards::no_funds(&info.funds)?;
@@ -303,6 +318,305 @@ pub fn execute(
         }
     }
     Err(ContractError::NotImplemented)
+}
+
+fn query_oracle_question(
+    deps: Deps,
+    config: &Config,
+    question_id: &Binary,
+) -> Result<OracleQuestionResponse, ContractError> {
+    Ok(deps.querier.query_wasm_smart(
+        config.oracle.clone(),
+        &OracleQueryMsg::Question {
+            question_id: question_id.clone(),
+        },
+    )?)
+}
+
+fn verify_challengeable_question(
+    actual: &OracleQuestionResponse,
+    expected_id: &Binary,
+    config: &Config,
+    market: &cosmwasm_std::Addr,
+    now: u64,
+) -> Result<(Binary, Uint128), ContractError> {
+    let q = &actual.question;
+    let answer = q.best_answer.clone().ok_or_else(|| {
+        ContractError::ArbitrationMismatch("question has no current answer".into())
+    })?;
+    let valid = actual.question_id == *expected_id
+        && actual.state == OracleState::OpenAnswered
+        && q.asker == *market
+        && q.text == config.question
+        && q.answer_type == AnswerType::Bool
+        && q.bond_denom == config.collateral_denom
+        && q.initial_bond == config.oracle_initial_bond
+        && q.answer_timeout_secs == config.answer_timeout_secs
+        && q.arbitrator.as_ref() == Some(market)
+        && q.arbitration_timeout_secs == config.arbitration_timeout_secs
+        && q.arbitration_deadline.is_none()
+        && q.nonce == config.nonce
+        && q.opening_ts == Some(config.opening_ts)
+        && !q.is_pending_arbitration
+        && q.finalize_ts.is_some_and(|deadline| now < deadline)
+        && !q.current_bond.is_zero();
+    if !valid {
+        return Err(ContractError::ArbitrationMismatch(
+            "question is not the exact bound, live OpenAnswered question".into(),
+        ));
+    }
+    Ok((answer, q.current_bond))
+}
+
+fn execute_challenge(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    config: &Config,
+) -> Result<Response, ContractError> {
+    let question_id = state::QUESTION_ID.load(deps.storage)?;
+    let actual = query_oracle_question(deps.as_ref(), config, &question_id)?;
+    let (answer, oracle_bond) = verify_challengeable_question(
+        &actual,
+        &question_id,
+        config,
+        &env.contract.address,
+        env.block.time.seconds(),
+    )?;
+    let required = config.challenge_bond.max(oracle_bond);
+    guards::exact_funds(&info.funds, UJUNO_DENOM, required)?;
+    let deadline = env
+        .block
+        .time
+        .seconds()
+        .saturating_add(u64::from(config.arbitration_timeout_secs));
+    state::CHALLENGE.save(
+        deps.storage,
+        &state::Challenge {
+            challenger: info.sender.clone(),
+            answer: answer.clone(),
+            oracle_bond,
+            started_at: env.block.time.seconds(),
+            deadline,
+            refundable: true,
+        },
+    )?;
+    state::LIFECYCLE.update(deps.storage, |mut lifecycle| -> StdResult<_> {
+        lifecycle.challenge_used = true;
+        Ok(lifecycle)
+    })?;
+    state::ACCOUNTING.update(deps.storage, |mut accounting| -> StdResult<_> {
+        accounting.challenge = required;
+        Ok(accounting)
+    })?;
+    state::REPLY_IN_PROGRESS.save(
+        deps.storage,
+        &ReplyInProgress::Challenge {
+            challenger: info.sender.clone(),
+        },
+    )?;
+    let request = OracleExecuteMsg::RequestArbitration {
+        question_id: question_id.clone(),
+        current_bond_seen: Some(oracle_bond),
+    };
+    Ok(Response::new()
+        .add_submessage(SubMsg::reply_on_success(
+            WasmMsg::Execute {
+                contract_addr: config.oracle.to_string(),
+                msg: to_json_binary(&request)?,
+                funds: vec![],
+            },
+            REPLY_CHALLENGE,
+        ))
+        .add_event(
+            Event::new("juno_pm_v1")
+                .add_attribute("action", "challenge_requested")
+                .add_attribute("market", env.contract.address)
+                .add_attribute("verdict_authority", config.verdict_authority.to_string())
+                .add_attribute("challenger", info.sender)
+                .add_attribute("question_id", question_id.to_base64())
+                .add_attribute("answer_base64", answer.to_base64())
+                .add_attribute("oracle_bond", oracle_bond)
+                .add_attribute("challenge_bond", required)
+                .add_attribute("deadline", deadline.to_string()),
+        ))
+}
+
+fn verify_pending_challenge(
+    actual: &OracleQuestionResponse,
+    question_id: &Binary,
+    challenge: &state::Challenge,
+    deadline: u64,
+) -> Result<(), ContractError> {
+    let q = &actual.question;
+    if actual.question_id != *question_id
+        || actual.state != OracleState::PendingArbitration
+        || q.best_answer.as_ref() != Some(&challenge.answer)
+        || q.current_bond != challenge.oracle_bond
+        || q.arbitration_deadline != Some(deadline)
+        || !q.is_pending_arbitration
+    {
+        return Err(ContractError::ArbitrationMismatch(
+            "oracle pending state does not match the challenge snapshot".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn execute_governance_verdict(
+    deps: DepsMut,
+    _env: Env,
+    config: &Config,
+    challenge: &state::Challenge,
+    question_id: Binary,
+    answer: Binary,
+    payee: String,
+) -> Result<Response, ContractError> {
+    let expected_id = state::QUESTION_ID.load(deps.storage)?;
+    if question_id != expected_id {
+        return Err(ContractError::ArbitrationMismatch(
+            "wrong question id".into(),
+        ));
+    }
+    if answer.is_empty() {
+        return Err(ContractError::InvalidVerdictAnswer);
+    }
+    let payee = deps.api.addr_validate(&payee)?;
+    let actual = query_oracle_question(deps.as_ref(), config, &question_id)?;
+    verify_pending_challenge(&actual, &question_id, challenge, challenge.deadline)?;
+    state::REPLY_IN_PROGRESS.save(
+        deps.storage,
+        &ReplyInProgress::GovernanceVerdict {
+            answer: answer.clone(),
+            payee: payee.clone(),
+        },
+    )?;
+    let submit = OracleExecuteMsg::SubmitArbitration {
+        question_id: question_id.clone(),
+        winning_answer: answer,
+        payee: payee.to_string(),
+    };
+    Ok(Response::new()
+        .add_submessage(SubMsg::reply_on_success(
+            WasmMsg::Execute {
+                contract_addr: config.oracle.to_string(),
+                msg: to_json_binary(&submit)?,
+                funds: vec![],
+            },
+            REPLY_GOVERNANCE_VERDICT,
+        ))
+        .add_attribute("action", "governance_verdict_forwarded")
+        .add_attribute("verdict_authority", config.verdict_authority.to_string())
+        .add_attribute("question_id", question_id.to_base64()))
+}
+
+fn settle_challenge(
+    deps: DepsMut,
+    env: &Env,
+    config: &Config,
+    refund: bool,
+    reason: &str,
+) -> Result<Response, ContractError> {
+    let challenge = state::CHALLENGE.load(deps.storage)?;
+    let amount = state::ACCOUNTING.load(deps.storage)?.challenge;
+    if amount.is_zero() || amount != config.challenge_bond.max(challenge.oracle_bond) {
+        return Err(ContractError::InvariantViolation(
+            "challenge liability is absent or differs from escrow".into(),
+        ));
+    }
+    state::ACCOUNTING.update(deps.storage, |mut accounting| {
+        if accounting.challenge != amount {
+            return Err(ContractError::InvariantViolation(
+                "challenge liability changed during settlement".into(),
+            ));
+        }
+        accounting.challenge = Uint128::zero();
+        if !refund {
+            accounting.lp_accrual = accounting.lp_accrual.checked_add(amount)?;
+        }
+        Ok(accounting)
+    })?;
+    state::CHALLENGE.remove(deps.storage);
+    state::REPLY_IN_PROGRESS.remove(deps.storage);
+    let event = Event::new("juno_pm_v1")
+        .add_attribute("action", "challenge_settled")
+        .add_attribute("market", env.contract.address.to_string())
+        .add_attribute("challenger", challenge.challenger.to_string())
+        .add_attribute("amount", amount)
+        .add_attribute(
+            "disposition",
+            if refund { "refunded" } else { "slashed_to_lp" },
+        )
+        .add_attribute("reason", reason);
+    let response = Response::new().add_event(event);
+    if refund {
+        Ok(response.add_message(BankMsg::Send {
+            to_address: challenge.challenger.to_string(),
+            amount: vec![cosmwasm_std::coin(amount.u128(), UJUNO_DENOM)],
+        }))
+    } else {
+        Ok(response)
+    }
+}
+
+fn verify_cancelled(
+    actual: &OracleQuestionResponse,
+    question_id: &Binary,
+    challenge: &state::Challenge,
+) -> Result<(), ContractError> {
+    let q = &actual.question;
+    if actual.question_id != *question_id
+        || actual.state != OracleState::OpenAnswered
+        || q.best_answer.as_ref() != Some(&challenge.answer)
+        || q.current_bond != challenge.oracle_bond
+        || q.is_pending_arbitration
+        || q.arbitration_deadline.is_some()
+        || q.finalize_ts.is_none()
+    {
+        return Err(ContractError::ArbitrationMismatch(
+            "oracle cancellation does not match challenge snapshot".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn execute_finalize_stalled(
+    deps: DepsMut,
+    env: Env,
+    config: &Config,
+    challenge: &state::Challenge,
+) -> Result<Response, ContractError> {
+    if env.block.time.seconds() < challenge.deadline {
+        return Err(ContractError::ArbitrationDeadlineNotReached);
+    }
+    let question_id = state::QUESTION_ID.load(deps.storage)?;
+    let actual = query_oracle_question(deps.as_ref(), config, &question_id)?;
+    if actual.state == OracleState::PendingArbitration {
+        verify_pending_challenge(&actual, &question_id, challenge, challenge.deadline)?;
+        state::REPLY_IN_PROGRESS.save(deps.storage, &ReplyInProgress::StalledCancellation)?;
+        return Ok(Response::new().add_submessage(SubMsg::reply_on_success(
+            WasmMsg::Execute {
+                contract_addr: config.oracle.to_string(),
+                msg: to_json_binary(&OracleExecuteMsg::CancelArbitration { question_id })?,
+                funds: vec![],
+            },
+            REPLY_STALLED_CANCELLATION,
+        )));
+    }
+    verify_cancelled(&actual, &question_id, challenge)?;
+    if actual.question.finalize_ts
+        != Some(
+            env.block
+                .time
+                .seconds()
+                .saturating_add(u64::from(config.answer_timeout_secs)),
+        )
+    {
+        return Err(ContractError::ArbitrationMismatch(
+            "cancelled oracle answer clock was not re-extended".into(),
+        ));
+    }
+    settle_challenge(deps, &env, config, false, "oracle_already_cancelled")
 }
 
 fn execute_redeem_positions(
@@ -891,7 +1205,75 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
         return Err(ContractError::ReplyStateMismatch);
     }
     if reply.id != REPLY_ACTIVATION {
-        return Err(ContractError::NotImplemented);
+        reply
+            .result
+            .into_result()
+            .map_err(ContractError::ActivationMismatch)?;
+        let config = state::CONFIG.load(deps.storage)?;
+        let question_id = state::QUESTION_ID.load(deps.storage)?;
+        let challenge = state::CHALLENGE.load(deps.storage)?;
+        let actual = query_oracle_question(deps.as_ref(), &config, &question_id)?;
+        return match pending {
+            ReplyInProgress::Challenge { challenger } => {
+                if challenger != challenge.challenger {
+                    return Err(ContractError::ReplyStateMismatch);
+                }
+                verify_pending_challenge(&actual, &question_id, &challenge, challenge.deadline)?;
+                state::REPLY_IN_PROGRESS.remove(deps.storage);
+                Ok(Response::new().add_event(
+                    Event::new("juno_pm_v1")
+                        .add_attribute("action", "challenge_pending")
+                        .add_attribute("market", env.contract.address)
+                        .add_attribute("question_id", question_id.to_base64())
+                        .add_attribute("deadline", challenge.deadline.to_string()),
+                ))
+            }
+            ReplyInProgress::GovernanceVerdict { answer, payee } => {
+                let q = &actual.question;
+                if actual.question_id != question_id
+                    || actual.state != OracleState::Finalized
+                    || q.best_answer.as_ref() != Some(&answer)
+                    || q.current_bond != challenge.oracle_bond
+                    || q.is_pending_arbitration
+                    || q.arbitration_deadline.is_some()
+                    || q.finalize_ts != Some(env.block.time.seconds())
+                {
+                    return Err(ContractError::ArbitrationMismatch(
+                        "oracle did not finalize the exact forwarded verdict".into(),
+                    ));
+                }
+                let refund = answer != challenge.answer;
+                settle_challenge(
+                    deps,
+                    &env,
+                    &config,
+                    refund,
+                    if refund {
+                        "different_verdict"
+                    } else {
+                        "identical_verdict"
+                    },
+                )
+                .map(|response| response.add_attribute("verdict_payee", payee.to_string()))
+            }
+            ReplyInProgress::StalledCancellation => {
+                verify_cancelled(&actual, &question_id, &challenge)?;
+                if actual.question.finalize_ts
+                    != Some(
+                        env.block
+                            .time
+                            .seconds()
+                            .saturating_add(u64::from(config.answer_timeout_secs)),
+                    )
+                {
+                    return Err(ContractError::ArbitrationMismatch(
+                        "cancelled oracle answer clock was not re-extended".into(),
+                    ));
+                }
+                settle_challenge(deps, &env, &config, false, "arbitration_timeout")
+            }
+            ReplyInProgress::Activation { .. } => Err(ContractError::ReplyStateMismatch),
+        };
     }
     reply
         .result
@@ -942,6 +1324,7 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
             .add_attribute("height", env.block.height.to_string())
             .add_attribute("block_time", env.block.time.seconds().to_string())
             .add_attribute("creator", config.creator.to_string())
+            .add_attribute("verdict_authority", config.verdict_authority.to_string())
             .add_attribute("lp", config.initial_lp.to_string())
             .add_attribute("question_id", expected_question_id.to_base64())
             .add_attribute("question_hash", config.question_hash.to_base64())
@@ -1010,7 +1393,7 @@ mod activation_verification_tests {
             creator: Addr::unchecked("creator"),
             initial_lp: Addr::unchecked("creator"),
             oracle: Addr::unchecked("oracle"),
-            governance: Addr::unchecked("governance"),
+            verdict_authority: Addr::unchecked("governance"),
             tier: TierId(1),
             collateral_denom: "ujuno".into(),
             close_ts: 1_800_000_000,
@@ -1313,7 +1696,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             creator: config.creator.to_string(),
             initial_lp: config.initial_lp.into(),
             oracle: config.oracle.into(),
-            governance: config.governance.into(),
+            verdict_authority: config.verdict_authority.into(),
             tier: config.tier,
             collateral_denom: config.collateral_denom,
             close_ts: config.close_ts,
@@ -1393,8 +1776,74 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             opening_ts: config.opening_ts,
             close_ts: config.close_ts,
         }),
-        _ => Err(StdError::not_found(
-            "query state not initialized by issue #8",
-        )),
+        QueryMsg::Accounting {} => {
+            let accounting = state::ACCOUNTING.load(deps.storage)?;
+            to_json_binary(&crate::msg::AccountingResponse {
+                principal: accounting.principal,
+                fees: accounting.fees,
+                challenge: accounting.challenge,
+                terminal_liability_twice: accounting.terminal_liability_twice,
+                total_yes: accounting.total_yes,
+                total_no: accounting.total_no,
+                lp_supply: accounting.lp_supply,
+                lp_burned: accounting.lp_burned,
+                lp_paid: accounting.lp_paid,
+                neutral_half_dust: accounting.neutral_half_dust,
+                lp_accrual: accounting.lp_accrual,
+            })
+        }
+        QueryMsg::Pool {} => {
+            let accounting = state::ACCOUNTING.load(deps.storage)?;
+            to_json_binary(&crate::msg::PoolResponse {
+                yes: accounting.pool_yes,
+                no: accounting.pool_no,
+            })
+        }
+        QueryMsg::LpPosition {} => {
+            let accounting = state::ACCOUNTING.load(deps.storage)?;
+            to_json_binary(&crate::msg::LpPositionResponse {
+                owner: config.initial_lp.to_string(),
+                supply: accounting.lp_supply,
+                burned: accounting.lp_burned,
+                paid: accounting.lp_paid,
+                later_accrual: accounting.lp_accrual,
+            })
+        }
+        QueryMsg::Challenge {} => {
+            let challenge = state::CHALLENGE.may_load(deps.storage)?;
+            to_json_binary(&crate::msg::ChallengeResponse {
+                challenger: challenge.as_ref().map(|value| value.challenger.to_string()),
+                answer: challenge.as_ref().map(|value| value.answer.clone()),
+                oracle_bond: challenge.as_ref().map(|value| value.oracle_bond),
+                started_at: challenge.as_ref().map(|value| value.started_at),
+                deadline: challenge.as_ref().map(|value| value.deadline),
+                refundable: challenge.as_ref().is_some_and(|value| value.refundable),
+            })
+        }
+        QueryMsg::Solvency {} => {
+            let accounting = state::ACCOUNTING.load(deps.storage)?;
+            let bank_balance = deps
+                .querier
+                .query_balance(env.contract.address, &config.collateral_denom)?
+                .amount;
+            let principal_liability = accounting.principal;
+            let fee_liability = accounting.fees;
+            let challenge_liability = accounting.challenge;
+            let lp_accrual_liability = accounting.lp_accrual;
+            let accounted_total = principal_liability
+                .checked_add(fee_liability)?
+                .checked_add(challenge_liability)?
+                .checked_add(lp_accrual_liability)?;
+            let forced_excess = bank_balance.saturating_sub(accounted_total);
+            to_json_binary(&crate::msg::SolvencyResponse {
+                bank_balance,
+                principal_liability,
+                fee_liability,
+                challenge_liability,
+                lp_accrual_liability,
+                accounted_total,
+                forced_excess,
+            })
+        }
     }
 }

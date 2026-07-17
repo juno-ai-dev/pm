@@ -347,7 +347,7 @@ fn setup() -> (App, Addr) {
                 factory: factory.to_string(),
                 creator: "creator".into(),
                 oracle: oracle.to_string(),
-                governance: "governance".into(),
+                verdict_authority: "governance".into(),
                 tier: TierId(1),
                 question: question(),
                 nonce: 118,

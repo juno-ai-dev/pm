@@ -12,7 +12,7 @@ pub struct Config {
     pub creator: Addr,
     pub initial_lp: Addr,
     pub oracle: Addr,
-    pub governance: Addr,
+    pub verdict_authority: Addr,
     pub tier: TierId,
     pub collateral_denom: String,
     pub close_ts: u64,

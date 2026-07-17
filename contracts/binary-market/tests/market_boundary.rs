@@ -21,7 +21,7 @@ fn msg() -> InstantiateMsg {
         factory: "factory".into(),
         creator: "creator".into(),
         oracle: "oracle".into(),
-        governance: "governance".into(),
+        verdict_authority: "governance".into(),
         tier: TierId(1),
         question: QuestionInput {
             title: "Example outcome?".into(),

@@ -12,7 +12,7 @@ This directory is the accepted review packet required by [GOAL.md](../../GOAL.md
 | --- | --- | --- |
 | R1 | [Mechanism and market microstructure](mechanism.md) | Accepted architecture baseline |
 | R2 | [Prior art and incidents](prior-art.md) | Accepted provenance baseline |
-| R3 | [cw-reality compatibility](cw-reality-compatibility.md) and [question specification](question-specification.md) | Accepted integration baseline; audit/build/rehearsal evidence open |
+| R3 | [cw-reality compatibility](cw-reality-compatibility.md), [question specification](question-specification.md), and [non-broadcast DAO DAO verdict runbook](dao-dao-verdict-runbook.md) | Accepted integration baseline; audit/build/live-rehearsal evidence open |
 | R4 | [Juno, collateral, and topology](juno-and-topology.md) | Accepted topology baseline; deployment evidence open |
 | R5 | [Product, legal, content, and operations](product-legal-operations.md) | Architecture accepted; issue #26 readiness evidence open |
 | Policy | [Reference-interface discovery, review, report, and appeal](interface-discovery-policy.md) | Implementation specification; named-reviewer and counsel gates remain open |

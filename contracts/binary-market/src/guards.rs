@@ -87,7 +87,7 @@ pub fn governance_verdict(
     config: &Config,
     challenge: Option<&Challenge>,
 ) -> Result<(), ContractError> {
-    sender(sender_addr, &config.governance)?;
+    sender(sender_addr, &config.verdict_authority)?;
     let challenge = challenge.ok_or(ContractError::NoPendingChallenge)?;
     if env.block.time.seconds() >= challenge.deadline {
         return Err(ContractError::ArbitrationDeadlineReached);

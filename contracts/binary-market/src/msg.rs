@@ -10,7 +10,8 @@ pub struct InstantiateMsg {
     pub factory: String,
     pub creator: String,
     pub oracle: String,
-    pub governance: String,
+    /// Immutable exact sender authorized to forward the arbitration verdict.
+    pub verdict_authority: String,
     pub tier: TierId,
     /// Typed semantic source. The market constructs authoritative JCS bytes.
     pub question: QuestionInput,
@@ -118,7 +119,8 @@ pub struct ConfigResponse {
     pub creator: String,
     pub initial_lp: String,
     pub oracle: String,
-    pub governance: String,
+    /// Immutable exact sender authorized to forward the arbitration verdict.
+    pub verdict_authority: String,
     pub tier: TierId,
     pub collateral_denom: String,
     pub close_ts: u64,
