@@ -1,7 +1,8 @@
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    entry_point, to_json_binary, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env, Event,
-    MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, Uint256, Uint512,
-    WasmMsg,
+    to_json_binary, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env, Event, MessageInfo, Reply,
+    ReplyOn, Response, StdError, StdResult, SubMsg, Uint128, Uint256, Uint512, WasmMsg,
 };
 
 use crate::{
@@ -31,7 +32,7 @@ pub const REPLY_CHALLENGE: u64 = 2;
 pub const REPLY_GOVERNANCE_VERDICT: u64 = 3;
 pub const REPLY_STALLED_CANCELLATION: u64 = 4;
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     env: Env,
@@ -201,7 +202,7 @@ fn validate_instantiate(msg: &InstantiateMsg, creation_ts: u64) -> Result<(), Co
     Ok(())
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -1444,7 +1445,7 @@ fn execute_sell(
         )))
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, ContractError> {
     let pending = state::REPLY_IN_PROGRESS.load(deps.storage)?;
     let matches = matches!(
@@ -2198,7 +2199,7 @@ fn quote_response_sell(env: &Env, outcome: Outcome, quote: SellQuote) -> StdResu
     })
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     let config = state::CONFIG.load(deps.storage)?;
     match msg {

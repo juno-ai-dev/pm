@@ -6,7 +6,9 @@ use binary_market::{
     msg::QueryMsg as MarketQueryMsg,
     question::{ObservationInput, QuestionInput, SourceInput},
 };
-use cosmwasm_std::{coin, Addr, Empty, HexBinary, Uint128};
+use cosmwasm_std::{
+    coin, from_json, to_json_binary, Addr, Binary, Deps, Empty, Env, StdResult, Uint128,
+};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 use cw_reality::{
     contract::{
@@ -36,6 +38,24 @@ fn oracle_contract() -> Box<dyn Contract<Empty>> {
 fn market_contract() -> Box<dyn Contract<Empty>> {
     Box::new(
         ContractWrapper::new(market_execute, market_instantiate, market_query)
+            .with_reply(market_reply),
+    )
+}
+fn spoof_query(deps: Deps, env: Env, msg: Binary) -> StdResult<Binary> {
+    let parsed: MarketQueryMsg = from_json(&msg)?;
+    if matches!(parsed, MarketQueryMsg::Identity {}) {
+        return to_json_binary(&binary_market::msg::IdentityResponse {
+            protocol_version: ProtocolVersion::V1,
+            factory: "spoofed-factory".into(),
+            market: env.contract.address.to_string(),
+            question_id: Some(Binary::from(vec![7; 32])),
+        });
+    }
+    market_query(deps, env, parsed)
+}
+fn spoof_market_contract() -> Box<dyn Contract<Empty>> {
+    Box::new(
+        ContractWrapper::new(market_execute, market_instantiate, spoof_query)
             .with_reply(market_reply),
     )
 }
@@ -106,6 +126,9 @@ fn create(nonce: u64) -> CreateMarketMsg {
     }
 }
 fn setup() -> (App, Addr) {
+    setup_with_market(market_contract())
+}
+fn setup_with_market(market_contract: Box<dyn Contract<Empty>>) -> (App, Addr) {
     let mut app = app();
     app.update_block(|b| b.time = cosmwasm_std::Timestamp::from_seconds(NOW));
     let oracle_id = app.store_code(oracle_contract());
@@ -123,7 +146,7 @@ fn setup() -> (App, Addr) {
             None,
         )
         .unwrap();
-    let market_id = app.store_code(market_contract());
+    let market_id = app.store_code(market_contract);
     let factory_id = app.store_code(factory_contract());
     let oracle_info = app.wrap().query_wasm_code_info(oracle_id).unwrap();
     let factory = app
@@ -137,7 +160,7 @@ fn setup() -> (App, Addr) {
                 tier: tier(),
                 oracle: oracle.to_string(),
                 oracle_code_id: oracle_id,
-                oracle_checksum: HexBinary::from(oracle_info.checksum),
+                oracle_checksum: oracle_info.checksum,
                 verdict_authority: DAO.into(),
                 collateral_denom: UJUNO_DENOM.into(),
                 oracle_min_initial_bond_floor: Uint128::new(10_000_000),
@@ -242,7 +265,7 @@ fn rejects_bad_funds_bounds_and_metadata_without_registry_entry() {
 }
 
 #[test]
-fn nested_ask_failure_rolls_back_and_pagination_is_bounded_deterministic() {
+fn pagination_is_bounded_and_deterministic() {
     let (mut app, factory) = setup();
     let mut duplicate = create(9);
     app.execute_contract(
@@ -298,4 +321,32 @@ fn nested_ask_failure_rolls_back_and_pagination_is_bounded_deterministic() {
         )
         .unwrap();
     assert_eq!(capped.markets.len(), 2);
+}
+
+#[test]
+fn spoofed_child_identity_reverts_market_question_registry_and_funds() {
+    let (mut app, factory) = setup_with_market(spoof_market_contract());
+    let creator = Addr::unchecked("creator");
+    let before = app.wrap().query_balance(&creator, UJUNO_DENOM).unwrap();
+    assert!(app
+        .execute_contract(
+            creator.clone(),
+            factory.clone(),
+            &ExecuteMsg::CreateMarket(create(77)),
+            &[coin(101_000_000, UJUNO_DENOM)],
+        )
+        .is_err());
+    let after = app.wrap().query_balance(creator, UJUNO_DENOM).unwrap();
+    assert_eq!(before, after);
+    let listed: ListMarketsResponse = app
+        .wrap()
+        .query_wasm_smart(
+            factory,
+            &QueryMsg::ListMarkets {
+                start_after: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert!(listed.markets.is_empty());
 }

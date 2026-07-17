@@ -9,7 +9,7 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-binary-market = { path = "../binary-market" }
+binary-market = { path = "../binary-market", features = ["library"] }
 cosmwasm-schema.workspace = true
 cosmwasm-std.workspace = true
 cw-reality = { path = "../cw-reality", features = ["library"] }

@@ -29,6 +29,8 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CREATE_REPLY_ID: u64 = 1;
 const DEFAULT_LIMIT: u32 = 30;
 const MAX_LIMIT: u32 = 100;
+pub const V1_VERDICT_AUTHORITY: &str =
+    "juno18k65at7fkf8elhece0fnhsvuxggqg6cved6trp5fyk3lftfn93xsmpeaac";
 
 #[entry_point]
 pub fn instantiate(
@@ -95,6 +97,7 @@ fn validate_tier(msg: &InstantiateMsg) -> Result<(), ContractError> {
     let t = &msg.tier;
     if msg.protocol_version != ProtocolVersion::V1
         || msg.collateral_denom != UJUNO_DENOM
+        || msg.verdict_authority != V1_VERDICT_AUTHORITY
         || msg.market_code_id == 0
         || msg.oracle_code_id == 0
         || msg.oracle_checksum.is_empty()
@@ -106,7 +109,7 @@ fn validate_tier(msg: &InstantiateMsg) -> Result<(), ContractError> {
         || t.oracle_initial_bond < cosmwasm_std::Uint128::new(question::MIN_ORACLE_INITIAL_BOND)
         || t.answer_timeout_secs != question::ANSWER_TIMEOUT_SECS
         || t.arbitration_timeout_secs != question::ARBITRATION_TIMEOUT_SECS
-        || t.fee_bps > 10_000
+        || t.fee_bps != 200
         || t.min_trade.is_zero()
         || t.max_trade_bps == 0
         || t.max_trade_bps > 2_500
