@@ -123,6 +123,7 @@ pub fn instantiate(
             neutral_half_dust: 0,
             lp_accrual: Uint128::zero(),
             principal_at_resolution: None,
+            fees_at_resolution: None,
             terminal_liability_twice: None,
             pool_yes_at_resolution: None,
             pool_no_at_resolution: None,
@@ -311,14 +312,17 @@ pub fn execute(
             let payout = lifecycle.payout.ok_or(ContractError::NotResolved)?;
             return execute_redeem_positions(deps, env, info, &config, &payout, yes, no);
         }
-        ExecuteMsg::RedeemLp { .. } | ExecuteMsg::ClaimLpAccrual {} => {
+        ExecuteMsg::RedeemLp { amount } => {
             guards::no_funds(&info.funds)?;
-            if lifecycle.payout.is_none() {
-                return Err(ContractError::NotResolved);
-            }
+            let payout = lifecycle.payout.ok_or(ContractError::NotResolved)?;
+            return execute_redeem_lp(deps, env, info, &config, &payout, amount);
+        }
+        ExecuteMsg::ClaimLpAccrual {} => {
+            guards::no_funds(&info.funds)?;
+            lifecycle.payout.ok_or(ContractError::NotResolved)?;
+            return execute_claim_lp_accrual(deps, env, info, &config);
         }
     }
-    Err(ContractError::NotImplemented)
 }
 
 fn query_oracle_question(
@@ -754,14 +758,7 @@ fn execute_redeem_positions(
         {
             redemption.finalized_half = true;
             terminal = terminal.checked_sub(Uint128::one())?;
-            accounting.neutral_half_dust = accounting
-                .neutral_half_dust
-                .checked_add(1)
-                .ok_or_else(|| ContractError::InvariantViolation("half-dust overflow".into()))?;
-            if accounting.neutral_half_dust == 2 {
-                accounting.neutral_half_dust = 0;
-                accounting.lp_accrual = accounting.lp_accrual.checked_add(Uint128::one())?;
-            }
+            assign_half_dust(&mut accounting)?;
         }
         state::NEUTRAL_REDEMPTIONS.save(deps.storage, &info.sender, &redemption)?;
     } else {
@@ -795,6 +792,170 @@ fn execute_redeem_positions(
             amount: vec![cosmwasm_std::coin(payment.u128(), UJUNO_DENOM)],
         }))
     }
+}
+
+fn proportional_floor(
+    total: Uint128,
+    burned: Uint128,
+    supply: Uint128,
+) -> Result<Uint128, ContractError> {
+    if supply.is_zero() {
+        return Err(ContractError::InvariantViolation(
+            "zero fixed LP supply".into(),
+        ));
+    }
+    let value = Uint256::from(total)
+        .checked_mul(Uint256::from(burned))
+        .map_err(|error| ContractError::Math(error.to_string()))?
+        .checked_div(Uint256::from(supply))
+        .map_err(|error| ContractError::Math(error.to_string()))?;
+    Uint128::try_from(value).map_err(|error| ContractError::Math(error.to_string()))
+}
+
+fn pool_terminal_numerator(
+    yes: Uint128,
+    no: Uint128,
+    payout: &Payout,
+) -> Result<Uint128, ContractError> {
+    let scale = match payout.denominator.u128() {
+        1 => Uint128::new(2),
+        2 => Uint128::one(),
+        _ => {
+            return Err(ContractError::InvariantViolation(
+                "unsupported payout denominator".into(),
+            ))
+        }
+    };
+    Ok(yes
+        .checked_mul(payout.yes_numerator)?
+        .checked_add(no.checked_mul(payout.no_numerator)?)?
+        .checked_mul(scale)?)
+}
+
+fn assign_half_dust(accounting: &mut Accounting) -> Result<(), ContractError> {
+    accounting.neutral_half_dust = accounting
+        .neutral_half_dust
+        .checked_add(1)
+        .ok_or_else(|| ContractError::InvariantViolation("half-dust overflow".into()))?;
+    if accounting.neutral_half_dust == 2 {
+        accounting.neutral_half_dust = 0;
+        accounting.lp_accrual = accounting.lp_accrual.checked_add(Uint128::one())?;
+    }
+    Ok(())
+}
+
+fn execute_redeem_lp(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    config: &Config,
+    payout: &Payout,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    guards::sender(&info.sender, &config.initial_lp)?;
+    if amount.is_zero() {
+        return Err(ContractError::EmptyLpRedemption);
+    }
+    let mut accounting = state::ACCOUNTING.load(deps.storage)?;
+    let supply = accounting.lp_supply;
+    let burned_after = accounting.lp_burned.checked_add(amount)?;
+    if burned_after > supply {
+        return Err(ContractError::InsufficientLpUnits);
+    }
+    let pool_yes = accounting
+        .pool_yes_at_resolution
+        .ok_or(ContractError::NotResolved)?;
+    let pool_no = accounting
+        .pool_no_at_resolution
+        .ok_or(ContractError::NotResolved)?;
+    let fees = accounting
+        .fees_at_resolution
+        .ok_or(ContractError::NotResolved)?;
+    let q2 = pool_terminal_numerator(pool_yes, pool_no, payout)?;
+    let allocated_after = proportional_floor(q2, burned_after, supply)?;
+    let position_whole_after = allocated_after / Uint128::new(2);
+    let fee_whole_after = proportional_floor(fees, burned_after, supply)?;
+    let entitled_after = position_whole_after.checked_add(fee_whole_after)?;
+    let payment = entitled_after.checked_sub(accounting.lp_paid)?;
+
+    let yes_removed_after = proportional_floor(pool_yes, burned_after, supply)?;
+    let no_removed_after = proportional_floor(pool_no, burned_after, supply)?;
+    let yes_removed_before = pool_yes.checked_sub(accounting.pool_yes)?;
+    let no_removed_before = pool_no.checked_sub(accounting.pool_no)?;
+    let yes_delta = yes_removed_after.checked_sub(yes_removed_before)?;
+    let no_delta = no_removed_after.checked_sub(no_removed_before)?;
+    let fee_paid_before = proportional_floor(fees, accounting.lp_burned, supply)?;
+    let fee_delta = fee_whole_after.checked_sub(fee_paid_before)?;
+    let position_paid_before =
+        proportional_floor(q2, accounting.lp_burned, supply)? / Uint128::new(2);
+    let position_delta = position_whole_after.checked_sub(position_paid_before)?;
+
+    accounting.lp_burned = burned_after;
+    accounting.lp_paid = entitled_after;
+    accounting.fees = accounting.fees.checked_sub(fee_delta)?;
+    accounting.pool_yes = accounting.pool_yes.checked_sub(yes_delta)?;
+    accounting.pool_no = accounting.pool_no.checked_sub(no_delta)?;
+    accounting.total_yes = accounting.total_yes.checked_sub(yes_delta)?;
+    accounting.total_no = accounting.total_no.checked_sub(no_delta)?;
+    let mut terminal = accounting
+        .terminal_liability_twice
+        .ok_or(ContractError::NotResolved)?;
+    terminal = terminal.checked_sub(position_delta.checked_mul(Uint128::new(2))?)?;
+    if burned_after == supply && q2.u128() % 2 == 1 {
+        terminal = terminal.checked_sub(Uint128::one())?;
+        assign_half_dust(&mut accounting)?;
+    }
+    accounting.terminal_liability_twice = Some(terminal);
+    state::ACCOUNTING.save(deps.storage, &accounting)?;
+
+    let event = Event::new("juno_pm_v1")
+        .add_attribute("action", "lp_redeemed")
+        .add_attribute("protocol_version", "1")
+        .add_attribute("factory", config.factory.to_string())
+        .add_attribute("market", env.contract.address)
+        .add_attribute("lp", info.sender.to_string())
+        .add_attribute("units_burned", amount)
+        .add_attribute("cumulative_units_burned", burned_after)
+        .add_attribute("paid", payment);
+    let response = Response::new().add_event(event);
+    if payment.is_zero() {
+        Ok(response)
+    } else {
+        Ok(response.add_message(BankMsg::Send {
+            to_address: info.sender.to_string(),
+            amount: vec![cosmwasm_std::coin(payment.u128(), UJUNO_DENOM)],
+        }))
+    }
+}
+
+fn execute_claim_lp_accrual(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    config: &Config,
+) -> Result<Response, ContractError> {
+    guards::sender(&info.sender, &config.initial_lp)?;
+    let mut accounting = state::ACCOUNTING.load(deps.storage)?;
+    let payment = accounting.lp_accrual;
+    if payment.is_zero() {
+        return Err(ContractError::EmptyLpAccrual);
+    }
+    accounting.lp_accrual = Uint128::zero();
+    state::ACCOUNTING.save(deps.storage, &accounting)?;
+    Ok(Response::new()
+        .add_message(BankMsg::Send {
+            to_address: info.sender.to_string(),
+            amount: vec![cosmwasm_std::coin(payment.u128(), UJUNO_DENOM)],
+        })
+        .add_event(
+            Event::new("juno_pm_v1")
+                .add_attribute("action", "lp_accrual_claimed")
+                .add_attribute("protocol_version", "1")
+                .add_attribute("factory", config.factory.to_string())
+                .add_attribute("market", env.contract.address)
+                .add_attribute("lp", info.sender)
+                .add_attribute("paid", payment),
+        ))
 }
 
 fn execute_resolve(deps: DepsMut, env: Env, config: &Config) -> Result<Response, ContractError> {
@@ -835,6 +996,7 @@ fn execute_resolve(deps: DepsMut, env: Env, config: &Config) -> Result<Response,
     let principal = accounting.principal;
     let terminal_liability_twice = principal.checked_mul(Uint128::new(2))?;
     accounting.principal_at_resolution = Some(principal);
+    accounting.fees_at_resolution = Some(accounting.fees);
     accounting.terminal_liability_twice = Some(terminal_liability_twice);
     accounting.pool_yes_at_resolution = Some(accounting.pool_yes);
     accounting.pool_no_at_resolution = Some(accounting.pool_no);
@@ -1876,6 +2038,7 @@ mod activation_verification_tests {
                     neutral_half_dust: 0,
                     lp_accrual: Uint128::zero(),
                     principal_at_resolution: None,
+                    fees_at_resolution: None,
                     terminal_liability_twice: None,
                     pool_yes_at_resolution: None,
                     pool_no_at_resolution: None,
@@ -2111,7 +2274,12 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 .querier
                 .query_balance(env.contract.address, &config.collateral_denom)?
                 .amount;
-            let principal_liability = accounting.principal;
+            let principal_liability = match accounting.terminal_liability_twice {
+                Some(value) => value
+                    .checked_add(Uint128::one())?
+                    .checked_div(Uint128::new(2))?,
+                None => accounting.principal,
+            };
             let fee_liability = accounting.fees;
             let challenge_liability = accounting.challenge;
             let lp_accrual_liability = accounting.lp_accrual;

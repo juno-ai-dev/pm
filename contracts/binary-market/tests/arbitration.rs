@@ -573,6 +573,72 @@ fn timeout_and_direct_cancellation_synchronize_once_and_second_challenge_stays_r
 }
 
 #[test]
+fn timeout_slash_is_claimable_after_resolution_and_full_base_lp_burn() {
+    let mut f = setup(bytes(YES_HEX));
+    challenge(&mut f);
+    f.app.update_block(|block| {
+        block.time = cosmwasm_std::Timestamp::from_seconds(OPENING + ARBITRATION_TIMEOUT)
+    });
+    f.app
+        .execute_contract(
+            Addr::unchecked("keeper"),
+            f.market.clone(),
+            &ExecuteMsg::FinalizeStalledChallenge {},
+            &[],
+        )
+        .unwrap();
+    f.app
+        .update_block(|block| block.time = block.time.plus_seconds(ANSWER_TIMEOUT));
+    f.app
+        .execute_contract(
+            Addr::unchecked("keeper"),
+            f.market.clone(),
+            &ExecuteMsg::Resolve {},
+            &[],
+        )
+        .unwrap();
+
+    let before = f
+        .app
+        .wrap()
+        .query_balance("creator", "ujuno")
+        .unwrap()
+        .amount;
+    f.app
+        .execute_contract(
+            Addr::unchecked("creator"),
+            f.market.clone(),
+            &ExecuteMsg::RedeemLp {
+                amount: Uint128::new(100),
+            },
+            &[],
+        )
+        .unwrap();
+    f.app
+        .execute_contract(
+            Addr::unchecked("creator"),
+            f.market.clone(),
+            &ExecuteMsg::ClaimLpAccrual {},
+            &[],
+        )
+        .unwrap();
+    let after = f
+        .app
+        .wrap()
+        .query_balance("creator", "ujuno")
+        .unwrap()
+        .amount;
+    assert_eq!(after - before, Uint128::new(100 + BOND));
+    let accounting: AccountingResponse = f
+        .app
+        .wrap()
+        .query_wasm_smart(&f.market, &QueryMsg::Accounting {})
+        .unwrap();
+    assert_eq!(accounting.lp_burned, accounting.lp_supply);
+    assert_eq!(accounting.lp_accrual, Uint128::zero());
+}
+
+#[test]
 fn nested_oracle_failures_and_reply_verification_failures_are_atomic_and_retryable() {
     for height in [10_001, 10_002] {
         let mut f = setup(bytes(YES_HEX));

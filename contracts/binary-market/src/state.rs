@@ -65,6 +65,8 @@ pub struct Accounting {
     pub neutral_half_dust: u8,
     pub lp_accrual: Uint128,
     pub principal_at_resolution: Option<Uint128>,
+    /// Immutable F snapshot used by cumulative LP fee floors.
+    pub fees_at_resolution: Option<Uint128>,
     /// T2: unpaid position liability in half-ujuno numerator units.
     pub terminal_liability_twice: Option<Uint128>,
     pub pool_yes_at_resolution: Option<Uint128>,

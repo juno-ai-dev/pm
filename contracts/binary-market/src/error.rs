@@ -36,6 +36,12 @@ pub enum ContractError {
     InsufficientPosition,
     #[error("redemption must burn at least one position unit")]
     EmptyRedemption,
+    #[error("LP redemption must burn at least one unit")]
+    EmptyLpRedemption,
+    #[error("insufficient remaining LP units")]
+    InsufficientLpUnits,
+    #[error("no later LP accrual is claimable")]
+    EmptyLpAccrual,
     #[error("trade slippage limit exceeded")]
     SlippageExceeded,
     #[error("FPMM arithmetic rejected the trade: {0}")]

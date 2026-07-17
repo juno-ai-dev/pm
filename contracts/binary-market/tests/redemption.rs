@@ -102,6 +102,7 @@ fn resolved(payout: Payout, positions: &[(&str, u128, u128)]) -> TestDeps {
                 neutral_half_dust: 0,
                 lp_accrual: Uint128::zero(),
                 principal_at_resolution: Some(Uint128::new(principal)),
+                fees_at_resolution: Some(Uint128::zero()),
                 terminal_liability_twice: Some(Uint128::new(total_yes + total_no)),
                 pool_yes_at_resolution: Some(Uint128::zero()),
                 pool_no_at_resolution: Some(Uint128::zero()),
