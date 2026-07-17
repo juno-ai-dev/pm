@@ -2,6 +2,7 @@
 
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Binary, Uint128};
+use cw_reality::state::Question as OracleQuestion;
 use cw_storage_plus::{Item, Map};
 use pm_types::{Payout, ProtocolVersion, TierId};
 
@@ -101,6 +102,9 @@ pub struct Challenge {
     pub started_at: u64,
     pub deadline: u64,
     pub refundable: bool,
+    /// Exact oracle state before `RequestArbitration`. All later arbitration
+    /// transitions are verified against this consensus snapshot.
+    pub oracle_snapshot: OracleQuestion,
 }
 
 #[cw_serde]

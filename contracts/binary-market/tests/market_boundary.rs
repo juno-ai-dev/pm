@@ -11,6 +11,7 @@ use cosmwasm_std::{
     testing::{mock_dependencies, mock_env, mock_info},
     Addr, Binary, Reply, SubMsgResult, Timestamp, Uint128,
 };
+use cw_reality::state::{AnswerType, Question as OracleQuestion};
 use pm_types::TierId;
 
 fn answer(byte: u8) -> Binary {
@@ -191,6 +192,29 @@ fn governance_is_exact_sender_and_strictly_before_deadline() {
         started_at: 100,
         deadline: 200,
         refundable: true,
+        oracle_snapshot: OracleQuestion {
+            asker: Addr::unchecked("market"),
+            text: config.question.clone(),
+            answer_type: AnswerType::Bool,
+            bond_denom: config.collateral_denom.clone(),
+            initial_bond: config.oracle_initial_bond,
+            min_bond: config.oracle_initial_bond,
+            answer_timeout_secs: config.answer_timeout_secs,
+            arbitrator: Some(Addr::unchecked("market")),
+            arbitration_timeout_secs: config.arbitration_timeout_secs,
+            arbitration_deadline: None,
+            answer_schema: None,
+            nonce: config.nonce,
+            opening_ts: Some(config.opening_ts),
+            bounty: config.oracle_bounty,
+            best_answer: Some(answer(1)),
+            current_bond: Uint128::one(),
+            history_hash: [0; 32],
+            round_count: 1,
+            finalize_ts: Some(300),
+            is_pending_arbitration: false,
+            is_claimed: false,
+        },
     };
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(199);

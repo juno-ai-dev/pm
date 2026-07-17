@@ -399,6 +399,10 @@ fn timeout_and_direct_cancellation_synchronize_once_and_second_challenge_stays_r
                     &[],
                 )
                 .unwrap();
+            // Synchronization may happen in a later block. The cancellation's
+            // re-extension remains authoritative and must not strand escrow.
+            f.app
+                .update_block(|block| block.time = block.time.plus_seconds(17));
         }
         f.app
             .execute_contract(

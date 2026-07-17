@@ -15,11 +15,12 @@ use crate::{
     state::{self, Accounting, Config, Lifecycle, Position, ReplyInProgress},
 };
 use cw_reality::{
+    hash::next_history_hash,
     msg::{
         ExecuteMsg as OracleExecuteMsg, FinalAnswerResponse as OracleFinalAnswerResponse,
         QueryMsg as OracleQueryMsg, QuestionResponse as OracleQuestionResponse,
     },
-    state::{AnswerType, State as OracleState},
+    state::{AnswerType, Question as OracleQuestion, State as OracleState},
 };
 use pm_types::{Outcome, Payout, ProtocolVersion, UJUNO_DENOM};
 
@@ -374,31 +375,36 @@ fn execute_challenge(
     info: MessageInfo,
     config: &Config,
 ) -> Result<Response, ContractError> {
+    let now = env.block.time.seconds();
+    execute_challenge_at(deps, env, info, config, now)
+}
+
+fn execute_challenge_at(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    config: &Config,
+    now: u64,
+) -> Result<Response, ContractError> {
     let question_id = state::QUESTION_ID.load(deps.storage)?;
     let actual = query_oracle_question(deps.as_ref(), config, &question_id)?;
-    let (answer, oracle_bond) = verify_challengeable_question(
-        &actual,
-        &question_id,
-        config,
-        &env.contract.address,
-        env.block.time.seconds(),
-    )?;
+    let (answer, oracle_bond) =
+        verify_challengeable_question(&actual, &question_id, config, &env.contract.address, now)?;
     let required = config.challenge_bond.max(oracle_bond);
     guards::exact_funds(&info.funds, UJUNO_DENOM, required)?;
-    let deadline = env
-        .block
-        .time
-        .seconds()
-        .saturating_add(u64::from(config.arbitration_timeout_secs));
+    let deadline = now
+        .checked_add(u64::from(config.arbitration_timeout_secs))
+        .ok_or(ContractError::ArbitrationDeadlineOverflow)?;
     state::CHALLENGE.save(
         deps.storage,
         &state::Challenge {
             challenger: info.sender.clone(),
             answer: answer.clone(),
             oracle_bond,
-            started_at: env.block.time.seconds(),
+            started_at: now,
             deadline,
             refundable: true,
+            oracle_snapshot: actual.question,
         },
     )?;
     state::LIFECYCLE.update(deps.storage, |mut lifecycle| -> StdResult<_> {
@@ -448,13 +454,12 @@ fn verify_pending_challenge(
     challenge: &state::Challenge,
     deadline: u64,
 ) -> Result<(), ContractError> {
-    let q = &actual.question;
+    let mut expected = challenge.oracle_snapshot.clone();
+    expected.is_pending_arbitration = true;
+    expected.arbitration_deadline = Some(deadline);
     if actual.question_id != *question_id
         || actual.state != OracleState::PendingArbitration
-        || q.best_answer.as_ref() != Some(&challenge.answer)
-        || q.current_bond != challenge.oracle_bond
-        || q.arbitration_deadline != Some(deadline)
-        || !q.is_pending_arbitration
+        || actual.question != expected
     {
         return Err(ContractError::ArbitrationMismatch(
             "oracle pending state does not match the challenge snapshot".into(),
@@ -510,6 +515,47 @@ fn execute_governance_verdict(
         .add_attribute("question_id", question_id.to_base64()))
 }
 
+fn verify_finalized_verdict(
+    api: &dyn cosmwasm_std::Api,
+    actual: &OracleQuestionResponse,
+    question_id: &Binary,
+    challenge: &state::Challenge,
+    answer: &Binary,
+    payee: &cosmwasm_std::Addr,
+    now: u64,
+) -> Result<(), ContractError> {
+    let snapshot = &challenge.oracle_snapshot;
+    let history_hash = next_history_hash(
+        api,
+        &snapshot.history_hash,
+        answer,
+        &snapshot.bond_denom,
+        Uint128::zero(),
+        payee,
+        false,
+    )?;
+    let round_count = snapshot
+        .round_count
+        .checked_add(1)
+        .ok_or(ContractError::ArbitrationRoundOverflow)?;
+    let mut expected: OracleQuestion = snapshot.clone();
+    expected.is_pending_arbitration = false;
+    expected.arbitration_deadline = None;
+    expected.best_answer = Some(answer.clone());
+    expected.history_hash = history_hash;
+    expected.round_count = round_count;
+    expected.finalize_ts = Some(now);
+    if actual.question_id != *question_id
+        || actual.state != OracleState::Finalized
+        || actual.question != expected
+    {
+        return Err(ContractError::ArbitrationMismatch(
+            "oracle did not apply the exact forwarded verdict history transition".into(),
+        ));
+    }
+    Ok(())
+}
+
 fn settle_challenge(
     deps: DepsMut,
     env: &Env,
@@ -563,18 +609,29 @@ fn verify_cancelled(
     actual: &OracleQuestionResponse,
     question_id: &Binary,
     challenge: &state::Challenge,
+    synchronization_now: u64,
 ) -> Result<(), ContractError> {
-    let q = &actual.question;
+    let timeout = u64::from(challenge.oracle_snapshot.answer_timeout_secs);
+    let earliest = challenge
+        .deadline
+        .checked_add(timeout)
+        .ok_or(ContractError::ArbitrationDeadlineOverflow)?;
+    let latest = synchronization_now
+        .checked_add(timeout)
+        .ok_or(ContractError::ArbitrationDeadlineOverflow)?;
+    let finalize_ts = actual.question.finalize_ts;
+    let mut expected = challenge.oracle_snapshot.clone();
+    expected.is_pending_arbitration = false;
+    expected.arbitration_deadline = None;
+    expected.finalize_ts = finalize_ts;
     if actual.question_id != *question_id
         || actual.state != OracleState::OpenAnswered
-        || q.best_answer.as_ref() != Some(&challenge.answer)
-        || q.current_bond != challenge.oracle_bond
-        || q.is_pending_arbitration
-        || q.arbitration_deadline.is_some()
-        || q.finalize_ts.is_none()
+        || actual.question != expected
+        || !finalize_ts.is_some_and(|ts| earliest <= ts && ts <= latest)
     {
         return Err(ContractError::ArbitrationMismatch(
-            "oracle cancellation does not match challenge snapshot".into(),
+            "oracle cancellation does not match the challenge snapshot or re-extension window"
+                .into(),
         ));
     }
     Ok(())
@@ -603,19 +660,7 @@ fn execute_finalize_stalled(
             REPLY_STALLED_CANCELLATION,
         )));
     }
-    verify_cancelled(&actual, &question_id, challenge)?;
-    if actual.question.finalize_ts
-        != Some(
-            env.block
-                .time
-                .seconds()
-                .saturating_add(u64::from(config.answer_timeout_secs)),
-        )
-    {
-        return Err(ContractError::ArbitrationMismatch(
-            "cancelled oracle answer clock was not re-extended".into(),
-        ));
-    }
+    verify_cancelled(&actual, &question_id, challenge, env.block.time.seconds())?;
     settle_challenge(deps, &env, config, false, "oracle_already_cancelled")
 }
 
@@ -1208,7 +1253,7 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
         reply
             .result
             .into_result()
-            .map_err(ContractError::ActivationMismatch)?;
+            .map_err(ContractError::ArbitrationSubmessage)?;
         let config = state::CONFIG.load(deps.storage)?;
         let question_id = state::QUESTION_ID.load(deps.storage)?;
         let challenge = state::CHALLENGE.load(deps.storage)?;
@@ -1229,19 +1274,15 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
                 ))
             }
             ReplyInProgress::GovernanceVerdict { answer, payee } => {
-                let q = &actual.question;
-                if actual.question_id != question_id
-                    || actual.state != OracleState::Finalized
-                    || q.best_answer.as_ref() != Some(&answer)
-                    || q.current_bond != challenge.oracle_bond
-                    || q.is_pending_arbitration
-                    || q.arbitration_deadline.is_some()
-                    || q.finalize_ts != Some(env.block.time.seconds())
-                {
-                    return Err(ContractError::ArbitrationMismatch(
-                        "oracle did not finalize the exact forwarded verdict".into(),
-                    ));
-                }
+                verify_finalized_verdict(
+                    deps.api,
+                    &actual,
+                    &question_id,
+                    &challenge,
+                    &answer,
+                    &payee,
+                    env.block.time.seconds(),
+                )?;
                 let refund = answer != challenge.answer;
                 settle_challenge(
                     deps,
@@ -1257,19 +1298,7 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
                 .map(|response| response.add_attribute("verdict_payee", payee.to_string()))
             }
             ReplyInProgress::StalledCancellation => {
-                verify_cancelled(&actual, &question_id, &challenge)?;
-                if actual.question.finalize_ts
-                    != Some(
-                        env.block
-                            .time
-                            .seconds()
-                            .saturating_add(u64::from(config.answer_timeout_secs)),
-                    )
-                {
-                    return Err(ContractError::ArbitrationMismatch(
-                        "cancelled oracle answer clock was not re-extended".into(),
-                    ));
-                }
+                verify_cancelled(&actual, &question_id, &challenge, env.block.time.seconds())?;
                 settle_challenge(deps, &env, &config, false, "arbitration_timeout")
             }
             ReplyInProgress::Activation { .. } => Err(ContractError::ReplyStateMismatch),
@@ -1374,12 +1403,22 @@ fn verify_oracle_question(
 #[cfg(test)]
 #[allow(clippy::items_after_test_module)]
 mod activation_verification_tests {
-    use super::{verify_oracle_question, verify_resolution};
-    use crate::{question, state::Config};
-    use cosmwasm_std::{Addr, Binary, Uint128};
+    use super::{
+        execute_challenge_at, verify_finalized_verdict, verify_oracle_question, verify_resolution,
+    };
+    use crate::{
+        error::ContractError,
+        question,
+        state::{self, Accounting, Challenge, Config, Lifecycle},
+    };
+    use cosmwasm_std::{
+        coin, from_json,
+        testing::{mock_dependencies, mock_env, mock_info},
+        to_json_binary, Addr, Binary, ContractResult, SystemResult, Uint128, WasmQuery,
+    };
     use cw_reality::{
         filter::AnswerSchemaFilter,
-        msg::{FinalAnswerResponse, QuestionResponse},
+        msg::{FinalAnswerResponse, QueryMsg as OracleQueryMsg, QuestionResponse},
         state::{AnswerType, Question, State},
     };
     use pm_types::{ProtocolVersion, TierId};
@@ -1627,6 +1666,214 @@ mod activation_verification_tests {
         let mut wrong_id = final_answer.clone();
         wrong_id.question_id = Binary::from(vec![9; 32]);
         assert!(verify_resolution(&wrong_id, &exact, &expected_id, &config, &market).is_err());
+    }
+
+    fn verdict_fixture() -> (Binary, Binary, Addr, Challenge, QuestionResponse) {
+        let (_, _, question_id, mut pre) = fixture();
+        let answer = Binary::from(vec![2; 32]);
+        let payee = Addr::unchecked("payee");
+        pre.question.best_answer = Some(Binary::from(vec![1; 32]));
+        pre.question.current_bond = Uint128::new(10_000_000);
+        pre.question.history_hash = [3; 32];
+        pre.question.round_count = 4;
+        pre.question.finalize_ts = Some(20_000);
+        pre.state = State::OpenAnswered;
+        let challenge = Challenge {
+            challenger: Addr::unchecked("challenger"),
+            answer: pre.question.best_answer.clone().unwrap(),
+            oracle_bond: pre.question.current_bond,
+            started_at: 10_000,
+            deadline: 11_000,
+            refundable: true,
+            oracle_snapshot: pre.question.clone(),
+        };
+        let mut actual = pre;
+        actual.state = State::Finalized;
+        actual.question.best_answer = Some(answer.clone());
+        actual.question.is_pending_arbitration = false;
+        actual.question.arbitration_deadline = None;
+        actual.question.round_count += 1;
+        actual.question.finalize_ts = Some(12_000);
+        (question_id, answer, payee, challenge, actual)
+    }
+
+    #[test]
+    fn verdict_verifier_rejects_wrong_payee_hash_hash_round_and_immutable_drift() {
+        let deps = mock_dependencies();
+        let (question_id, answer, payee, challenge, mut exact) = verdict_fixture();
+        exact.question.history_hash = cw_reality::hash::next_history_hash(
+            deps.as_ref().api,
+            &challenge.oracle_snapshot.history_hash,
+            &answer,
+            &challenge.oracle_snapshot.bond_denom,
+            Uint128::zero(),
+            &payee,
+            false,
+        )
+        .unwrap();
+        assert!(verify_finalized_verdict(
+            deps.as_ref().api,
+            &exact,
+            &question_id,
+            &challenge,
+            &answer,
+            &payee,
+            12_000,
+        )
+        .is_ok());
+
+        let mut wrong_payee_history = exact.clone();
+        wrong_payee_history.question.history_hash = cw_reality::hash::next_history_hash(
+            deps.as_ref().api,
+            &challenge.oracle_snapshot.history_hash,
+            &answer,
+            &challenge.oracle_snapshot.bond_denom,
+            Uint128::zero(),
+            &Addr::unchecked("wrong-payee"),
+            false,
+        )
+        .unwrap();
+        assert!(verify_finalized_verdict(
+            deps.as_ref().api,
+            &wrong_payee_history,
+            &question_id,
+            &challenge,
+            &answer,
+            &payee,
+            12_000,
+        )
+        .is_err());
+
+        let mut wrong_hash = exact.clone();
+        wrong_hash.question.history_hash[0] ^= 1;
+        assert!(verify_finalized_verdict(
+            deps.as_ref().api,
+            &wrong_hash,
+            &question_id,
+            &challenge,
+            &answer,
+            &payee,
+            12_000,
+        )
+        .is_err());
+
+        let mut wrong_round = exact.clone();
+        wrong_round.question.round_count += 1;
+        assert!(verify_finalized_verdict(
+            deps.as_ref().api,
+            &wrong_round,
+            &question_id,
+            &challenge,
+            &answer,
+            &payee,
+            12_000,
+        )
+        .is_err());
+
+        let mut immutable_drift = exact;
+        immutable_drift.question.asker = Addr::unchecked("other-market");
+        assert!(verify_finalized_verdict(
+            deps.as_ref().api,
+            &immutable_drift,
+            &question_id,
+            &challenge,
+            &answer,
+            &payee,
+            12_000,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn challenge_deadline_overflow_rejects_before_any_mutation() {
+        let (config, market, question_id, mut oracle_response) = fixture();
+        let now = u64::MAX - u64::from(config.arbitration_timeout_secs) + 1;
+        oracle_response.state = State::OpenAnswered;
+        oracle_response.question.best_answer = Some(Binary::from(vec![1; 32]));
+        oracle_response.question.current_bond = config.challenge_bond;
+        oracle_response.question.history_hash = [5; 32];
+        oracle_response.question.round_count = 1;
+        oracle_response.question.finalize_ts = Some(u64::MAX);
+
+        let mut deps = mock_dependencies();
+        let query_response = oracle_response.clone();
+        deps.querier.update_wasm(move |query| match query {
+            WasmQuery::Smart { msg, .. } => {
+                let _: OracleQueryMsg = from_json(msg).unwrap();
+                SystemResult::Ok(ContractResult::Ok(to_json_binary(&query_response).unwrap()))
+            }
+            _ => panic!("unexpected query"),
+        });
+        state::QUESTION_ID
+            .save(deps.as_mut().storage, &question_id)
+            .unwrap();
+        state::LIFECYCLE
+            .save(
+                deps.as_mut().storage,
+                &Lifecycle {
+                    activated: true,
+                    payout: None,
+                    resolution_answer: None,
+                    resolution_height: None,
+                    resolution_time: None,
+                    challenge_used: false,
+                },
+            )
+            .unwrap();
+        state::ACCOUNTING
+            .save(
+                deps.as_mut().storage,
+                &Accounting {
+                    principal: Uint128::zero(),
+                    fees: Uint128::zero(),
+                    challenge: Uint128::zero(),
+                    pool_yes: Uint128::zero(),
+                    pool_no: Uint128::zero(),
+                    total_yes: Uint128::zero(),
+                    total_no: Uint128::zero(),
+                    lp_supply: Uint128::zero(),
+                    lp_burned: Uint128::zero(),
+                    lp_paid: Uint128::zero(),
+                    neutral_half_dust: 0,
+                    lp_accrual: Uint128::zero(),
+                    principal_at_resolution: None,
+                    terminal_liability_twice: None,
+                    pool_yes_at_resolution: None,
+                    pool_no_at_resolution: None,
+                    total_yes_at_resolution: None,
+                    total_no_at_resolution: None,
+                },
+            )
+            .unwrap();
+        let mut env = mock_env();
+        env.contract.address = market;
+        let error = execute_challenge_at(
+            deps.as_mut(),
+            env,
+            mock_info("challenger", &[coin(config.challenge_bond.u128(), "ujuno")]),
+            &config,
+            now,
+        )
+        .unwrap_err();
+        assert_eq!(error, ContractError::ArbitrationDeadlineOverflow);
+        assert!(state::CHALLENGE
+            .may_load(deps.as_ref().storage)
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            state::ACCOUNTING
+                .load(deps.as_ref().storage)
+                .unwrap()
+                .challenge,
+            Uint128::zero()
+        );
+        assert!(
+            !state::LIFECYCLE
+                .load(deps.as_ref().storage)
+                .unwrap()
+                .challenge_used
+        );
+        assert_eq!(oracle_response.question.history_hash, [5; 32]);
     }
 }
 
