@@ -5,9 +5,23 @@ use serde_json::Value;
 fn fields(schema: &Value, response: &str) -> BTreeSet<String> {
     schema["responses"][response]["properties"]
         .as_object()
-        .unwrap_or_else(|| panic!("missing response schema {response}"))
+        .unwrap_or_else(|| panic!("missing response schema: {response}"))
         .keys()
         .cloned()
+        .collect()
+}
+
+fn hardcoded_emitted_actions(source: &str) -> BTreeSet<String> {
+    let compact: String = source.chars().filter(|ch| !ch.is_whitespace()).collect();
+    [".add_attribute(\"action\",\"", "complete_set_event(\""]
+        .into_iter()
+        .flat_map(|marker| {
+            compact
+                .split(marker)
+                .skip(1)
+                .map(|tail| tail.split('"').next().unwrap().to_string())
+                .collect::<Vec<_>>()
+        })
         .collect()
 }
 
@@ -241,19 +255,38 @@ fn emitted_v1_actions_are_confined_to_the_frozen_allowlist() {
         );
     }
 
-    let compact: String = market
-        .chars()
-        .filter(|character| !character.is_whitespace())
-        .collect();
-    let marker = ".add_attribute(\"action\",\"";
-    for tail in compact.split(marker).skip(1) {
-        let action = tail.split('"').next().unwrap();
+    for action in hardcoded_emitted_actions(market) {
         if action == "instantiate" {
             continue;
         }
         assert!(
-            approved.contains(action),
-            "unapproved emitted action: {action}"
+            approved.contains(action.as_str()),
+            "hardcoded emitted action is outside frozen v1 schema: {action}"
         );
     }
+
+    let compact: String = market.chars().filter(|ch| !ch.is_whitespace()).collect();
+    assert_eq!(
+        compact.matches("action:&str").count(),
+        1,
+        "new dynamic action-bearing helpers must be added to this exhaustive golden parser"
+    );
+}
+
+#[test]
+fn action_extractor_covers_dynamic_complete_set_helper_calls() {
+    let source = r#"
+        complete_set_event(
+            "brand_new_action",
+            &env,
+            config,
+            &caller,
+            amount,
+            &accounting,
+        )
+    "#;
+    assert_eq!(
+        hardcoded_emitted_actions(source),
+        BTreeSet::from(["brand_new_action".to_string()])
+    );
 }
