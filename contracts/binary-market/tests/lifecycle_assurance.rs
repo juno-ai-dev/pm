@@ -187,12 +187,12 @@ impl Harness {
             .map_or(accounting.principal, |terminal| {
                 (terminal + Uint128::one()) / Uint128::new(2)
             });
-        assert_eq!(solvency.principal_liability, expected_principal);
+        assert_eq!(solvency.principal_or_terminal_liability, expected_principal);
         assert_eq!(solvency.fee_liability, accounting.fees);
         assert_eq!(solvency.challenge_liability, accounting.challenge);
-        assert_eq!(solvency.lp_accrual_liability, accounting.lp_accrual);
+        assert_eq!(solvency.lp_whole_coin_accrual, accounting.lp_accrual);
         assert_eq!(solvency.forced_excess, Uint128::new(forced));
-        assert_eq!(bank, solvency.accounted_total + solvency.forced_excess);
+        assert_eq!(bank, solvency.accounted_liability + solvency.forced_excess);
     }
 
     fn trade(&mut self, market: &Addr) {
@@ -349,10 +349,10 @@ impl Harness {
                 )
                 .unwrap();
             let event = protocol_event(&response, "lp_redeemed");
-            assert_eq!(attribute(event, "units_burned"), amount.to_string());
+            assert_eq!(attribute(event, "lp_burned"), amount.to_string());
             assert_eq!(
-                attribute(event, "cumulative_units_burned"),
-                cumulative.to_string()
+                attribute(event, "lp_supply_remaining"),
+                (before.lp_supply - cumulative).to_string()
             );
             let lp: LpPositionResponse = self.query(market, &QueryMsg::LpPosition {});
             assert_eq!(lp.owner, "creator");
@@ -387,7 +387,7 @@ impl Harness {
             )
             .unwrap();
         assert_eq!(
-            attribute(protocol_event(&response, "lp_accrual_claimed"), "paid"),
+            attribute(protocol_event(&response, "lp_accrual_claimed"), "amount"),
             amount.to_string()
         );
         assert_eq!(self.accounting(market).lp_accrual, Uint128::zero());

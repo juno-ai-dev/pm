@@ -36,7 +36,7 @@ paths are under `contracts/binary-market/tests/`; cw-reality names are unit test
 | Chain admins are empty; market wire protocol has no pause/sweep; migration is rejected | `lifecycle_assurance::frozen_contracts_and_closed_wire_protocol_have_no_admin_migrate_pause_or_sweep` |
 | Event-derived trade and redemption amounts equal direct Accounting/Position queries | `lifecycle_assurance::three_market_yes_no_neutral_lifecycles_reconcile_and_never_cross_contaminate`; arbitration event reconciliation is in `arbitration::exact_arbitration_events_cover_refund_identical_and_timeout_slash` |
 
-After resolution, `Solvency.principal_liability` uses the landed #15 ceiling formula
+After resolution, `Solvency.principal_or_terminal_liability` uses the landed #15 ceiling formula
 `(terminal_liability_twice + 1) / 2`, not the immutable principal-at-resolution
 snapshot. The lifecycle harness reconciles that liability, fees, challenge funds, LP
 accrual, direct bank balance, and forced excess after every partial/final exit. The
