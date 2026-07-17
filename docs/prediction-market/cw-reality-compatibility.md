@@ -1,13 +1,13 @@
 # R3 — cw-reality compatibility
 
-**Status:** accepted integration specification (2026-07-16); audit/build and issue #4 rehearsal evidence remain open
+**Status:** accepted integration specification (2026-07-16), authority profile amended 2026-07-17 by issue #45; audit/build and deployment evidence remain open
 **Canonical source:** local commit ee641534fd7b7b3677bd48d30390422ee3fbe5ed
 **Schema:** checked-in cw-reality 0.1.0-alpha.1 combined schema, SHA-256 a50ecbb0…20af
 **Deployment snapshot:** Juno height 39,829,829
 
 ## Compatibility decision
 
-Use cw-reality unchanged. Each market is its question's configured arbitrator-controller. Public users answer and counter-answer directly on cw-reality. A public market challenge escrows a separate bond and makes the market atomically call RequestArbitration. Only the pinned Juno x/gov module address may invoke the market's GovernanceVerdict path, which forwards SubmitArbitration so cw-reality observes the configured market sender.
+Use cw-reality unchanged. Each market is its question's configured arbitrator-controller. Public users answer and counter-answer directly on cw-reality. A public market challenge escrows a separate bond and makes the market atomically call RequestArbitration. Only the market's immutable `verdict_authority` may invoke GovernanceVerdict, which forwards SubmitArbitration so cw-reality observes the configured market sender. V1 pins the Juno Agents DAO core `juno18k65at7fkf8elhece0fnhsvuxggqg6cved6trp5fyk3lftfn93xsmpeaac`; future x/gov support remains address-compatible but deferred under #4/#13.
 
 No existing cw-reality production address is acceptable as an immutable dependency. The accepted canary dependency is a new instance of independently audited code, instantiated with no chain migration admin and InstantiateMsg.admin = None, a 10,000,000-ujuno initial-bond floor, and an 86,400-second answer-timeout floor. Factory tiers also pin its address, code ID, checksum, and config. These values are accepted for implementation; audit, reproducible-build, and deployment evidence remain open.
 
@@ -121,8 +121,8 @@ oracle OpenAnswered before finalize_ts
              market calls RequestArbitration with current_bond_seen
              entire transaction is atomic
                     |
-                    +--> gov proposal executes before arbitration deadline
-                    |      sender = pinned x/gov module address
+                    +--> DAO proposal executes before arbitration deadline
+                    |      sender = pinned Juno Agents DAO core
                     |      GovernanceVerdict(answer, payee)
                     |      market forwards SubmitArbitration
                     |      cw-reality finalizes
@@ -144,7 +144,11 @@ At block.time >= arbitration_deadline, GovernanceVerdict rejects even if nobody 
 
 A rejected, failed, stale, never-deposited, or absent proposal is indistinguishable to the market unless it executes a verdict. All therefore take the timeout branch and lose the challenge bond. That harsh rule is the anti-freeze safe default and must be prominent before a challenger signs.
 
-## Governance feasibility
+## V1 DAO DAO feasibility
+
+The initial authority is the Juno Agents DAO core `juno18k65at7fkf8elhece0fnhsvuxggqg6cved6trp5fyk3lftfn93xsmpeaac`. A passed proposal must execute GovernanceVerdict from that exact core. Members, proposal modules, voting modules, EOAs, and other contracts fail authentication. Issue #45 requires contract-level sender/failure coverage and a reviewable non-broadcast proposal packet. No live proposal, vote, execution, funding, or gas evidence is claimed or authorized by this memo. DAO core code, modules, membership, and voting-rule changes are external trust risks even though each market's authority address cannot rotate.
+
+## Deferred x/gov feasibility evidence
 
 Observed at height 39,829,829:
 
@@ -166,7 +170,7 @@ The [Cosmos SDK v0.50 x/gov specification](https://docs.cosmos.network/sdk/v0.50
 }
 ~~~
 
-This is not a rehearsed proposal file. Juno CLI/protobuf encoding, signer acceptance, gas, and wasm submessage execution remain open. The 21-day timeout is accepted for implementation, but transaction execution and deployment remain unauthorized until issue #4 rehearses:
+This historical evidence preserves future x/gov compatibility; it is not the v1 authority profile and does not block DAO-based implementation. This is not a rehearsed proposal file. Juno CLI/protobuf encoding, signer acceptance, gas, and wasm submessage execution remain open until separately authorized work under #4/#13:
 
 1. proposal creation with this exact inner sender and no funds;
 2. deposit sponsorship and maximum deposit-period timing;
@@ -177,7 +181,7 @@ This is not a rehearsed proposal file. Juno CLI/protobuf encoding, signer accept
 7. gas used by market forwarding and oracle history update;
 8. event/indexer reconstruction and challenge-bond refund/slash.
 
-The market validates the caller, exact question ID, pending challenge, pre-deadline time, empty attached funds, and payee address. Governance remains trusted to choose both answer and payee because cw-reality accepts any `Binary`, validates the payee with `deps.api.addr_validate`, and provides no history-membership proof for SubmitArbitration. An unrecognized answer limits market-collateral payout harm by producing neutral, but that market-side mapping does not change the oracle history entry: a malicious payee can still redirect oracle bounty and bond winnings. This trust must not be hidden.
+The market validates the caller, exact question ID, pending challenge, pre-deadline time, empty attached funds, and payee address. The pinned authority remains trusted to choose both answer and payee because cw-reality accepts any `Binary`, validates the payee with `deps.api.addr_validate`, and provides no history-membership proof for SubmitArbitration. An unrecognized answer limits market-collateral payout harm by producing neutral, but that market-side mapping does not change the oracle history entry: a malicious payee can still redirect oracle bounty and bond winnings. This trust must not be hidden.
 
 ## Stalled and unanswered behavior
 

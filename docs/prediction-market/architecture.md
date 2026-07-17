@@ -29,14 +29,14 @@ creator / trader / LP / challenger / keeper
                     ^
                     | market is configured arbitrator
                     |
- Juno x/gov module account --> market GovernanceVerdict only
+ immutable verdict authority --> market GovernanceVerdict only
 ~~~
 
 Trust is deliberately narrow:
 
 - Consensus, Juno bank/wasm modules, and block time are foundational.
 - Market and oracle code/checksums are trusted and must be immutable.
-- Juno governance is trusted only after a bonded challenge to select oracle answer and payee. It cannot edit market payout mapping or move collateral.
+- The pinned verdict authority is trusted only after a bonded challenge to select oracle answer and payee. V1 pins the Juno Agents DAO core. It cannot edit market payout mapping, move collateral, or rotate its own address.
 - Creator prose and sources can be bad; neutral resolution limits ambiguity but does not make the market useful.
 - Frontends/indexers can lie or fail; they have no financial authority.
 - The initial LP bears inventory and liveness risk; it has no senior claim over trader positions.
@@ -63,9 +63,9 @@ It is the oracle's arbitrator address only so it can request arbitration and rel
 
 The frozen oracle owns question bounty, answer/counter-answer bonds, timeouts, history claims, and final answer bytes. Users interact with it directly for answering. The market consumes only a finalized, fully matched answer.
 
-### Juno governance
+### Verdict authority
 
-The pinned x/gov module account may call GovernanceVerdict only while the exact market has a live pre-deadline challenge. The market forwards the exact answer/payee to cw-reality. Governance is not a market admin.
+The immutable `verdict_authority` may call GovernanceVerdict only while the exact market has a live pre-deadline challenge. The v1 deployment profile pins the Juno Agents DAO core `juno18k65at7fkf8elhece0fnhsvuxggqg6cved6trp5fyk3lftfn93xsmpeaac`; a passed proposal executes the message from that core address. Members, proposal modules, voting modules, EOAs, and other contracts are not equivalent callers. The market forwards the exact answer/payee to cw-reality. The authority is not a market admin. DAO code, modules, membership, and voting-rule changes remain external trust risks even though the address is immutable per market. A future market profile may pin the Juno x/gov module account without changing settlement semantics; #4 and #13 are deferred and non-blocking for v1.
 
 ### Off-chain services
 
@@ -84,7 +84,7 @@ At activation the market pins:
 - frozen oracle address, expected code ID/checksum/config;
 - question ID, nonce, text, Bool type, no filter, initial bond, bounty, 24-hour answer timeout, accepted 21-day arbitration timeout;
 - market address as oracle arbitrator;
-- Juno x/gov module address;
+- immutable verdict-authority address (Juno Agents DAO core for v1);
 - challenge-bond rule and outcome;
 - exact result bytes/payout mapping;
 - no migration/pause/sweep authority.
@@ -110,7 +110,7 @@ Trading ---------------- block.time >= close_ts ----------------+
                                                             v
                                                    PendingArbitration
                                                     |              |
-                                      gov verdict before deadline   |
+                                authority verdict before deadline   |
                                                     |              |
                                                     +--> Resolved   |
                                                                    |
@@ -139,7 +139,7 @@ No close transaction is required. A delayed block jumps directly across the boun
 | Buy | Anyone; exact gross ujuno | Trading and before close | Charge fee, split net, update pool, credit selected position |
 | Sell | Position owner; no attached funds | Trading and before close | Debit max outcome input, update pool, merge, send requested net |
 | Challenge | Anyone; exact required ujuno | AwaitingResolution; oracle OpenAnswered before finalize; never used | Snapshot answer/bond, escrow C, request oracle arbitration atomically |
-| GovernanceVerdict | Exact x/gov sender; no funds | Pending, correct question, block.time < deadline | Forward answer/payee, resolve in reply, refund/slash C |
+| GovernanceVerdict | Exact pinned authority; no funds | Pending, correct question, block.time < deadline | Forward answer/payee, resolve in reply, refund/slash C |
 | FinalizeStalledChallenge | Anyone; no funds | Pending at/after deadline or oracle already publicly cancelled | Cancel/sync oracle, slash C to LP, return awaiting |
 | Resolve | Anyone; no funds | Awaiting; oracle finalized | Match guarantees/full fields, store payout exactly once |
 | RedeemPositions | Owner; no funds | Resolved | Burn requested user positions, credit/send deterministic payout |
@@ -310,7 +310,7 @@ Indexers key by chain ID + contract address + transaction hash + event index, pr
 | Trade/split/merge/redeem/resolve/sync | Any eligible holder/caller under immutable rules |
 | Answer/counter-answer | Any cw-reality participant with bond |
 | Request arbitration | Market only, after any user funds the one valid Challenge |
-| Select answer/payee | Pinned x/gov only, only through pending market |
+| Select answer/payee | Exact pinned verdict authority only, only through pending market |
 | Change question, payout, fee, close, cap | Nobody |
 | Migrate/pause/sweep factory, market, oracle | Nobody |
 | Filter a particular website/API | That independent operator only |

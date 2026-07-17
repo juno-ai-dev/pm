@@ -15,8 +15,8 @@ Jake Hartnell accepted the complete decision packet on 2026-07-16 and delegated 
 | What is traded/backed? | Internal YES/NO complete sets; Y=N=P; native ujuno | [R1](mechanism.md), [A1](architecture.md) | Accepted |
 | How are prices/liquidity formed? | Integer FPMM, locked creator LP, exact 200-bps LP fee | [R1](mechanism.md), [ADR-002](adrs/ADR-002-fpmm.md), [ADR-009](adrs/ADR-009-locked-initial-liquidity.md) | Accepted with residual model/liquidity risk |
 | What exact oracle bytes settle? | Exact 32-byte 0/1; every other result neutral | [R3 compatibility](cw-reality-compatibility.md), [question spec](question-specification.md), [ADR-014](adrs/ADR-014-answer-bytes-and-template.md) | Accepted |
-| What happens in resolution failures? | Counter clocks reset; challenge/stall paths are bounded; unanswered is explicitly unbounded | [R3](cw-reality-compatibility.md), [A3](user-journeys.md), [ADR-013](adrs/ADR-013-resolution-liveness.md) | Accepted architecture; issue #4 rehearsal evidence open |
-| Who is trusted? | Immutable code/chain; Juno x/gov is ultimate challenged-verdict authority; off-chain systems have no settlement authority | [A1](architecture.md), [R4](juno-and-topology.md), [R5](product-legal-operations.md) | Accepted architecture; deployment/readiness gates open |
+| What happens in resolution failures? | Counter clocks reset; challenge/stall paths are bounded; unanswered is explicitly unbounded | [R3](cw-reality-compatibility.md), [A3](user-journeys.md), [ADR-013](adrs/ADR-013-resolution-liveness.md) | Accepted architecture; #45 implementation evidence open |
+| Who is trusted? | Immutable code/chain; each market pins an immutable verdict authority, initially the Juno Agents DAO core; off-chain systems have no settlement authority | [A1](architecture.md), [ADR-017](adrs/ADR-017-juno-governance-arbitration.md), [R5](product-legal-operations.md) | Accepted architecture; DAO governance/upgrades and deployment readiness remain external risks |
 
 ## Deliverable and decision audit
 
@@ -48,8 +48,8 @@ Jake Hartnell accepted the complete decision packet on 2026-07-16 and delegated 
 | ujuno conventions accepted | **Closed as decision** | R4 accepted; venue/long-window evidence remains a deployment/scaling input |
 | Permissions enumerated | **Closed as architecture** | A1/R4 accepted; future deployed addresses/checksums remain absent |
 | Challenge accounting specified | **Closed** | A2/ADR-018 accepted |
-| Juno governance verdict architecture | **Closed** | Juno x/gov accepted as ultimate authority |
-| Juno governance verdict rehearsed | **Open issue #4 execution gate** | Tooling may be implemented; no mainnet transaction, funding, gas, or end-to-end evidence is claimed or authorized here |
+| Verdict-authority architecture | **Amended; issue #45 implementation open** | Immutable address boundary accepted; Juno Agents DAO core is the v1 profile; no authority rotation or generic relay |
+| Live authority rehearsal | **Launch/canary gate** | No DAO proposal, transaction, funding, or end-to-end evidence is claimed or authorized here; #4/#13 preserve deferred x/gov compatibility evidence |
 | Implementation test plan | **Closed as specification** | A2 trace accepted; execution evidence belongs to implementation issues |
 | License strategy approved | **Closed as project authorization** | Clean-room independent implementation from repository formulas/specifications under Apache-2.0; do not copy/adapt LGPL source; preserve citations/notices as provenance |
 | Product/legal/content posture | **Architecture accepted; issue #26 readiness open** | No qualified legal advice or operational readiness is claimed |
@@ -72,6 +72,6 @@ Jake Hartnell accepted the complete decision packet on 2026-07-16 and delegated 
 1. Independently audit cw-reality and reproduce the selected frozen wasm checksum from pinned source; do not represent the recorded best-effort mismatch as provenance.
 2. Refresh chain/oracle evidence, deployed addresses, code IDs, checksums, admins, gas, and storage before any deployment authorization.
 3. Maintain clean-room implementation provenance. Do not copy or adapt LGPL source; preserve source notices/citations as research provenance rather than code derivation.
-4. Issue #4 must separately authorize and evidence any funded/mainnet Juno x/gov rehearsal transaction, including signer, encoding, deposit, gas, answer/payee, success, and failure paths.
+4. Issue #45 must produce authoritative DAO-core contract tests and a reviewable non-broadcast Juno Agents DAO proposal packet. Any live DAO proposal/funded canary needs separate authorization. Issues #4 and #13 are deferred x/gov compatibility work, not v1 blockers.
 5. Issue #26 must collect qualified, actor- and jurisdiction-specific legal advice and exercised operational controls. This packet contains no legal advice.
 6. No deployment or fund movement is authorized by issue #2 acceptance.

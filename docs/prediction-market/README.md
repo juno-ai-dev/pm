@@ -50,14 +50,14 @@ Every memo uses these labels:
 4. Oracle values are exactly 32 bytes: unsigned big-endian 0 is NO, 1 is YES, all 0xff is INVALID, and 31 bytes of 0xff followed by 0xfe is UNRESOLVED. Every other finalized byte string settles neutrally.
 5. Each funded market is non-migratable. The factory can register later code versions but cannot rewrite a live market.
 6. The existing production cw-reality address is not acceptable as an immutable dependency because both its chain admin and stored admin are non-empty. A fresh frozen instance using an independently reproduced and audited checksum is the recommended safe default; the current source-to-deployed-byte match remains open.
-7. Juno x/gov is the accepted ultimate verdict authority. Passed proposals 357 and 363 prove generic governance-originated `MsgExecuteContract` precedent, but the exact market → cw-reality verdict/payee path and its failures have not been rehearsed; issue #4 retains that evidence and transaction gate without reopening the architecture decision.
+7. Each market pins one immutable address-based verdict authority. V1 uses the Juno Agents DAO core `juno18k65at7fkf8elhece0fnhsvuxggqg6cved6trp5fyk3lftfn93xsmpeaac`; issue #45 owns implementation and a non-broadcast proposal packet. Juno x/gov remains a future compatible authority profile under deferred issues #4 and #13 and does not block DAO-based v1.
 8. No protocol admin can pause trading, change a payout, seize collateral, sweep forced funds, choose a verdict, or censor creation. Independent interfaces may apply their own discoverability policies without settlement authority.
 
 ## What remains genuinely open after acceptance
 
 The packet does not manufacture evidence where none exists. The following prevent deployment/operational readiness, not authorized implementation:
 
-- an authorized, funded Juno governance rehearsal, including failed execution;
+- an authorized live Juno Agents DAO rehearsal before a funded canary, if required by the launch gate; implementation itself requires authoritative contract tests and a reviewable non-broadcast proposal packet;
 - qualified legal advice for the actual contributors and interface/indexer operators;
 - empirical gas/storage measurements for the implementation contracts;
 - an independent audit or reproducible-build match for the selected frozen cw-reality artifact.

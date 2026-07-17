@@ -24,7 +24,7 @@ license, and reviewer fields are assembled in the
 | [014](ADR-014-answer-bytes-and-template.md) | Exact bytes and canonical question | Accepted 2026-07-16 |
 | [015](ADR-015-offchain-trust.md) | Off-chain convenience only | Accepted 2026-07-16 |
 | [016](ADR-016-product-posture.md) | Experimental, value-bearing, permissionless/no-entity | Accepted; issue #26 evidence gate |
-| [017](ADR-017-juno-governance-arbitration.md) | Market controller relays Juno x/gov verdict | Accepted; issue #4 rehearsal gate |
+| [017](ADR-017-juno-governance-arbitration.md) | Immutable verdict authority; Juno Agents DAO v1, x/gov later | Amended 2026-07-17; issue #45 |
 | [018](ADR-018-challenge-bond.md) | Bonded one-shot challenge | Accepted 2026-07-16 |
 
 Reviewer identities, date, considered evidence, no recorded dissent, residual risks, parameter approval, and authorization boundaries are recorded in the decision packet and machine-readable authorization.

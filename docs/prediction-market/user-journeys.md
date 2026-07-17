@@ -102,30 +102,30 @@ Acceptance:
 - FinalAnswerIfMatches reports the current final bond, which must meet tier minimum.
 - Multiple counter-answers can extend delay; UI shows current, not original, countdown.
 
-## Bonded challenge and governance resolution
+## Bonded challenge and DAO resolution
 
 Assume current oracle answer is NO with 20 JUNO bond:
 
-1. Challenger reads exact answer, bond, finalize_ts, required C = max(10,20) = 20 JUNO, and the governance warning.
+1. Challenger reads exact answer, bond, finalize_ts, required C = max(10,20) = 20 JUNO, and the verdict-authority warning.
 2. Before oracle finality, challenger sends exactly 20 JUNO to market Challenge with current_bond_seen = 20.
 3. Market snapshots values, accounts C separately, and atomically calls RequestArbitration. Oracle becomes PendingArbitration.
-4. A proposer prepares a standard Juno proposal whose inner MsgExecuteContract sender is the pinned gov module and whose market/question/answer/payee are explicit.
-5. Voluntary depositors supply the current minimum. Voters adjudicate under the immutable rules.
-6. Before the 21-day deadline, passed proposal execution calls market GovernanceVerdict.
-7. Market authenticates x/gov and forwards SubmitArbitration. Oracle finalizes. Market reply stores payout.
+4. A proposer prepares a Juno Agents DAO proposal whose wasm execute message names the market/question/answer/payee explicitly. No attached funds are permitted.
+5. DAO members adjudicate under the DAO's current rules. The DAO core address, not a member, proposal module, or voting module, must execute the passed proposal.
+6. Before the arbitration deadline, passed proposal execution calls market GovernanceVerdict.
+7. Market authenticates the immutable Juno Agents DAO core and forwards SubmitArbitration. Oracle finalizes. Market reply stores payout.
 8. If verdict bytes differ from snapshot NO, challenger gets 20 JUNO back. If identical, the 20 JUNO accrues to LP.
 
 Acceptance:
 
-- Challenger, creator, LP, EOA, factory, or spoofed gov cannot call GovernanceVerdict.
+- Challenger, creator, LP, EOA, factory, DAO member/module, or spoofed authority cannot call GovernanceVerdict.
 - Wrong question/market, attached funds, invalid payee, or no pending challenge rejects.
 - Arbitrator answer may be new; noncanonical bytes produce neutral.
 - Governance-selected payee is forwarded and disclosed.
 - Oracle failure rolls the whole verdict transaction back, including challenge settlement.
 
-## Stalled/rejected/failed governance
+## Stalled/rejected/failed DAO proposal
 
-1. Market remains PendingArbitration through the deadline because no verdict executed. It does not matter on-chain whether no proposal existed, deposit failed, voters rejected, or execution failed.
+1. Market remains PendingArbitration through the deadline because no verdict executed. It does not matter on-chain whether no proposal existed, voters rejected it, or execution failed.
 2. At block.time >= deadline, any address may call FinalizeStalledChallenge. Alternatively anyone may have directly called cw-reality CancelArbitration.
 3. Market calls or observes cancellation, reduces C once, credits full C to LP, and returns to AwaitingResolution.
 4. cw-reality finalize_ts is now plus 24 hours.
@@ -136,7 +136,7 @@ Acceptance:
 - GovernanceVerdict at the deadline rejects; timeout wins.
 - A direct oracle cancellation cannot strand or double-slash C.
 - Retry of a passed-but-failed proposal can work only before deadline.
-- Challenger is warned before signing that governance process failure loses C.
+- Challenger is warned before signing that DAO process failure loses C.
 
 ## Unanswered question
 

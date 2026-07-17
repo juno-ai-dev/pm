@@ -115,8 +115,8 @@ market creator / trader / LP
   market factory + registry ------> indexer / API / UI
             |                         (read-only convenience)
             v
-   one binary-market instance <----- Juno x/gov module account
-   - collateral vault                (verdict authority only)
+   one binary-market instance <----- immutable verdict authority
+   - collateral vault                (Juno Agents DAO core for v1)
    - YES/NO balances
    - FPMM reserves
    - LP shares + fee accounting
@@ -129,10 +129,10 @@ market creator / trader / LP
     pinned cw-reality instance
 ```
 
-- **Factory/registry:** permissionlessly instantiates a versioned market code ID, records discoverability metadata, and enforces objective protocol bounds such as `ujuno` collateral, market caps, question limits, oracle address, the pinned Juno-governance verdict authority, and parameter ranges. It must never custody trader collateral or require a creator allowlist.
-- **Binary market:** owns one market's collateral, positions, pool reserves, fee state, oracle binding, settlement state, and arbitration-control path. It is configured as its question's `cw-reality` arbitrator so that it can freeze the answer immediately after a valid bonded challenge. It may forward an arbitration verdict only when called by the pinned Juno `x/gov` module account.
+- **Factory/registry:** permissionlessly instantiates a versioned market code ID, records discoverability metadata, and enforces objective protocol bounds such as `ujuno` collateral, market caps, question limits, oracle address, the pinned verdict authority, and parameter ranges. It must never custody trader collateral or require a creator allowlist.
+- **Binary market:** owns one market's collateral, positions, pool reserves, fee state, oracle binding, settlement state, and arbitration-control path. It is configured as its question's `cw-reality` arbitrator so that it can freeze the answer immediately after a valid bonded challenge. It may forward an arbitration verdict only when called by its exact immutable `verdict_authority`.
 - **`cw-reality`:** owns question answering, bond escalation, finalization, and arbitration state. It never determines market payouts; it returns answer bytes.
-- **Verdict authority:** is the Juno `x/gov` module account selected by the owner. The [live module-account query](https://rest.cosmos.directory/juno/cosmos/auth/v1beta1/module_accounts) currently reports `juno10d07y265gmmuvt4z0w9aw880jnsr700jvss730`; the address, code path for calling the market's verdict entrypoint, deposit/voting process, and response timing must be reverified before use and are immutable market terms. `cw-reality` sees the market address as arbitrator; the market enforces governance as the only verdict authority.
+- **Verdict authority:** is an immutable address selected in the deployment profile. V1 pins the active Juno Agents DAO core `juno18k65at7fkf8elhece0fnhsvuxggqg6cved6trp5fyk3lftfn93xsmpeaac`. Only that core—not a member, proposal module, voting module, EOA, or other contract—may call the verdict entrypoint. The DAO's code, modules, membership, voting rules, and response timing are external trust assumptions even though the per-market address cannot rotate. `cw-reality` sees the market address as arbitrator. A future profile may pin Juno `x/gov`; #4/#13 are deferred and non-blocking for DAO-based v1.
 - **Indexer/API/UI:** reconstructs trades, positions, candles, activity, and searchable metadata. It has no authority to create balances, choose answers, resolve early, or alter rules.
 
 One contract per market is the accepted default because it makes fund isolation and incident containment easy to reason about. Deployment evidence must measure creation/storage cost before scaling, without reopening the implementation architecture decision.
@@ -161,7 +161,7 @@ All formulas, operation ordering, and rounding rules require a separate mechanis
 | --- | --- | --- | --- |
 | `Trading` | Market instantiated, initial liquidity funded, oracle question bound | Buy, sell, view quotes; add/remove liquidity only if the accepted LP policy allows it | First block time at or after `close_ts` |
 | `AwaitingResolution` | `now >= close_ts` | No trading; no price-changing liquidity action; users may answer or counter-answer in `cw-reality`; once an answer exists and before it finalizes, a user may post the market's challenge bond to request arbitration | The oracle finalizes normally, or a challenge moves it to `PendingArbitration` |
-| `PendingArbitration` | The market accepts a bonded challenge and forwards `RequestArbitration` | No trading; challenge bond remains a separately tracked liability; Juno governance may submit the verdict through the market | An accepted verdict permits resolution; cancellation after the deadline returns the oracle to its answer window |
+| `PendingArbitration` | The market accepts a bonded challenge and forwards `RequestArbitration` | No trading; challenge bond remains a separately tracked liability; the pinned verdict authority may submit the verdict through the market | An accepted verdict permits resolution; cancellation after the deadline returns the oracle to its answer window |
 | `Resolved` | Anyone successfully imports and validates the final answer once | Redeem positions and LP claims; read final payout | Terminal |
 
 The market should derive closure from block time even if no one calls a “close” transaction. The first resolution call stores the payout vector permanently; later calls are idempotent or reject cleanly.
@@ -185,7 +185,7 @@ The title alone is not the contract. Every market must bind an immutable resolut
 - definitions for named entities, measurements, inclusivity, rounding, revisions, cancellations, postponements, ties, and source outages;
 - explicit invalid/unknown conditions;
 - canonical YES, NO, invalid, and unresolved answer encodings;
-- collateral denom, oracle address, market arbitration-controller address, Juno-governance verdict authority, oracle bond floor, challenge bond, answer timeout, and arbitration timeout;
+- collateral denom, oracle address, market arbitration-controller address, immutable verdict authority, oracle bond floor, challenge bond, answer timeout, and arbitration timeout;
 - a content hash stored alongside any human-readable text or URI.
 
 Relative dates, subjective language, mutually compatible outcomes, and events directly manipulable by traders are invalid creation candidates. Omen's rules are useful prior art: they treat premature dates, subjective claims, non-exclusive outcomes, and markets that directly incentivize violence as invalid.
@@ -203,8 +203,8 @@ Relative dates, subjective language, mutually compatible outcomes, and events di
 | Arbitration controller | `RequestArbitration` is callable only by the configured arbitrator, unlike a trader-paid public escalation flow. | Keep `cw-reality` unchanged and configure the binary-market contract itself as the question's arbitrator. This controller role is narrow: the market may request arbitration after a valid public challenge, but it cannot choose the verdict. `FinalAnswerIfMatches` must require the market address as arbitrator. |
 | Optimistic finality | The production oracle permits a 24-hour answer timeout. Each later bonded answer restarts the timeout. | Configure the production 24-hour window. If nobody counter-answers or posts an arbitration challenge, the latest answer can finalize after roughly 24 hours. Never use the fast-demo oracle for production markets. |
 | Challenge trigger | A market contract configured as arbitrator can forward `RequestArbitration` while the oracle is `OpenAnswered`; `cw-reality` does not itself collect a public arbitration-request bond. | Expose a permissionless market `Challenge` operation after an answer and before finalization. It must escrow the separate anti-griefing bond accepted in ADR-018, snapshot the challenged answer/current oracle bond and challenger, pass the current-bond front-run guard, and atomically forward `RequestArbitration`. Apply ADR-018's objective refund/slash rule; a free freeze is unacceptable. |
-| Governance verdict execution | `SubmitArbitration` requires `PendingArbitration` and the configured-arbitrator sender. Cosmos SDK governance proposals execute registered messages as the governance module account, and passed Juno proposals 357 and 363 contain `MsgExecuteContract` messages from that exact account. The accepted market-call path has still not been rehearsed. Current standard governance parameters require a 5,000 JUNO deposit, allow up to ten days to reach it, and then vote for five days. | Juno governance calls the market's verdict entrypoint; the market authenticates the pinned `x/gov` module account and forwards `SubmitArbitration`, causing `cw-reality` to see the configured market sender. No other caller or market entrypoint may author or relay a verdict. ADR-017 fixes proposal construction, signer, answer/payee, deposit, failure, and deadline requirements; issue #4 must prove them end to end against the accepted 21-day timeout. |
-| Controller mutability | `cw-reality` authenticates the arbitrator address, not the code currently running at that address. | Implement ADR-012's accepted non-migratable policy: funded market instances have no admin or migration path, so the arbitration-control path, pinned governance address, and live market code cannot become replaceable after question creation. |
+| Verdict execution | `SubmitArbitration` requires `PendingArbitration` and the configured-arbitrator sender. DAO DAO proposals execute wasm messages from the DAO core. Historical Cosmos SDK/Juno evidence also supports a future x/gov profile. | V1 authenticates the immutable Juno Agents DAO core and forwards `SubmitArbitration`, causing `cw-reality` to see the configured market sender. No other caller or market entrypoint may author or relay a verdict. Issue #45 requires exact-sender/failure tests and a non-broadcast DAO proposal packet. Live proposal execution requires separate authorization; #4/#13 preserve future x/gov evidence without blocking v1. |
+| Controller mutability | `cw-reality` authenticates the arbitrator address, not the code currently running at that address. | Implement ADR-012's accepted non-migratable policy: funded market instances have no admin or migration path, so the arbitration-control path, pinned verdict-authority address, and live market code cannot become replaceable after question creation. DAO governance/upgrades remain a disclosed external trust risk. |
 | Stalled arbitration | After `arbitration_deadline`, anyone may cancel arbitration, after which the answer window restarts and bond resolution may finalize. | Surface this in risk disclosures and calculate the maximum expected settlement delay. |
 | Unanswered questions | A question with no answer never reaches `Finalized`. | Require a creation-funded oracle bounty and a keeper/answerer plan, with operational alerts before and after opening. Under ADR-013, v1 has no privileged emergency settlement path; unanswered questions remain disclosed nonterminal behavior. |
 | Arbitrary arbitrator answer | The source and reconciled `ARBITRATION.md` state that the arbitrator may author any `Binary` and choose a validated payee, with no submitted-history membership proof. | The market recognizes only exact canonical bytes and maps everything else to neutral. This limits market-payout harm but cannot prevent redirection of the oracle bounty and bond winnings to the arbitrator-selected payee. |
@@ -239,7 +239,7 @@ latest oracle answer
         |
         +-- bonded market challenge ----------> arbitration freezes
                                                    |
-                                                   +-- Juno x/gov verdict --> finalizable
+                                                   +-- pinned authority verdict --> finalizable
                                                    |
                                                    +-- 21-day deadline --> public cancel
                                                                           --> answer clock restarts
@@ -254,7 +254,7 @@ Oracle correctness is economic security, not only address authentication. For ea
 - maximum collateral and expected profit from a corrupt answer;
 - the question's initial and current bond;
 - dispute monitoring time;
-- Juno-governance security and response time;
+- pinned-authority governance security and response time;
 - the cost of capturing or bribing the verdict authority;
 - the effect of a publicly cancelled, stalled arbitration.
 
@@ -280,7 +280,7 @@ These are architecture requirements. The mechanism memo may refine notation but 
 14. **Dust ownership:** every division remainder has one immutable recipient rule. No caller can profit by splitting one operation into many smaller operations.
 15. **Path independence where promised:** adding/removing liquidity or redeeming in batches produces the same final entitlements as the equivalent aggregate operation, apart from the documented dust rule.
 16. **Challenge-bond separation:** challenge bonds remain separately tracked liabilities and never count as position collateral, pool reserves, LP fees, oracle bounty, or spendable surplus.
-17. **Verdict authorization:** only the immutable Juno-governance module account may cause the market to forward `SubmitArbitration`; a challenger, creator, admin, or arbitrary caller cannot select an answer or payee.
+17. **Verdict authorization:** only the exact immutable `verdict_authority` may cause the market to forward `SubmitArbitration`; a challenger, creator, DAO member/module, admin, or arbitrary caller cannot select an answer or payee.
 
 ## 8. Threat model and operational risks
 
@@ -332,7 +332,7 @@ The phase should create the following reviewable documents and link their accept
 4. **Attack the specification:** run hand-worked conservation examples, parameter sensitivity tables, adversarial journeys, legal/content review, and requirement-to-test traceability. Revise decisions when evidence fails.
 5. **Hold the phase review:** accept or explicitly defer every ADR, close every section 13 gate with direct evidence, record dissent and residual risks, and only then authorize a separate implementation plan.
 
-The workflow may overlap research, but implementation must conform to the accepted packet and carry forward its residual evidence gates. ADR-009, ADR-010, ADR-012, ADR-013, ADR-017, and ADR-018 are accepted; issue #4 rehearsal evidence does not reopen ADR-017's x/gov authority decision.
+The workflow may overlap research, but implementation must conform to the accepted packet and carry forward its residual evidence gates. ADR-009, ADR-010, ADR-012, ADR-013, ADR-017, and ADR-018 are accepted; ADR-017 was amended by issue #45 to use the Juno Agents DAO core for v1 while preserving deferred x/gov compatibility under #4/#13.
 
 ### R1 — Mechanism and market microstructure
 
@@ -364,12 +364,12 @@ The workflow may overlap research, but implementation must conform to the accept
 - Who creates the question and how does the market learn its ID atomically?
 - Which `Question` fields and contract metadata are pinned and revalidated?
 - What challenge-bond amount and refund/slash rule deter free settlement freezes without pricing out legitimate challenges?
-- How does a user construct, fund, and submit the Juno-governance proposal that supplies a verdict after the market has already requested arbitration?
+- How does a user construct and submit the DAO DAO proposal that supplies a verdict after the market has already requested arbitration, and how is exact DAO-core execution verified?
 - What bounty and monitoring arrangement makes “nobody answered” unlikely?
 - Is neutral finality sufficient, or is a bounded re-question mechanism required?
-- Does a 21-day arbitration timeout provide adequate margin for standard Juno governance under deposit, voting, block-inclusion, and failed-proposal scenarios?
+- Does a 21-day arbitration timeout provide adequate margin for the Juno Agents DAO under voting, execution, block-inclusion, and failed-proposal scenarios?
 
-**Deliverable:** `cw-reality` compatibility memo, canonical question template, byte-encoding specification, Juno-governance feasibility decision, sequence diagrams for normal/disputed/stalled/unanswered flows, and a source/docs discrepancy list.
+**Deliverable:** `cw-reality` compatibility memo, canonical question template, byte-encoding specification, DAO-authority feasibility decision, sequence diagrams for normal/disputed/stalled/unanswered flows, and a source/docs discrepancy list. Preserve Juno x/gov as a deferred compatible profile.
 
 ### R4 — Collateral, Juno, and contract topology
 
@@ -429,7 +429,7 @@ Each item receives an ADR with alternatives, evidence, decision, consequences, a
 | 014 | canonical oracle answer bytes and question template | Exact 32-byte mapping and JCS `juno-pm-question/1` template |
 | 015 | indexer and frontend trust contract | Off-chain convenience only; all financial facts independently queryable on-chain |
 | 016 | product and Internet launch posture | Experimental/play-money intent, value-bearing JUNO, no operating entity, global permissionless contracts; participant-specific risks must be documented |
-| 017 | Juno-governance arbitration feasibility | Use `cw-reality` unchanged; market is controller; Juno `x/gov` is ultimate authority; 24-hour answer and 21-day arbitration timeouts. Issue #4 retains rehearsal evidence/transaction authorization. |
+| 017 | Immutable verdict-authority arbitration | Use `cw-reality` unchanged; market is controller; Juno Agents DAO core is the v1 authority; future x/gov remains compatible and deferred. Issue #45 owns implementation. |
 | 018 | Challenge-bond economics and accounting | One-shot `max(10 JUNO, current oracle bond)` escrow with accepted refund/slash path table |
 
 ## 11. Parameter register
@@ -449,8 +449,8 @@ The phase must recommend values and immutable bounds for the following. Empty va
 | Oracle bounty | Incentivize timely first answer | Expected answerer cost and keeper model |
 | Answer timeout | Permit counter-answers while bounding optimistic finality | 24 hours, the production `cw-reality` minimum; resets after each later answer |
 | Market challenge bond | Deter permissionless arbitration griefing | Value at risk, false-challenge cost, accessibility, refund/slash objectivity, and spam analysis in ADR-018 |
-| Arbitration timeout | Bound the freeze after a challenge | Accepted 21 days: 10-day maximum deposit period + five-day standard vote + six-day operational margin; rehearse under issue #4 |
-| Arbitration controller and verdict authority | Separate technical sender from social authority | Market contract is the `cw-reality` arbitrator-controller; immutable Juno `x/gov` module account is the only verdict authority |
+| Arbitration timeout | Bound the freeze after a challenge | 21-day v1 bound retained pending issue #45 implementation and DAO-specific operational validation |
+| Arbitration controller and verdict authority | Separate technical sender from social authority | Market contract is the `cw-reality` arbitrator-controller; immutable Juno Agents DAO core is the v1 verdict authority; future x/gov is a later profile |
 | Metadata/rules size limits | Bound storage and parsing | Juno gas/storage measurements |
 | Maximum market duration | Bound locked LP capital and operational burden | LP policy and monitoring capability |
 | Permissionless-release market and wallet caps | Contain first-release failures without choosing who may create | Audit maturity and operations capacity |
@@ -486,7 +486,7 @@ The checklist distinguishes the closed issue #2 decision gate from evidence and 
 - [x] Native `ujuno` denomination, six-decimal display convention, liquidity assumptions, and all JUNO amount conversions are accepted; current measurements remain deployment/scaling inputs.
 - [x] Admin, migration, pause, factory, arbitration-controller, governance-verdict, and operations permissions are enumerated conceptually; deployed addresses remain a deployment gate.
 - [x] Challenge-bond accounting and refund/slash behavior are specified and accepted for correct, incorrect, rejected, failed, stale, and timed-out arbitration paths.
-- [ ] A Juno governance verdict is rehearsed end to end, including proposal encoding, governance-module signer, deposit funding, answer/payee validation, execution gas, and failure behavior; or ADR-017 rejects the path and records a replacement owner decision.
+- [ ] Issue #45 proves exact DAO-core authorization and failures in contract tests and produces a reviewable non-broadcast Juno Agents DAO proposal packet. Any live proposal/funded canary remains separately authorized; #4/#13 x/gov rehearsal is deferred and non-blocking.
 - [x] The implementation test plan includes unit, property, multi-contract, adversarial, migration, gas, and on-chain rehearsal coverage derived from the threat model.
 - [x] License strategy is approved: clean-room independent implementation from repository specifications/formulas under Apache-2.0; no copying/adapting LGPL source; notices/citations retained as provenance.
 - [x] The experimental/play-money label, value-bearing JUNO risk, permissionless/no-entity launch scope, content/discoverability policy, and participant-specific legal-risk posture are documented; issue #26 legal/operational-readiness evidence remains open.
@@ -499,7 +499,7 @@ Recorded 2026-07-15 and accepted with the complete packet on 2026-07-16:
 1. **Economic mode:** experimental/play-money intent. Because the selected asset is transferable JUNO, all financial and adversarial analysis still treats it as value-bearing collateral.
 2. **Collateral:** native JUNO initially; on-chain denomination `ujuno`.
 3. **Creation:** permissionless from the first release. No creator allowlist is part of the target architecture.
-4. **Arbitration:** Juno Network governance (`x/gov`) remains the ultimate verdict authority, using the existing `cw-reality` contract unchanged. Each market is configured as its question's narrow arbitrator-controller: an adequately bonded public challenge immediately freezes the answer, and only the pinned `x/gov` module account may make the market forward a verdict. ADR-017 uses an accepted 24-hour optimistic answer timeout and 21-day timeout only after arbitration begins; issue #4 retains rehearsal evidence.
+4. **Arbitration:** each market uses `cw-reality` unchanged as its oracle and is configured as the question's narrow arbitrator-controller. An adequately bonded public challenge freezes the answer; only the market's immutable verdict-authority address may make it forward a verdict. V1 pins the active Juno Agents DAO core. Juno `x/gov` remains an eventual compatible profile under deferred #4/#13. Issue #45 owns the DAO implementation; live proposal execution or funds require a separate gate.
 5. **Launch context:** no operating entity; a protocol for the Internet. The reference architecture will keep contracts globally permissionless and separately document the responsibilities and risks of contributors, interface/indexer hosts, market creators, and users.
 
 ## 15. Primary reading set
