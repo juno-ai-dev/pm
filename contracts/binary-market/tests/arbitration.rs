@@ -305,6 +305,15 @@ fn arbitration_event<'a>(response: &'a AppResponse, action: &str) -> &'a cosmwas
         .unwrap_or_else(|| panic!("missing arbitration event {action}"))
 }
 
+fn protocol_actions(response: &AppResponse) -> Vec<String> {
+    response
+        .events
+        .iter()
+        .filter(|event| event.ty == "wasm-juno_pm_v1")
+        .map(|event| attribute(event, "action"))
+        .collect()
+}
+
 fn attribute(event: &cosmwasm_std::Event, key: &str) -> String {
     event
         .attributes
@@ -846,6 +855,10 @@ fn exact_arbitration_events_cover_refund_identical_and_timeout_slash() {
             )
             .unwrap();
         let request_event = arbitration_event(&requested, "challenge_requested");
+        assert_eq!(
+            protocol_actions(&requested),
+            vec!["challenge_requested".to_string()]
+        );
         assert_identity(request_event);
         assert_eq!(attribute(request_event, "answer_hex"), YES_HEX);
         assert_eq!(

@@ -1489,18 +1489,7 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
                 }
                 verify_pending_challenge(&actual, &question_id, &challenge, challenge.deadline)?;
                 state::REPLY_IN_PROGRESS.remove(deps.storage);
-                Ok(Response::new().add_event(
-                    Event::new("juno_pm_v1")
-                        .add_attribute("action", "challenge_pending")
-                        .add_attribute("protocol_version", "1")
-                        .add_attribute("factory", config.factory.to_string())
-                        .add_attribute("market", env.contract.address)
-                        .add_attribute("height", env.block.height.to_string())
-                        .add_attribute("block_time", env.block.time.seconds().to_string())
-                        .add_attribute("authority", config.verdict_authority.to_string())
-                        .add_attribute("question_id", question_id.to_base64())
-                        .add_attribute("arbitration_deadline", challenge.deadline.to_string()),
-                ))
+                Ok(Response::new())
             }
             ReplyInProgress::GovernanceVerdict { answer, payee } => {
                 verify_finalized_verdict(
