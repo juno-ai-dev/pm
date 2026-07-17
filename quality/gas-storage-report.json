@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "status": "measurement_required",
+  "chain": null,
+  "binary": null,
+  "source_commit": null,
+  "scenarios": [
+    {"id":"create_activate_realistic","class":"transaction","bound":"realistic","gas_used":null,"storage_delta_bytes":null},
+    {"id":"create_activate_max_question_metadata","class":"transaction","bound":"maximum","gas_used":null,"storage_delta_bytes":null},
+    {"id":"buy_sell_realistic","class":"transaction","bound":"realistic","gas_used":null,"storage_delta_bytes":null},
+    {"id":"buy_sell_max_reserve_arithmetic","class":"transaction","bound":"maximum","gas_used":null,"storage_delta_bytes":null},
+    {"id":"challenge_verdict","class":"transaction","bound":"maximum","gas_used":null,"storage_delta_bytes":null},
+    {"id":"resolve","class":"transaction","bound":"maximum","gas_used":null,"storage_delta_bytes":null},
+    {"id":"redeem_positions_fragmented","class":"transaction","bound":"maximum","gas_used":null,"storage_delta_bytes":null},
+    {"id":"redeem_lp_with_accrual","class":"transaction","bound":"maximum","gas_used":null,"storage_delta_bytes":null},
+    {"id":"factory_pagination_max","class":"query","bound":"maximum","gas_used":null,"response_bytes":null}
+  ],
+  "review": {
+    "required": true,
+    "reason": "No current-Juno empirical measurements have been attached. This template is fail-closed and does not authorize a canary."
+  }
+}

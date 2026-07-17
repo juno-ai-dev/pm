@@ -40,7 +40,7 @@ jobs:
       - run: cargo clippy --manifest-path contracts/Cargo.toml --workspace --all-targets --locked -- -D warnings
 
   test:
-    name: test (57 incl. proptests)
+    name: workspace tests and proptests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4

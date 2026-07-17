@@ -1,0 +1,87 @@
+name: release-quality
+
+on:
+  pull_request:
+    paths:
+      - 'contracts/**'
+      - 'quality/**'
+      - 'scripts/release/**'
+      - 'scripts/quality/**'
+      - 'tests/quality/**'
+      - 'docs/prediction-market/release-quality.md'
+      - '.github/workflows/release-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'contracts/**'
+      - 'quality/**'
+      - 'scripts/release/**'
+      - 'scripts/quality/**'
+      - 'tests/quality/**'
+      - '.github/workflows/release-quality.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OPTIMIZER_IMAGE: cosmwasm/optimizer:0.17.0@sha256:7e0b9229c1a4118d0c9a2af2e7f5d95a91f264c26a2ce5681c779926e74d7f85
+
+jobs:
+  workspace:
+    name: workspace gates
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # master, reviewed 2026-07-15
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - run: ./scripts/validate.sh
+      - run: python3 -m unittest tests/quality/test_quality_report.py
+      - run: python3 scripts/quality/verify-report.py quality/gas-storage-report.json
+
+  dependencies:
+    name: vulnerability and license gates
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # master, reviewed 2026-07-15
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2
+        with:
+          command: check advisories bans licenses sources
+          manifest-path: contracts/Cargo.toml
+
+  optimizer:
+    name: optimizer build ${{ matrix.build }}
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        build: [one, two]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - run: ./scripts/release/build-release.sh out
+      - run: test "$OPTIMIZER_IMAGE" = "$(cat out/optimizer-image.txt)"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-build-${{ matrix.build }}
+          path: out/
+          if-no-files-found: error
+          retention-days: 30
+
+  compare:
+    name: reproducibility and artifact thresholds
+    needs: optimizer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: { name: release-build-one, path: one }
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: { name: release-build-two, path: two }
+      - run: python3 scripts/release/compare-builds.py one two
+      - run: python3 scripts/quality/verify-report.py quality/gas-storage-report.json one/release-manifest.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: verified-contract-release
+          path: one/
+          if-no-files-found: error
+          retention-days: 30
