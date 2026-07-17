@@ -20,8 +20,15 @@ trap cleanup EXIT
 # The optimizer writes /code/artifacts. Use an isolated copy so two runs share
 # neither target state nor output while preserving the exact checked-out bytes.
 git -C "$root" archive --format=tar HEAD | tar -xf - -C "$stage"
-# The Cargo workspace lives below contracts/, which is the optimizer's /code.
-docker run --rm --platform linux/amd64 --volume "$stage/contracts:/code" "$optimizer_image"
+# The optimizer only treats workspace members below a `contracts/` path as
+# contracts when invoked at a workspace root. This repository's contract
+# workspace is itself mounted at /code, so invoke each deployable package
+# explicitly while retaining the shared workspace for path dependencies.
+for contract in binary-market cw-reality market-factory; do
+  docker run --rm --platform linux/amd64 \
+    --volume "$stage/contracts:/code" \
+    "$optimizer_image" "$contract"
+done
 
 mkdir -p "$out/artifacts"
 for artifact in binary_market.wasm cw_reality.wasm market_factory.wasm; do
