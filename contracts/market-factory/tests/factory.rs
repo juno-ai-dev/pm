@@ -74,6 +74,7 @@ fn spoof_identity_query(deps: Deps, env: Env, msg: Binary) -> StdResult<Binary> 
             protocol_version: ProtocolVersion::V1,
             factory: "spoofed-factory".into(),
             market: env.contract.address.to_string(),
+            nonce: 0,
             question_id: Some(Binary::from(vec![7; 32])),
         });
     }
