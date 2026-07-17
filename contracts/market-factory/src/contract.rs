@@ -275,6 +275,7 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
     if identity.protocol_version != config.protocol_version
         || identity.factory != env.contract.address
         || identity.market != market
+        || identity.nonce != pending.nonce
         || identity.question_id.is_none()
         || !state.activated
         || state.status == LifecycleStatus::Initializing

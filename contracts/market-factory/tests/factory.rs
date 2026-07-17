@@ -67,8 +67,7 @@ fn market_contract() -> Box<dyn Contract<Empty>> {
     )
 }
 
-fn spoof_identity_query(deps: Deps, env: Env, msg: Binary) -> StdResult<Binary> {
-    let parsed: MarketQueryMsg = from_json(&msg)?;
+fn spoof_identity_query(deps: Deps, env: Env, parsed: MarketQueryMsg) -> StdResult<Binary> {
     if matches!(parsed, MarketQueryMsg::Identity {}) {
         return to_json_binary(&binary_market::msg::IdentityResponse {
             protocol_version: ProtocolVersion::V1,
@@ -81,8 +80,17 @@ fn spoof_identity_query(deps: Deps, env: Env, msg: Binary) -> StdResult<Binary> 
     market_query(deps, env, parsed)
 }
 
-fn spoof_config_query(deps: Deps, env: Env, msg: Binary) -> StdResult<Binary> {
-    let parsed: MarketQueryMsg = from_json(&msg)?;
+fn spoof_identity_nonce_query(deps: Deps, env: Env, parsed: MarketQueryMsg) -> StdResult<Binary> {
+    if matches!(parsed, MarketQueryMsg::Identity {}) {
+        let mut identity: binary_market::msg::IdentityResponse =
+            from_json(market_query(deps, env.clone(), parsed)?)?;
+        identity.nonce = identity.nonce.saturating_add(1);
+        return to_json_binary(&identity);
+    }
+    market_query(deps, env, parsed)
+}
+
+fn spoof_config_query(deps: Deps, env: Env, parsed: MarketQueryMsg) -> StdResult<Binary> {
     if matches!(parsed, MarketQueryMsg::Config {}) {
         let mut config: ChildConfig =
             from_json(market_query(deps, env.clone(), MarketQueryMsg::Config {})?)?;
@@ -93,8 +101,7 @@ fn spoof_config_query(deps: Deps, env: Env, msg: Binary) -> StdResult<Binary> {
     market_query(deps, env, parsed)
 }
 
-fn spoof_question_query(deps: Deps, env: Env, msg: Binary) -> StdResult<Binary> {
-    let parsed: MarketQueryMsg = from_json(&msg)?;
+fn spoof_question_query(deps: Deps, env: Env, parsed: MarketQueryMsg) -> StdResult<Binary> {
     if matches!(parsed, MarketQueryMsg::Question {}) {
         let mut value: binary_market::msg::QuestionResponse = from_json(market_query(
             deps,
@@ -108,7 +115,7 @@ fn spoof_question_query(deps: Deps, env: Env, msg: Binary) -> StdResult<Binary> 
 }
 
 fn spoof_market_contract(
-    query_fn: fn(Deps, Env, Binary) -> StdResult<Binary>,
+    query_fn: fn(Deps, Env, MarketQueryMsg) -> StdResult<Binary>,
 ) -> Box<dyn Contract<Empty>> {
     Box::new(
         ContractWrapper::new(market_execute, market_instantiate, query_fn).with_reply(market_reply),
@@ -740,6 +747,7 @@ fn nested_ask_failure_rolls_back_child_funds_registry_and_nonce() {
 fn wrong_child_identity_config_or_question_reverts_everything() {
     for child in [
         spoof_market_contract(spoof_identity_query),
+        spoof_market_contract(spoof_identity_nonce_query),
         spoof_market_contract(spoof_config_query),
         spoof_market_contract(spoof_question_query),
     ] {
@@ -758,6 +766,28 @@ fn wrong_child_identity_config_or_question_reverts_everything() {
             .unwrap();
         assert_eq!(next.next_nonce, 0);
     }
+}
+
+#[test]
+fn identity_nonce_mismatch_is_rejected_atomically() {
+    let (mut app, factory) = setup_custom(
+        oracle_contract(),
+        spoof_market_contract(spoof_identity_nonce_query),
+    );
+    let creator = Addr::unchecked("creator");
+    let before = app.wrap().query_balance(&creator, UJUNO_DENOM).unwrap();
+    let result = execute_create(&mut app, &factory, create());
+    assert!(result.is_err(), "identity nonce mismatch was accepted");
+    assert_eq!(
+        before,
+        app.wrap().query_balance(&creator, UJUNO_DENOM).unwrap()
+    );
+    assert!(list(&app, &factory, None).markets.is_empty());
+    let next: NextNonceResponse = app
+        .wrap()
+        .query_wasm_smart(&factory, &QueryMsg::NextNonce {})
+        .unwrap();
+    assert_eq!(next.next_nonce, 0);
 }
 
 #[test]
