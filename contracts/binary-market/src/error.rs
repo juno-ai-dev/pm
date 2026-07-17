@@ -32,6 +32,10 @@ pub enum ContractError {
     AmountBelowMinimum { minimum: cosmwasm_std::Uint128 },
     #[error("collateral cap exceeded")]
     CollateralCapExceeded,
+    #[error("per-address outcome exposure cap exceeded")]
+    PositionCapExceeded,
+    #[error("configured reserve-ratio limit exceeded")]
+    ReserveRatioLimitExceeded,
     #[error("insufficient YES/NO position balance")]
     InsufficientPosition,
     #[error("redemption must burn at least one position unit")]

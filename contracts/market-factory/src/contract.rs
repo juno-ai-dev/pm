@@ -117,6 +117,7 @@ fn validate_tier(msg: &InstantiateMsg) -> Result<(), ContractError> {
         || t.fee_bps != 200
         || t.min_trade != Uint128::new(10_000)
         || t.max_trade_bps != 2_500
+        || t.max_position_per_side != Uint128::new(20_000_000)
         || t.challenge_bond != Uint128::new(10_000_000)
         || msg.oracle_min_initial_bond_floor != Uint128::new(10_000_000)
         || msg.oracle_min_answer_timeout_secs != question::ANSWER_TIMEOUT_SECS
@@ -213,6 +214,7 @@ fn create_market(
         fee_bps: config.tier.fee_bps,
         min_trade: config.tier.min_trade,
         max_trade_bps: config.tier.max_trade_bps,
+        max_position_per_side: config.tier.max_position_per_side,
         collateral_cap: config.tier.collateral_cap,
         challenge_bond: config.tier.challenge_bond,
     };
@@ -294,6 +296,7 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
         || child.fee_bps != config.tier.fee_bps
         || child.min_trade != config.tier.min_trade
         || child.max_trade_bps != config.tier.max_trade_bps
+        || child.max_position_per_side != config.tier.max_position_per_side
         || child.collateral_cap != config.tier.collateral_cap
         || child.challenge_bond != config.tier.challenge_bond
         || question.question_id != identity.question_id

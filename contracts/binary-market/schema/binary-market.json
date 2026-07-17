@@ -16,6 +16,7 @@
       "factory",
       "fee_bps",
       "initial_liquidity",
+      "max_position_per_side",
       "max_trade_bps",
       "min_trade",
       "nonce",
@@ -63,6 +64,14 @@
       },
       "initial_liquidity": {
         "$ref": "#/definitions/Uint128"
+      },
+      "max_position_per_side": {
+        "description": "Maximum position units held by one address for either outcome.",
+        "allOf": [
+          {
+            "$ref": "#/definitions/Uint128"
+          }
+        ]
       },
       "max_trade_bps": {
         "description": "Maximum gross trade as a numerator over 10,000 of the selected reserve.",
@@ -1143,6 +1152,7 @@
         "fee_bps",
         "initial_liquidity",
         "initial_lp",
+        "max_position_per_side",
         "max_trade_bps",
         "min_trade",
         "opening_ts",
@@ -1194,6 +1204,9 @@
         },
         "initial_lp": {
           "type": "string"
+        },
+        "max_position_per_side": {
+          "$ref": "#/definitions/Uint128"
         },
         "max_trade_bps": {
           "type": "integer",

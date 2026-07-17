@@ -166,7 +166,11 @@ impl Model {
         match *action {
             Action::Split { user, amount } => {
                 let amount = big(amount);
-                if self.closed || amount < big(MIN_TRADE) || &self.principal + &amount > big(CAP) {
+                if self.closed
+                    || amount < big(MIN_TRADE)
+                    || &amount * big(4) > self.pool_yes.clone().min(self.pool_no.clone())
+                    || &self.principal + &amount > big(CAP)
+                {
                     return false;
                 }
                 self.principal += &amount;
@@ -180,6 +184,7 @@ impl Model {
                 let amount = big(amount);
                 if amount.is_zero()
                     || amount < big(MIN_TRADE)
+                    || &amount * big(4) > self.pool_yes.clone().min(self.pool_no.clone())
                     || self.positions[user].yes < amount
                     || self.positions[user].no < amount
                 {
@@ -361,6 +366,7 @@ fn setup() -> (App, Addr) {
                 fee_bps: FEE_BPS as u16,
                 min_trade: Uint128::new(MIN_TRADE),
                 max_trade_bps: 2_500,
+                max_position_per_side: Uint128::MAX,
                 collateral_cap: Uint128::new(CAP),
                 challenge_bond: Uint128::new(10_000_000),
             },

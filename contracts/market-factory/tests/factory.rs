@@ -143,6 +143,7 @@ fn tier() -> TierConfig {
         fee_bps: 200,
         min_trade: Uint128::new(10_000),
         max_trade_bps: 2_500,
+        max_position_per_side: Uint128::new(20_000_000),
         collateral_cap: Uint128::new(200_000_000),
         challenge_bond: Uint128::new(10_000_000),
     }
@@ -542,6 +543,7 @@ fn instantiate_rejects_every_profile_deviation_and_weak_oracle() {
         |m| m.tier.fee_bps = 201,
         |m| m.tier.min_trade = Uint128::new(9_999),
         |m| m.tier.max_trade_bps = 2_499,
+        |m| m.tier.max_position_per_side = Uint128::new(20_000_001),
         |m| m.tier.challenge_bond = Uint128::new(9_999_999),
         |m| m.oracle_min_initial_bond_floor = Uint128::new(9_999_999),
         |m| m.oracle_min_answer_timeout_secs -= 1,

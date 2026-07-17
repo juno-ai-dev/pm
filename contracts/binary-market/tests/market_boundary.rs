@@ -58,6 +58,7 @@ fn msg() -> InstantiateMsg {
         fee_bps: 200,
         min_trade: Uint128::one(),
         max_trade_bps: 2_500,
+        max_position_per_side: Uint128::MAX,
         collateral_cap: Uint128::new(10_000),
         challenge_bond: Uint128::new(20),
     }

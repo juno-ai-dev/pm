@@ -86,6 +86,7 @@ pub fn instantiate(
         fee_bps: msg.fee_bps,
         min_trade: msg.min_trade,
         max_trade_bps: msg.max_trade_bps,
+        max_position_per_side: msg.max_position_per_side,
         collateral_cap: msg.collateral_cap,
         challenge_bond: msg.challenge_bond,
         yes_answer: Binary::from(hex::decode(question::YES_HEX).expect("valid constant")),
@@ -194,6 +195,7 @@ fn validate_instantiate(msg: &InstantiateMsg, creation_ts: u64) -> Result<(), Co
         || msg.max_trade_bps == 0
         || msg.max_trade_bps > 2_500
         || msg.min_trade.is_zero()
+        || msg.max_position_per_side.is_zero()
     {
         return Err(ContractError::InvalidConfig(
             "invalid fee or trade bounds".into(),
@@ -1160,6 +1162,13 @@ fn execute_split(
     amount: Uint128,
 ) -> Result<Response, ContractError> {
     validate_amount(amount, config.min_trade)?;
+    let before = state::ACCOUNTING.load(deps.storage)?;
+    assert_pre_resolution(&before)?;
+    enforce_configured_ratio(amount, reserves(&before), config.max_trade_bps)?;
+    let mut position = state::load_position(deps.storage, &info.sender)?;
+    position.yes = position.yes.checked_add(amount)?;
+    position.no = position.no.checked_add(amount)?;
+    enforce_position_cap(&position, config.max_position_per_side)?;
     let accounting = state::ACCOUNTING.update(deps.storage, |mut accounting| {
         assert_pre_resolution(&accounting)?;
         accounting.principal = accounting.principal.checked_add(amount)?;
@@ -1171,16 +1180,7 @@ fn execute_split(
         assert_pre_resolution(&accounting)?;
         Ok(accounting)
     })?;
-    state::POSITIONS.update(
-        deps.storage,
-        &info.sender,
-        |position| -> Result<_, ContractError> {
-            let mut position = position.unwrap_or_default();
-            position.yes = position.yes.checked_add(amount)?;
-            position.no = position.no.checked_add(amount)?;
-            Ok(position)
-        },
-    )?;
+    state::POSITIONS.save(deps.storage, &info.sender, &position)?;
     Ok(Response::new().add_event(complete_set_event(
         "split",
         &env,
@@ -1199,6 +1199,9 @@ fn execute_merge(
     amount: Uint128,
 ) -> Result<Response, ContractError> {
     validate_amount(amount, config.min_trade)?;
+    let before = state::ACCOUNTING.load(deps.storage)?;
+    assert_pre_resolution(&before)?;
+    enforce_configured_ratio(amount, reserves(&before), config.max_trade_bps)?;
     let mut position = state::load_position(deps.storage, &info.sender)?;
     if position.yes < amount || position.no < amount {
         return Err(ContractError::InsufficientPosition);
@@ -1237,6 +1240,16 @@ fn reserves(accounting: &Accounting) -> Reserves {
     }
 }
 
+fn enforce_position_cap(
+    position: &state::Position,
+    max_position_per_side: Uint128,
+) -> Result<(), ContractError> {
+    if position.yes > max_position_per_side || position.no > max_position_per_side {
+        return Err(ContractError::PositionCapExceeded);
+    }
+    Ok(())
+}
+
 fn enforce_configured_ratio(
     amount: Uint128,
     before: Reserves,
@@ -1251,9 +1264,7 @@ fn enforce_configured_ratio(
     let maximum =
         Uint128::try_from(maximum256).map_err(|error| ContractError::Math(error.to_string()))?;
     if amount > maximum {
-        return Err(ContractError::Math(
-            "configured reserve-ratio limit exceeded".into(),
-        ));
+        return Err(ContractError::ReserveRatioLimitExceeded);
     }
     Ok(())
 }
@@ -1372,6 +1383,7 @@ fn execute_buy(
         Outcome::Yes => position.yes = position.yes.checked_add(quote.outcome_out)?,
         Outcome::No => position.no = position.no.checked_add(quote.outcome_out)?,
     }
+    enforce_position_cap(&position, config.max_position_per_side)?;
     state::ACCOUNTING.save(deps.storage, &after)?;
     state::POSITIONS.save(deps.storage, &info.sender, &position)?;
     Ok(Response::new().add_event(trade_event(
@@ -1665,6 +1677,7 @@ mod activation_verification_tests {
             fee_bps: 200,
             min_trade: Uint128::one(),
             max_trade_bps: 2_500,
+            max_position_per_side: Uint128::MAX,
             collateral_cap: Uint128::new(10_000),
             challenge_bond: Uint128::new(10_000_000),
             yes_answer: Binary::from(vec![1; 32]),
@@ -2222,6 +2235,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             fee_bps: config.fee_bps,
             min_trade: config.min_trade,
             max_trade_bps: config.max_trade_bps,
+            max_position_per_side: config.max_position_per_side,
             collateral_cap: config.collateral_cap,
             challenge_bond: config.challenge_bond,
         }),

@@ -29,6 +29,8 @@ pub struct InstantiateMsg {
     pub min_trade: Uint128,
     /// Maximum gross trade as a numerator over 10,000 of the selected reserve.
     pub max_trade_bps: u16,
+    /// Maximum position units held by one address for either outcome.
+    pub max_position_per_side: Uint128,
     pub collateral_cap: Uint128,
     pub challenge_bond: Uint128,
 }
@@ -134,6 +136,7 @@ pub struct ConfigResponse {
     pub fee_bps: u16,
     pub min_trade: Uint128,
     pub max_trade_bps: u16,
+    pub max_position_per_side: Uint128,
     pub collateral_cap: Uint128,
     pub challenge_bond: Uint128,
 }

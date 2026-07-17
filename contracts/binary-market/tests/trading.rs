@@ -52,6 +52,14 @@ fn question() -> QuestionInput {
 }
 
 fn setup(cap: u128, max_trade_bps: u16) -> (App, Addr) {
+    setup_with_position_cap(cap, max_trade_bps, Uint128::MAX)
+}
+
+fn setup_with_position_cap(
+    cap: u128,
+    max_trade_bps: u16,
+    max_position_per_side: Uint128,
+) -> (App, Addr) {
     let factory = Addr::unchecked("factory");
     let mut app = AppBuilder::new().build(|router, _, storage| {
         router
@@ -108,6 +116,7 @@ fn setup(cap: u128, max_trade_bps: u16) -> (App, Addr) {
                 fee_bps: 200,
                 min_trade: Uint128::new(10_000),
                 max_trade_bps,
+                max_position_per_side,
                 collateral_cap: Uint128::new(cap),
                 challenge_bond: Uint128::new(10_000_000),
             },
@@ -194,6 +203,27 @@ fn assert_reconciles(app: &App, market: &Addr, forced: u128) {
             .amount,
         a.principal + a.fees + Uint128::new(forced)
     );
+}
+
+#[test]
+fn buy_cannot_cross_per_address_outcome_exposure_cap() {
+    let (mut app, market) = setup_with_position_cap(200_000_000, 2_500, Uint128::new(1));
+    let accounting_before = accounting(&app, &market);
+    let position_before = position(&app, &market, "alice");
+    assert!(app
+        .execute_contract(
+            Addr::unchecked("alice"),
+            market.clone(),
+            &ExecuteMsg::Buy {
+                outcome: Outcome::Yes,
+                min_out: Uint128::zero(),
+                deadline: NOW + 1_000,
+            },
+            &[coin(1_000_000, "ujuno")],
+        )
+        .is_err());
+    assert_eq!(accounting(&app, &market), accounting_before);
+    assert_eq!(position(&app, &market, "alice"), position_before);
 }
 
 #[test]

@@ -89,6 +89,7 @@
           "fee_bps",
           "max_initial_liquidity",
           "max_oracle_bounty",
+          "max_position_per_side",
           "max_trade_bps",
           "min_initial_liquidity",
           "min_oracle_bounty",
@@ -121,6 +122,9 @@
             "$ref": "#/definitions/Uint128"
           },
           "max_oracle_bounty": {
+            "$ref": "#/definitions/Uint128"
+          },
+          "max_position_per_side": {
             "$ref": "#/definitions/Uint128"
           },
           "max_trade_bps": {
@@ -499,6 +503,7 @@
             "fee_bps",
             "max_initial_liquidity",
             "max_oracle_bounty",
+            "max_position_per_side",
             "max_trade_bps",
             "min_initial_liquidity",
             "min_oracle_bounty",
@@ -531,6 +536,9 @@
               "$ref": "#/definitions/Uint128"
             },
             "max_oracle_bounty": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "max_position_per_side": {
               "$ref": "#/definitions/Uint128"
             },
             "max_trade_bps": {

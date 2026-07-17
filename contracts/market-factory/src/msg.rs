@@ -15,6 +15,7 @@ pub struct TierConfig {
     pub fee_bps: u16,
     pub min_trade: Uint128,
     pub max_trade_bps: u16,
+    pub max_position_per_side: Uint128,
     pub collateral_cap: Uint128,
     pub challenge_bond: Uint128,
 }

@@ -51,6 +51,10 @@ fn question() -> QuestionInput {
 }
 
 fn setup(cap: u128) -> (App, Addr) {
+    setup_with_position_cap(cap, Uint128::MAX)
+}
+
+fn setup_with_position_cap(cap: u128, max_position_per_side: Uint128) -> (App, Addr) {
     let factory = Addr::unchecked("factory");
     let alice = Addr::unchecked("alice");
     let bob = Addr::unchecked("bob");
@@ -107,6 +111,7 @@ fn setup(cap: u128) -> (App, Addr) {
                 fee_bps: 200,
                 min_trade: Uint128::new(10),
                 max_trade_bps: 2_500,
+                max_position_per_side,
                 collateral_cap: Uint128::new(cap),
                 challenge_bond: Uint128::new(10_000_000),
             },
@@ -136,6 +141,69 @@ fn position(app: &App, market: &Addr, owner: &str) -> PositionResponse {
             },
         )
         .unwrap()
+}
+
+#[test]
+fn split_merge_ratio_and_per_address_exposure_are_enforced_atomically() {
+    let (mut app, market) = setup_with_position_cap(1_000, Uint128::new(20));
+    app.execute_contract(
+        Addr::unchecked("alice"),
+        market.clone(),
+        &ExecuteMsg::Split {
+            amount: Uint128::new(20),
+        },
+        &[coin(20, "ujuno")],
+    )
+    .unwrap();
+    let accounting_before = accounting(&app, &market);
+    let position_before = position(&app, &market, "alice");
+    assert!(app
+        .execute_contract(
+            Addr::unchecked("alice"),
+            market.clone(),
+            &ExecuteMsg::Split {
+                amount: Uint128::new(10),
+            },
+            &[coin(10, "ujuno")],
+        )
+        .is_err());
+    assert_eq!(accounting(&app, &market), accounting_before);
+    assert_eq!(position(&app, &market, "alice"), position_before);
+
+    let (mut app, market) = setup(1_000);
+    for amount in [20u128, 20] {
+        app.execute_contract(
+            Addr::unchecked("alice"),
+            market.clone(),
+            &ExecuteMsg::Split {
+                amount: Uint128::new(amount),
+            },
+            &[coin(amount, "ujuno")],
+        )
+        .unwrap();
+    }
+    let accounting_before = accounting(&app, &market);
+    let position_before = position(&app, &market, "alice");
+    for (msg, funds) in [
+        (
+            ExecuteMsg::Split {
+                amount: Uint128::new(26),
+            },
+            vec![coin(26, "ujuno")],
+        ),
+        (
+            ExecuteMsg::Merge {
+                amount: Uint128::new(26),
+            },
+            vec![],
+        ),
+    ] {
+        assert!(app
+            .execute_contract(Addr::unchecked("alice"), market.clone(), &msg, &funds)
+            .is_err());
+        assert_eq!(accounting(&app, &market), accounting_before);
+        assert_eq!(position(&app, &market, "alice"), position_before);
+    }
 }
 
 #[test]
@@ -298,7 +366,7 @@ fn forced_funds_and_seeded_random_sequences_do_not_create_claims() {
             } else {
                 ("bob", &mut bob)
             };
-            let amount = (((random >> 8) % 5) as u128 + 1) * 10;
+            let amount = (((random >> 8) % 2) as u128 + 1) * 10;
 
             if (random >> 16) & 1 == 1 && *balance >= amount {
                 app.execute_contract(
