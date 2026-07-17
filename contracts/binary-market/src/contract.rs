@@ -213,7 +213,7 @@ pub fn execute(
         ExecuteMsg::Split { amount } => {
             guards::trading(&env, &config, &lifecycle)?;
             guards::exact_funds(&info.funds, UJUNO_DENOM, amount)?;
-            return execute_split(deps, env, info, &config, amount);
+            execute_split(deps, env, info, &config, amount)
         }
         ExecuteMsg::Buy {
             outcome,
@@ -232,7 +232,7 @@ pub fn execute(
                 });
             }
             let gross = info.funds[0].amount;
-            return execute_buy(deps, env, info, &config, outcome, min_out, gross);
+            execute_buy(deps, env, info, &config, outcome, min_out, gross)
         }
         ExecuteMsg::Sell {
             outcome,
@@ -243,7 +243,7 @@ pub fn execute(
             guards::no_funds(&info.funds)?;
             guards::trading(&env, &config, &lifecycle)?;
             guards::user_deadline(&env, deadline)?;
-            return execute_sell(deps, env, info, &config, outcome, return_amount, max_in);
+            execute_sell(deps, env, info, &config, outcome, return_amount, max_in)
         }
         ExecuteMsg::Merge { amount } => {
             guards::no_funds(&info.funds)?;
@@ -251,7 +251,7 @@ pub fn execute(
                 return Err(ContractError::NotActivated);
             }
             guards::unresolved(&lifecycle)?;
-            return execute_merge(deps, env, info, &config, amount);
+            execute_merge(deps, env, info, &config, amount)
         }
         ExecuteMsg::Challenge {} => {
             if guards::derived_lifecycle(
@@ -264,7 +264,7 @@ pub fn execute(
             {
                 return Err(ContractError::NoPendingChallenge);
             }
-            return execute_challenge(deps, env, info, &config);
+            execute_challenge(deps, env, info, &config)
         }
         ExecuteMsg::GovernanceVerdict {
             question_id,
@@ -273,7 +273,7 @@ pub fn execute(
         } => {
             guards::no_funds(&info.funds)?;
             guards::governance_verdict(&env, &info.sender, &config, challenge.as_ref())?;
-            return execute_governance_verdict(
+            execute_governance_verdict(
                 deps,
                 env,
                 &config,
@@ -281,14 +281,14 @@ pub fn execute(
                 question_id,
                 answer,
                 payee,
-            );
+            )
         }
         ExecuteMsg::FinalizeStalledChallenge {} => {
             guards::no_funds(&info.funds)?;
             let challenge = challenge
                 .as_ref()
                 .ok_or(ContractError::NoPendingChallenge)?;
-            return execute_finalize_stalled(deps, env, &config, challenge);
+            execute_finalize_stalled(deps, env, &config, challenge)
         }
         ExecuteMsg::Resolve {} => {
             guards::no_funds(&info.funds)?;
@@ -305,22 +305,22 @@ pub fn execute(
                     ContractError::ResolutionMismatch("market is not awaiting resolution".into())
                 });
             }
-            return execute_resolve(deps, env, &config);
+            execute_resolve(deps, env, &config)
         }
         ExecuteMsg::RedeemPositions { yes, no } => {
             guards::no_funds(&info.funds)?;
             let payout = lifecycle.payout.ok_or(ContractError::NotResolved)?;
-            return execute_redeem_positions(deps, env, info, &config, &payout, yes, no);
+            execute_redeem_positions(deps, env, info, &config, &payout, yes, no)
         }
         ExecuteMsg::RedeemLp { amount } => {
             guards::no_funds(&info.funds)?;
             let payout = lifecycle.payout.ok_or(ContractError::NotResolved)?;
-            return execute_redeem_lp(deps, env, info, &config, &payout, amount);
+            execute_redeem_lp(deps, env, info, &config, &payout, amount)
         }
         ExecuteMsg::ClaimLpAccrual {} => {
             guards::no_funds(&info.funds)?;
             lifecycle.payout.ok_or(ContractError::NotResolved)?;
-            return execute_claim_lp_accrual(deps, env, info, &config);
+            execute_claim_lp_accrual(deps, env, info, &config)
         }
     }
 }
