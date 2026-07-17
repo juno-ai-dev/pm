@@ -54,6 +54,7 @@ fn every_v1_query_response_has_an_explicit_golden_field_set() {
                 "fee_bps",
                 "min_trade",
                 "max_trade_bps",
+                "max_position_per_side",
                 "collateral_cap",
                 "challenge_bond",
             ],
