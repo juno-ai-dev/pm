@@ -2274,6 +2274,10 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 .querier
                 .query_balance(env.contract.address, &config.collateral_denom)?
                 .amount;
+            // Before resolution principal is the backing liability. Afterwards,
+            // redemptions reduce the terminal numerator while `principal` remains
+            // the immutable resolution snapshot. Round the remaining half-ujuno
+            // numerator up so every outstanding half remains covered.
             let principal_liability = match accounting.terminal_liability_twice {
                 Some(value) => value
                     .checked_add(Uint128::one())?
