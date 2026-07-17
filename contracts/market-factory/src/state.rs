@@ -9,6 +9,7 @@ use crate::msg::{CreateMarketMsg, MarketRecord, TierConfig};
 pub struct Config {
     pub protocol_version: ProtocolVersion,
     pub market_code_id: u64,
+    pub market_checksum: HexBinary,
     pub tier_id: TierId,
     pub tier: TierConfig,
     pub oracle: Addr,
@@ -23,10 +24,11 @@ pub struct Config {
 #[cw_serde]
 pub struct PendingCreation {
     pub creator: Addr,
+    pub nonce: u64,
     pub request: CreateMarketMsg,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const PENDING: Item<PendingCreation> = Item::new("pending");
-pub const NEXT_ID: Item<u64> = Item::new("next_id");
+pub const NEXT_NONCE: Item<u64> = Item::new("next_nonce");
 pub const MARKETS: Map<u64, MarketRecord> = Map::new("markets");

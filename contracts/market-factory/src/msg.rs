@@ -23,6 +23,7 @@ pub struct TierConfig {
 pub struct InstantiateMsg {
     pub protocol_version: ProtocolVersion,
     pub market_code_id: u64,
+    pub market_checksum: HexBinary,
     pub tier_id: TierId,
     pub tier: TierConfig,
     pub oracle: String,
@@ -37,7 +38,6 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub struct CreateMarketMsg {
     pub question: QuestionInput,
-    pub nonce: u64,
     pub close_ts: u64,
     pub opening_ts: u64,
     pub initial_liquidity: Uint128,
@@ -55,10 +55,12 @@ pub enum QueryMsg {
     #[returns(ConfigResponse)]
     Config {},
     #[returns(MarketResponse)]
-    Market { id: u64 },
+    Market { nonce: u64 },
+    #[returns(NextNonceResponse)]
+    NextNonce {},
     #[returns(ListMarketsResponse)]
     ListMarkets {
-        start_after: Option<u64>,
+        start_after_nonce: Option<u64>,
         limit: Option<u32>,
     },
 }
@@ -67,6 +69,7 @@ pub enum QueryMsg {
 pub struct ConfigResponse {
     pub protocol_version: ProtocolVersion,
     pub market_code_id: u64,
+    pub market_checksum: HexBinary,
     pub tier_id: TierId,
     pub tier: TierConfig,
     pub oracle: String,
@@ -80,11 +83,11 @@ pub struct ConfigResponse {
 
 #[cw_serde]
 pub struct MarketRecord {
-    pub id: u64,
+    pub nonce: u64,
     pub market: String,
     pub creator: String,
     pub tier_id: TierId,
-    pub question_id: Option<Binary>,
+    pub question_id: Binary,
     pub question_hash: Binary,
     pub close_ts: u64,
     pub opening_ts: u64,
@@ -101,4 +104,9 @@ pub struct MarketResponse {
 #[cw_serde]
 pub struct ListMarketsResponse {
     pub markets: Vec<MarketRecord>,
+    pub next_start_after_nonce: Option<u64>,
+}
+#[cw_serde]
+pub struct NextNonceResponse {
+    pub next_nonce: u64,
 }

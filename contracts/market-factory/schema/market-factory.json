@@ -8,6 +8,7 @@
     "type": "object",
     "required": [
       "collateral_denom",
+      "market_checksum",
       "market_code_id",
       "oracle",
       "oracle_checksum",
@@ -22,6 +23,9 @@
     "properties": {
       "collateral_denom": {
         "type": "string"
+      },
+      "market_checksum": {
+        "$ref": "#/definitions/HexBinary"
       },
       "market_code_id": {
         "type": "integer",
@@ -168,7 +172,6 @@
         "required": [
           "close_ts",
           "initial_liquidity",
-          "nonce",
           "opening_ts",
           "oracle_bounty",
           "question"
@@ -181,11 +184,6 @@
           },
           "initial_liquidity": {
             "$ref": "#/definitions/Uint128"
-          },
-          "nonce": {
-            "type": "integer",
-            "format": "uint64",
-            "minimum": 0.0
           },
           "opening_ts": {
             "type": "integer",
@@ -351,15 +349,28 @@
           "market": {
             "type": "object",
             "required": [
-              "id"
+              "nonce"
             ],
             "properties": {
-              "id": {
+              "nonce": {
                 "type": "integer",
                 "format": "uint64",
                 "minimum": 0.0
               }
             },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "next_nonce"
+        ],
+        "properties": {
+          "next_nonce": {
+            "type": "object",
             "additionalProperties": false
           }
         },
@@ -382,7 +393,7 @@
                 "format": "uint32",
                 "minimum": 0.0
               },
-              "start_after": {
+              "start_after_nonce": {
                 "type": [
                   "integer",
                   "null"
@@ -407,6 +418,7 @@
       "type": "object",
       "required": [
         "collateral_denom",
+        "market_checksum",
         "market_code_id",
         "oracle",
         "oracle_checksum",
@@ -421,6 +433,9 @@
       "properties": {
         "collateral_denom": {
           "type": "string"
+        },
+        "market_checksum": {
+          "$ref": "#/definitions/HexBinary"
         },
         "market_code_id": {
           "type": "integer",
@@ -557,6 +572,14 @@
           "items": {
             "$ref": "#/definitions/MarketRecord"
           }
+        },
+        "next_start_after_nonce": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
         }
       },
       "additionalProperties": false,
@@ -572,12 +595,13 @@
             "created_height",
             "created_time",
             "creator",
-            "id",
             "initial_liquidity",
             "market",
+            "nonce",
             "opening_ts",
             "oracle_bounty",
             "question_hash",
+            "question_id",
             "tier_id"
           ],
           "properties": {
@@ -599,16 +623,16 @@
             "creator": {
               "type": "string"
             },
-            "id": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
-            },
             "initial_liquidity": {
               "$ref": "#/definitions/Uint128"
             },
             "market": {
               "type": "string"
+            },
+            "nonce": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
             },
             "opening_ts": {
               "type": "integer",
@@ -622,14 +646,7 @@
               "$ref": "#/definitions/Binary"
             },
             "question_id": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Binary"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "$ref": "#/definitions/Binary"
             },
             "tier_id": {
               "type": "integer",
@@ -670,12 +687,13 @@
             "created_height",
             "created_time",
             "creator",
-            "id",
             "initial_liquidity",
             "market",
+            "nonce",
             "opening_ts",
             "oracle_bounty",
             "question_hash",
+            "question_id",
             "tier_id"
           ],
           "properties": {
@@ -697,16 +715,16 @@
             "creator": {
               "type": "string"
             },
-            "id": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
-            },
             "initial_liquidity": {
               "$ref": "#/definitions/Uint128"
             },
             "market": {
               "type": "string"
+            },
+            "nonce": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
             },
             "opening_ts": {
               "type": "integer",
@@ -720,14 +738,7 @@
               "$ref": "#/definitions/Binary"
             },
             "question_id": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Binary"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "$ref": "#/definitions/Binary"
             },
             "tier_id": {
               "type": "integer",
@@ -742,6 +753,22 @@
           "type": "string"
         }
       }
+    },
+    "next_nonce": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "NextNonceResponse",
+      "type": "object",
+      "required": [
+        "next_nonce"
+      ],
+      "properties": {
+        "next_nonce": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
     }
   }
 }
