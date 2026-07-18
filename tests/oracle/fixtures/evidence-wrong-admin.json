@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "observed": {"height": 40000000, "endpoint": "https://rpc.example.invalid"},
+  "chain_id": "juno-1",
+  "code_info": {"code_id": 7000, "checksum": "dbc6f04743a1cfdadae99016df7a69c5b8352ba568991d8417c4d297573ab629"},
+  "contract_info": {"address": "juno1qqqsyqcyq5rqwzqfpg9scrgwpugpzysnzs23v9ccrydpk8qarc0s9c0m82", "code_id": 7000, "admin": "juno1mutableadmin000000000000000000000000000"},
+  "config": {"admin": null, "min_initial_bond_floor": "10000000", "min_answer_timeout_secs": 86400}
+}

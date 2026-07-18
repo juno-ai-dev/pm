@@ -1,6 +1,6 @@
 # ADR-001 — Binary fixed-expiry markets
 
-**Status:** Proposed  
+**Status:** Accepted 2026-07-16
 **Decision:** V1 supports exactly one YES/NO proposition with immutable close_ts and opening_ts. Trading rejects at block.time >= close_ts.
 
 ## Alternatives

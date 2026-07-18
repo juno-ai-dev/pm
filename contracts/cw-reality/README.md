@@ -2,8 +2,9 @@
 
 A CosmWasm port of **[Reality.eth](https://reality.eth.link/)** — a
 bond-escalating crowdsourced oracle for contested social facts. Arbitration
-is pluggable; v1 ships first-class adapters for Juno chain governance and
-DAO DAO DAOs (no Kleros).
+is pluggable through an address permission: Juno governance, DAO DAO, a
+multisig, or another authority can be configured directly. No adapter contract
+ships in v1.
 
 ## Credit & inspiration
 
@@ -34,16 +35,15 @@ deltas (multi-denom denom binding, contract-level timeout floor, dispute
 round cap, sha-256 history hash, explicit state enum, cw-filter answer
 schemas, removal of commit-reveal) are catalogued in:
 
-→ **[`docs/differences-from-reality-eth.md`](docs/differences-from-reality-eth.md)**
+→ **[`docs/juno-reality/differences-from-reality-eth.md`](../../docs/juno-reality/differences-from-reality-eth.md)**
 
 ## Repository
 
-- **What we're building + why** → `GOAL.md`
-- **How we get there** → `PLAN.md`
-- **The arbitration design call** → `ARBITRATION.md`
-- **Pre-implementation reading gate** → `docs/reality-eth-reading-list.md`
-- **Port-time lessons digest** → `docs/reality-eth-lessons.md`
-- **Self-audit** → `docs/self-audit-checklist.md`
+- **What we're building + why** → [`GOAL.md`](../../GOAL.md)
+- **The arbitration design call** → [`ARBITRATION.md`](../../ARBITRATION.md)
+- **Historical reading gate** → [`reality-eth-reading-list.md`](../../docs/juno-reality/reality-eth-reading-list.md)
+- **Port-time lessons digest** → [`reality-eth-lessons.md`](../../docs/juno-reality/reality-eth-lessons.md)
+- **Self-audit** → [`self-audit-checklist.md`](../../docs/juno-reality/self-audit-checklist.md)
 
 ## Live on juno-1
 
@@ -57,4 +57,5 @@ Code ID: `5121` (sha256 `e25473e7eb08b5fc23b66926073958458b01a7b9b5642855249bc3d
 ## Licenses
 
 - `contracts/cw-reality` — **Apache-2.0**
-- `depricated_ui/reality-ui` — **AGPL-3.0**
+- The historical `depricated_ui/` records an **AGPL-3.0** claim but is
+  unsupported; see the repository licensing decision record before reuse.

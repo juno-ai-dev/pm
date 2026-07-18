@@ -1,40 +1,22 @@
-name: ui
+name: ui-policy
 
 on:
   push:
     branches: [main]
     paths:
-      - 'ui/**'
+      - 'depricated_ui/**'
+      - 'scripts/check-ui-policy.sh'
       - '.github/workflows/ui.yml'
   pull_request:
     paths:
-      - 'ui/**'
+      - 'depricated_ui/**'
+      - 'scripts/check-ui-policy.sh'
       - '.github/workflows/ui.yml'
 
 jobs:
-  build:
-    name: typecheck + build
+  unsupported-ui-policy:
+    name: deprecated UI remains explicitly unsupported
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ui
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-          cache-dependency-path: ui/pnpm-lock.yaml
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: typecheck
-        run: pnpm lint
-
-      - name: vite build
-        run: pnpm build
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - run: ./scripts/check-ui-policy.sh

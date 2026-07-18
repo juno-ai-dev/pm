@@ -7,16 +7,16 @@
 
 | Item | Pin |
 | --- | --- |
-| Repository HEAD | 5cdc71d9066973474f6758f09f048b1e7c9df9c5 |
-| Last commit touching cw-reality source/schema | ee641534fd7b7b3677bd48d30390422ee3fbe5ed |
+| Repository base reviewed | 227edbb5e7fc472a62cb724827fec11fbaad39ae |
+| Executable cw-reality handler baseline | ee641534fd7b7b3677bd48d30390422ee3fbe5ed |
 | Contract package | cw-reality 0.1.0-alpha.1 |
-| Existing combined schema SHA-256 | 725cb2a2fc5f78870d0ae8dad34287576bd51b1c7eaa6fede6c45f9f3106827a |
+| Reconciled combined schema SHA-256 | a50ecbb01d358daddf937bc5704fbdfdee8863be8658619f206eae132b1120af |
 | Source-declared CosmWasm dependency | cosmwasm-std 1.5.4 |
 | Locked/resolved CosmWasm dependency in the verification build | cosmwasm-std 1.5.11 |
 
-Canonical files are [msg.rs](../../../contracts/cw-reality/src/msg.rs), [state.rs](../../../contracts/cw-reality/src/state.rs), [query.rs](../../../contracts/cw-reality/src/query.rs), [id.rs](../../../contracts/cw-reality/src/id.rs), and the handlers under [execute](../../../contracts/cw-reality/src/execute). The checked-in [combined schema](../../../contracts/cw-reality/schema/cw-reality.json) is evidence of the message surface; no schema was generated during this research phase.
+Canonical files are [msg.rs](../../../contracts/cw-reality/src/msg.rs), [state.rs](../../../contracts/cw-reality/src/state.rs), [query.rs](../../../contracts/cw-reality/src/query.rs), [id.rs](../../../contracts/cw-reality/src/id.rs), and the handlers under [execute](../../../contracts/cw-reality/src/execute). The checked-in [combined schema](../../../contracts/cw-reality/schema/cw-reality.json) is generated evidence of the message surface. CI regenerates it and rejects any uncommitted difference so source commentary and schema descriptions cannot silently drift.
 
-The command cargo test --locked was run against the unmodified package on 2026-07-15. Result: 57 passed, 0 failed, 0 ignored; doc tests 0 passed/failed. One existing unused-variable warning occurred in src/proptests.rs. This only verifies the behavior covered by that suite.
+The command cargo test --locked was run against the package on 2026-07-15 before and after this documentation reconciliation. Both runs reported 57 passed, 0 failed, 0 ignored; doc tests 0 passed/failed. The current root validation gate also passes strict Clippy without warnings. This only verifies the behavior covered by that suite.
 
 ## Direct source observations
 
@@ -29,19 +29,19 @@ The command cargo test --locked was run against the unmodified package on 2026-0
 | Guarantee query | FinalAnswerIfMatches checks finality, final bond, answer timeout, arbitrator, and denom. It does not check text, opening time, answer type, answer schema, asker, arbitration timeout, code checksum, or chain migration admin. |
 | Arbitration request | Only the configured arbitrator may call RequestArbitration; the question must be OpenAnswered. cw-reality collects no public challenge fee. |
 | Stalled arbitration | At or after arbitration_deadline, anyone may CancelArbitration. This restarts finalize_ts at now plus answer_timeout_secs. |
-| Arbitrator result | SubmitArbitration accepts any Binary and any valid bech32 payee while PendingArbitration. It does not prove the answer appeared in history. |
+| Arbitrator result | SubmitArbitration accepts any Binary and any payee accepted by `deps.api.addr_validate` while PendingArbitration. It does not prove the answer appeared in history. The payee becomes the answerer on the appended zero-bond history entry and can therefore receive oracle bounty and bond winnings. |
 | Unanswered result | With finalize_ts unset, OpenUnanswered never becomes Finalized merely through time. |
 | Withdrawal | Withdraw always emits a native BankMsg even though CW20 funding paths exist. Native-only use is therefore the safe v1 integration. |
 | Migration | InstantiateMsg stores an optional admin and migrate performs no sender check of its own because chain-level wasmd admin authorization controls entry. Address pinning is not code immutability when a chain admin exists. |
 
-## Visible documentation drift
+## Arbitration documentation reconciliation
 
-| Document statement | Compiled/source behavior | Disposition |
+| Public description | Compiled/source behavior | Disposition |
 | --- | --- | --- |
-| ARBITRATION.md says the arbitrator must select a submitted answer. | execute/arbitration.rs deliberately accepts any answer. | Source controls; market maps unknown bytes to neutral and the discrepancy remains visible. |
-| ARBITRATION.md describes SubmitArbitration without payee. | The schema requires payee. | Governance rehearsal must encode and validate payee. |
-| README says first-class governance/DAO adapters ship. | No adapter contract or adapter message surface exists. | Treat the arbitrator as an address permission only. |
-| README calls the production arbitration window seven days. | Seven days is a default for newly asked questions; the proposed market must explicitly request 21 days. | Never infer a question value from the instance README. |
+| ARBITRATION.md and msg.rs state that the arbitrator may author any Binary without a history-membership proof. | execute/arbitration.rs deliberately accepts any answer. | Consistent; the market maps unknown bytes to neutral, but this does not constrain oracle payout history. |
+| ARBITRATION.md and msg.rs include the arbitrator-selected, validated payee. | The schema requires payee and the handler calls `addr_validate`. | Consistent; governance rehearsal must encode and validate payee, and reviewers must treat oracle-bond redirection as residual trust. |
+| README states no governance/DAO adapter contract ships in v1. | No adapter contract or adapter message surface exists. | Consistent; treat the arbitrator as an address permission only. |
+| README calls the production arbitration window seven days. | Seven days is a default for newly asked questions; the accepted market design must explicitly request 21 days. | Never infer a question value from the instance README. |
 | Comments say a captured cw-filter address means later filter migrations cannot brick a question. | The address is captured, but code at a migratable address can change. | Filters are optional UX only; payout safety must not depend on them. |
 
 ## External mechanism/source pins

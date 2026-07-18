@@ -45,7 +45,10 @@ pub enum ContractError {
     InvalidBondFunds { count: usize },
 
     #[error("bond {provided} must be at least double the previous bond {previous}")]
-    BondMustDouble { provided: Uint128, previous: Uint128 },
+    BondMustDouble {
+        provided: Uint128,
+        previous: Uint128,
+    },
 
     #[error("bond {provided} must meet the question minimum {minimum}")]
     BondBelowMinimum { provided: Uint128, minimum: Uint128 },
@@ -66,9 +69,13 @@ pub enum ContractError {
     #[error("arbitration requires at least one prior answer")]
     ArbitrationNoAnswer {},
 
+    /// Legacy, currently unused variant retained for source compatibility.
+    /// `SubmitArbitration` does not reject merely because the deadline passed.
     #[error("arbitration deadline {deadline} has passed (now {now})")]
     ArbitrationDeadlinePassed { deadline: u64, now: u64 },
 
+    /// Legacy, currently unused variant retained for source compatibility.
+    /// `SubmitArbitration` performs no submitted-history membership check.
     #[error("arbitrator must pick from a previously submitted answer")]
     ArbitrationAnswerNotInHistory {},
 

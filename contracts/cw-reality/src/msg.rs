@@ -64,21 +64,25 @@ pub enum ExecuteMsg {
         current_bond_seen: Option<Uint128>,
     },
 
-    /// Arbitrator-only. Freezes the question and starts the arbitration
-    /// deadline. Requires `finalize_ts > 0` (at least one answer); matches
-    /// Reality.eth v3 audit issue #2 fix.
+    /// Configured-arbitrator-only. Requires the question to be OpenAnswered
+    /// (and thus to have at least one answer), applies the optional
+    /// `current_bond_seen` front-run guard, freezes it, and starts the
+    /// arbitration deadline.
     RequestArbitration {
         question_id: Binary,
         current_bond_seen: Option<Uint128>,
     },
 
-    /// Arbitrator-only. Unfreezes the question. Resets `finalize_ts` to
-    /// `now + timeout` (Reality.eth's re-extend behavior — not restore).
+    /// Pending-arbitration-only. The configured arbitrator may cancel at any
+    /// time; anyone may cancel at or after the arbitration deadline. Unfreezes
+    /// the question and resets `finalize_ts` to `now + timeout` (re-extend,
+    /// not restore).
     CancelArbitration { question_id: Binary },
 
-    /// Arbitrator-only. Selects the winning answer (must be one of the
-    /// submitted answers, except for the explicit-decline path via
-    /// `UNRESOLVED_ANSWER`) and finalizes immediately.
+    /// Arbitrator-only and pending-arbitration-only. Finalizes with any
+    /// `winning_answer` bytes chosen by the arbitrator and records the
+    /// validated `payee` as that answer's zero-bond history entry. No
+    /// submitted-history membership or answer-schema check is performed.
     SubmitArbitration {
         question_id: Binary,
         winning_answer: Binary,

@@ -1,0 +1,2044 @@
+{
+  "contract_name": "binary-market",
+  "contract_version": "0.1.0",
+  "idl_version": "1.0.0",
+  "instantiate": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "InstantiateMsg",
+    "type": "object",
+    "required": [
+      "answer_timeout_secs",
+      "arbitration_timeout_secs",
+      "challenge_bond",
+      "close_ts",
+      "collateral_cap",
+      "creator",
+      "factory",
+      "fee_bps",
+      "initial_liquidity",
+      "max_position_per_side",
+      "max_trade_bps",
+      "min_trade",
+      "nonce",
+      "opening_ts",
+      "oracle",
+      "oracle_bounty",
+      "oracle_initial_bond",
+      "question",
+      "tier",
+      "verdict_authority"
+    ],
+    "properties": {
+      "answer_timeout_secs": {
+        "type": "integer",
+        "format": "uint32",
+        "minimum": 0.0
+      },
+      "arbitration_timeout_secs": {
+        "type": "integer",
+        "format": "uint32",
+        "minimum": 0.0
+      },
+      "challenge_bond": {
+        "$ref": "#/definitions/Uint128"
+      },
+      "close_ts": {
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0.0
+      },
+      "collateral_cap": {
+        "$ref": "#/definitions/Uint128"
+      },
+      "creator": {
+        "type": "string"
+      },
+      "factory": {
+        "type": "string"
+      },
+      "fee_bps": {
+        "description": "Fee numerator over 10,000.",
+        "type": "integer",
+        "format": "uint16",
+        "minimum": 0.0
+      },
+      "initial_liquidity": {
+        "$ref": "#/definitions/Uint128"
+      },
+      "max_position_per_side": {
+        "description": "Maximum position units held by one address for either outcome.",
+        "allOf": [
+          {
+            "$ref": "#/definitions/Uint128"
+          }
+        ]
+      },
+      "max_trade_bps": {
+        "description": "Maximum gross trade as a numerator over 10,000 of the selected reserve.",
+        "type": "integer",
+        "format": "uint16",
+        "minimum": 0.0
+      },
+      "min_trade": {
+        "$ref": "#/definitions/Uint128"
+      },
+      "nonce": {
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0.0
+      },
+      "opening_ts": {
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0.0
+      },
+      "oracle": {
+        "type": "string"
+      },
+      "oracle_bounty": {
+        "$ref": "#/definitions/Uint128"
+      },
+      "oracle_initial_bond": {
+        "$ref": "#/definitions/Uint128"
+      },
+      "question": {
+        "description": "Typed semantic source. The market constructs authoritative JCS bytes.",
+        "allOf": [
+          {
+            "$ref": "#/definitions/QuestionInput"
+          }
+        ]
+      },
+      "tier": {
+        "type": "integer",
+        "format": "uint16",
+        "minimum": 0.0
+      },
+      "verdict_authority": {
+        "description": "Immutable exact sender authorized to forward the arbitration verdict.",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "definitions": {
+      "ObservationInput": {
+        "type": "object",
+        "required": [
+          "cutoff_ts",
+          "end_ts",
+          "inclusivity",
+          "revision_policy",
+          "start_ts"
+        ],
+        "properties": {
+          "cutoff_ts": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          "end_ts": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          "inclusivity": {
+            "type": "string"
+          },
+          "revision_policy": {
+            "type": "string"
+          },
+          "start_ts": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          }
+        },
+        "additionalProperties": false
+      },
+      "QuestionInput": {
+        "type": "object",
+        "required": [
+          "definitions",
+          "invalid_conditions",
+          "observation",
+          "primary_sources",
+          "proposition",
+          "secondary_sources",
+          "source_disagreement_policy",
+          "title"
+        ],
+        "properties": {
+          "definitions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "invalid_conditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "observation": {
+            "$ref": "#/definitions/ObservationInput"
+          },
+          "primary_sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/SourceInput"
+            }
+          },
+          "proposition": {
+            "type": "string"
+          },
+          "secondary_sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/SourceInput"
+            }
+          },
+          "source_disagreement_policy": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SourceInput": {
+        "type": "object",
+        "required": [
+          "fallback_condition",
+          "identifier",
+          "publication_revision_policy",
+          "publisher",
+          "retrieval",
+          "url"
+        ],
+        "properties": {
+          "fallback_condition": {
+            "type": "string"
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "publication_revision_policy": {
+            "type": "string"
+          },
+          "publisher": {
+            "type": "string"
+          },
+          "retrieval": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Uint128": {
+        "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+        "type": "string"
+      }
+    }
+  },
+  "execute": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ExecuteMsg",
+    "oneOf": [
+      {
+        "type": "object",
+        "required": [
+          "split"
+        ],
+        "properties": {
+          "split": {
+            "type": "object",
+            "required": [
+              "amount"
+            ],
+            "properties": {
+              "amount": {
+                "$ref": "#/definitions/Uint128"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "merge"
+        ],
+        "properties": {
+          "merge": {
+            "type": "object",
+            "required": [
+              "amount"
+            ],
+            "properties": {
+              "amount": {
+                "$ref": "#/definitions/Uint128"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "buy"
+        ],
+        "properties": {
+          "buy": {
+            "type": "object",
+            "required": [
+              "deadline",
+              "min_out",
+              "outcome"
+            ],
+            "properties": {
+              "deadline": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              },
+              "min_out": {
+                "$ref": "#/definitions/Uint128"
+              },
+              "outcome": {
+                "$ref": "#/definitions/Outcome"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "sell"
+        ],
+        "properties": {
+          "sell": {
+            "type": "object",
+            "required": [
+              "deadline",
+              "max_in",
+              "outcome",
+              "return_amount"
+            ],
+            "properties": {
+              "deadline": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              },
+              "max_in": {
+                "$ref": "#/definitions/Uint128"
+              },
+              "outcome": {
+                "$ref": "#/definitions/Outcome"
+              },
+              "return_amount": {
+                "$ref": "#/definitions/Uint128"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "challenge"
+        ],
+        "properties": {
+          "challenge": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "governance_verdict"
+        ],
+        "properties": {
+          "governance_verdict": {
+            "type": "object",
+            "required": [
+              "answer",
+              "payee",
+              "question_id"
+            ],
+            "properties": {
+              "answer": {
+                "$ref": "#/definitions/Binary"
+              },
+              "payee": {
+                "type": "string"
+              },
+              "question_id": {
+                "$ref": "#/definitions/Binary"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "finalize_stalled_challenge"
+        ],
+        "properties": {
+          "finalize_stalled_challenge": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "resolve"
+        ],
+        "properties": {
+          "resolve": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "redeem_positions"
+        ],
+        "properties": {
+          "redeem_positions": {
+            "type": "object",
+            "required": [
+              "no",
+              "yes"
+            ],
+            "properties": {
+              "no": {
+                "$ref": "#/definitions/Uint128"
+              },
+              "yes": {
+                "$ref": "#/definitions/Uint128"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "redeem_lp"
+        ],
+        "properties": {
+          "redeem_lp": {
+            "type": "object",
+            "required": [
+              "amount"
+            ],
+            "properties": {
+              "amount": {
+                "$ref": "#/definitions/Uint128"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "claim_lp_accrual"
+        ],
+        "properties": {
+          "claim_lp_accrual": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    ],
+    "definitions": {
+      "Binary": {
+        "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+        "type": "string"
+      },
+      "Outcome": {
+        "description": "One of the two tradeable outcomes.",
+        "type": "string",
+        "enum": [
+          "yes",
+          "no"
+        ]
+      },
+      "Uint128": {
+        "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+        "type": "string"
+      }
+    }
+  },
+  "query": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "QueryMsg",
+    "oneOf": [
+      {
+        "type": "object",
+        "required": [
+          "config"
+        ],
+        "properties": {
+          "config": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "identity"
+        ],
+        "properties": {
+          "identity": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "accounting"
+        ],
+        "properties": {
+          "accounting": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "pool"
+        ],
+        "properties": {
+          "pool": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "quote_buy"
+        ],
+        "properties": {
+          "quote_buy": {
+            "type": "object",
+            "required": [
+              "gross",
+              "outcome"
+            ],
+            "properties": {
+              "gross": {
+                "$ref": "#/definitions/Uint128"
+              },
+              "outcome": {
+                "$ref": "#/definitions/Outcome"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "quote_sell"
+        ],
+        "properties": {
+          "quote_sell": {
+            "type": "object",
+            "required": [
+              "outcome",
+              "return_amount"
+            ],
+            "properties": {
+              "outcome": {
+                "$ref": "#/definitions/Outcome"
+              },
+              "return_amount": {
+                "$ref": "#/definitions/Uint128"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "position"
+        ],
+        "properties": {
+          "position": {
+            "type": "object",
+            "required": [
+              "address"
+            ],
+            "properties": {
+              "address": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "lp_position"
+        ],
+        "properties": {
+          "lp_position": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "challenge"
+        ],
+        "properties": {
+          "challenge": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "resolution"
+        ],
+        "properties": {
+          "resolution": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "solvency"
+        ],
+        "properties": {
+          "solvency": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "properties": {
+          "question": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    ],
+    "definitions": {
+      "Outcome": {
+        "description": "One of the two tradeable outcomes.",
+        "type": "string",
+        "enum": [
+          "yes",
+          "no"
+        ]
+      },
+      "Uint128": {
+        "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+        "type": "string"
+      }
+    }
+  },
+  "migrate": null,
+  "sudo": null,
+  "responses": {
+    "accounting": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AccountingResponse",
+      "type": "object",
+      "required": [
+        "challenge",
+        "fees",
+        "lp_accrual",
+        "lp_burned",
+        "lp_paid",
+        "lp_supply",
+        "neutral_half_dust",
+        "principal",
+        "total_no",
+        "total_yes"
+      ],
+      "properties": {
+        "challenge": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "fees": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "fees_at_resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lp_accrual": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "lp_burned": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "lp_paid": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "lp_supply": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "neutral_half_dust": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "pool_no_at_resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pool_yes_at_resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "principal": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "principal_at_resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "terminal_liability_twice": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "total_no": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "total_no_at_resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "total_yes": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "total_yes_at_resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "challenge": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ChallengeResponse",
+      "type": "object",
+      "required": [
+        "challenge_bond"
+      ],
+      "properties": {
+        "answer": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "answer_base64": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "answer_hex": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "challenge_bond": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "challenger": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deadline": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "oracle_bond": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "oracle_snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Question"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "started_at": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Addr": {
+          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+          "type": "string"
+        },
+        "AnswerSchemaFilter": {
+          "description": "Per-question configuration of the answer-schema filter callout.\n\nStored on the `Question` at ask time. The contract address is captured at ask time so that later cw-filter migrations cannot brick existing questions (lessons §7.4). If `None`, no schema validation is performed and any payload of the declared `AnswerType` is accepted.",
+          "type": "object",
+          "required": [
+            "contract",
+            "filter"
+          ],
+          "properties": {
+            "contract": {
+              "description": "cw-filter contract address used for this question. Captured at ask time so the question's validation surface is stable.",
+              "type": "string"
+            },
+            "filter": {
+              "description": "JSON filter spec to run against every submitted answer."
+            }
+          },
+          "additionalProperties": false
+        },
+        "AnswerType": {
+          "description": "Coarse answer type. The exact payload bytes are opaque to the contract; cw-filter validates schema per question.",
+          "type": "string",
+          "enum": [
+            "bool",
+            "uint",
+            "string",
+            "bytes"
+          ]
+        },
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        },
+        "Question": {
+          "description": "A question's stored state. See lessons §1 for the precise transitions each handler asserts.",
+          "type": "object",
+          "required": [
+            "answer_timeout_secs",
+            "answer_type",
+            "arbitration_timeout_secs",
+            "asker",
+            "bond_denom",
+            "bounty",
+            "current_bond",
+            "history_hash",
+            "initial_bond",
+            "is_claimed",
+            "is_pending_arbitration",
+            "min_bond",
+            "nonce",
+            "round_count",
+            "text"
+          ],
+          "properties": {
+            "answer_schema": {
+              "description": "Per-question cw-filter binding. Captured at ask time so later cw-filter migrations cannot brick this question (lessons §7.4).",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/AnswerSchemaFilter"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "answer_timeout_secs": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "answer_type": {
+              "$ref": "#/definitions/AnswerType"
+            },
+            "arbitration_deadline": {
+              "description": "Arbitration request deadline (set when `RequestArbitration` lands). If `None`, no arbitration request is outstanding.",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "arbitration_timeout_secs": {
+              "description": "Maximum time the arbitrator has between `RequestArbitration` and `SubmitArbitration` before a non-arbitrator may force-cancel (re-extension defense against a stalled arbitrator).",
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "arbitrator": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Addr"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "asker": {
+              "$ref": "#/definitions/Addr"
+            },
+            "best_answer": {
+              "description": "Latest \"best\" answer (i.e. the answer of the highest-bonded round so far). `None` until the first answer lands.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Binary"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "bond_denom": {
+              "description": "Bond denom pinned at ask time. Every subsequent bond on this question must match (lessons §2.3).",
+              "type": "string"
+            },
+            "bounty": {
+              "description": "Asker-supplied bounty (paid out to the latest right-answerer).",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Uint128"
+                }
+              ]
+            },
+            "current_bond": {
+              "description": "Latest bond amount in the chain. Used for the 2× doubling guard.",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Uint128"
+                }
+              ]
+            },
+            "finalize_ts": {
+              "description": "`block.time.seconds()` when the question will finalize, idle. `None` until the first answer lands.",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "history_hash": {
+              "description": "Tip of the history-hash chain.",
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "uint8",
+                "minimum": 0.0
+              },
+              "maxItems": 32,
+              "minItems": 32
+            },
+            "initial_bond": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "is_claimed": {
+              "description": "Set when the question is fully claimed (`history_hash` exhausted on the resumable claim walk).",
+              "type": "boolean"
+            },
+            "is_pending_arbitration": {
+              "description": "Frozen by `RequestArbitration`; cleared by `CancelArbitration` or `SubmitArbitration`.",
+              "type": "boolean"
+            },
+            "min_bond": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "nonce": {
+              "description": "User-supplied nonce — enables an asker to re-pose the same question (lessons §8 q1).",
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "opening_ts": {
+              "description": "Optional opening timestamp; question is not answerable until this time has elapsed (Reality.eth `opening_ts`).",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "round_count": {
+              "description": "Number of rounds (answers + arbitrator-submitted answers) so far.",
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "config": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ConfigResponse",
+      "type": "object",
+      "required": [
+        "answer_timeout_secs",
+        "arbitration_timeout_secs",
+        "challenge_bond",
+        "close_ts",
+        "collateral_cap",
+        "collateral_denom",
+        "creator",
+        "factory",
+        "fee_bps",
+        "initial_liquidity",
+        "initial_lp",
+        "max_position_per_side",
+        "max_trade_bps",
+        "min_trade",
+        "opening_ts",
+        "oracle",
+        "oracle_bounty",
+        "oracle_initial_bond",
+        "protocol_version",
+        "tier",
+        "verdict_authority"
+      ],
+      "properties": {
+        "answer_timeout_secs": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "arbitration_timeout_secs": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "challenge_bond": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "close_ts": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "collateral_cap": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "collateral_denom": {
+          "type": "string"
+        },
+        "creator": {
+          "type": "string"
+        },
+        "factory": {
+          "type": "string"
+        },
+        "fee_bps": {
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "initial_liquidity": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "initial_lp": {
+          "type": "string"
+        },
+        "max_position_per_side": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "max_trade_bps": {
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "min_trade": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "opening_ts": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "oracle": {
+          "type": "string"
+        },
+        "oracle_bounty": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "oracle_initial_bond": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "protocol_version": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "tier": {
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "verdict_authority": {
+          "description": "Immutable exact sender authorized to forward the arbitration verdict.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "ProtocolVersion": {
+          "description": "Version of the shared prediction-market wire protocol.",
+          "type": "string",
+          "enum": [
+            "v1"
+          ]
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "identity": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "IdentityResponse",
+      "type": "object",
+      "required": [
+        "factory",
+        "market",
+        "nonce",
+        "protocol_version"
+      ],
+      "properties": {
+        "factory": {
+          "type": "string"
+        },
+        "market": {
+          "type": "string"
+        },
+        "nonce": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "protocol_version": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "question_id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        },
+        "ProtocolVersion": {
+          "description": "Version of the shared prediction-market wire protocol.",
+          "type": "string",
+          "enum": [
+            "v1"
+          ]
+        }
+      }
+    },
+    "lp_position": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "LpPositionResponse",
+      "type": "object",
+      "required": [
+        "burned",
+        "later_accrual",
+        "owner",
+        "paid",
+        "supply"
+      ],
+      "properties": {
+        "burned": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "later_accrual": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "paid": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "supply": {
+          "$ref": "#/definitions/Uint128"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "pool": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PoolResponse",
+      "type": "object",
+      "required": [
+        "no",
+        "yes"
+      ],
+      "properties": {
+        "no": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "yes": {
+          "$ref": "#/definitions/Uint128"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "position": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PositionResponse",
+      "type": "object",
+      "required": [
+        "address",
+        "no",
+        "yes"
+      ],
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "no": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "yes": {
+          "$ref": "#/definitions/Uint128"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "question": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "QuestionResponse",
+      "type": "object",
+      "required": [
+        "close_ts",
+        "hash",
+        "hash_base64",
+        "hash_hex",
+        "invalid_answer_base64",
+        "invalid_answer_hex",
+        "no_answer_base64",
+        "no_answer_hex",
+        "nonce",
+        "opening_ts",
+        "oracle",
+        "text",
+        "unresolved_answer_base64",
+        "unresolved_answer_hex",
+        "yes_answer_base64",
+        "yes_answer_hex"
+      ],
+      "properties": {
+        "close_ts": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "hash": {
+          "$ref": "#/definitions/Binary"
+        },
+        "hash_base64": {
+          "type": "string"
+        },
+        "hash_hex": {
+          "type": "string"
+        },
+        "invalid_answer_base64": {
+          "type": "string"
+        },
+        "invalid_answer_hex": {
+          "type": "string"
+        },
+        "no_answer_base64": {
+          "type": "string"
+        },
+        "no_answer_hex": {
+          "type": "string"
+        },
+        "nonce": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "opening_ts": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "oracle": {
+          "type": "string"
+        },
+        "question_id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text": {
+          "type": "string"
+        },
+        "unresolved_answer_base64": {
+          "type": "string"
+        },
+        "unresolved_answer_hex": {
+          "type": "string"
+        },
+        "yes_answer_base64": {
+          "type": "string"
+        },
+        "yes_answer_hex": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        }
+      }
+    },
+    "quote_buy": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "QuoteResponse",
+      "type": "object",
+      "required": [
+        "average_price",
+        "block_time",
+        "fee",
+        "fee_rate",
+        "gross",
+        "height",
+        "impact_direction",
+        "input",
+        "marginal_after",
+        "marginal_before",
+        "net",
+        "outcome",
+        "output",
+        "price_impact",
+        "reserve_no_after",
+        "reserve_no_before",
+        "reserve_yes_after",
+        "reserve_yes_before"
+      ],
+      "properties": {
+        "average_price": {
+          "$ref": "#/definitions/ExactRatio"
+        },
+        "block_time": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "fee": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "fee_rate": {
+          "$ref": "#/definitions/ExactRatio"
+        },
+        "gross": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "height": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "impact_direction": {
+          "$ref": "#/definitions/ImpactDirection"
+        },
+        "input": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "marginal_after": {
+          "$ref": "#/definitions/ExactRatio"
+        },
+        "marginal_before": {
+          "$ref": "#/definitions/ExactRatio"
+        },
+        "max_in": {
+          "description": "Sell's exact execute-side caller protection. Omitted for buys.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "min_out": {
+          "description": "Buy's exact execute-side caller protection. Omitted for sells.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "net": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "outcome": {
+          "$ref": "#/definitions/Outcome"
+        },
+        "output": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "price_impact": {
+          "$ref": "#/definitions/ExactRatio"
+        },
+        "reserve_no_after": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "reserve_no_before": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "reserve_yes_after": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "reserve_yes_before": {
+          "$ref": "#/definitions/Uint128"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "ExactRatio": {
+          "description": "Exact rational wire value. `Uint512` serializes as an unsigned decimal string and safely holds cross-products used by price impact.",
+          "type": "object",
+          "required": [
+            "denominator",
+            "numerator"
+          ],
+          "properties": {
+            "denominator": {
+              "$ref": "#/definitions/Uint512"
+            },
+            "numerator": {
+              "$ref": "#/definitions/Uint512"
+            }
+          },
+          "additionalProperties": false
+        },
+        "ImpactDirection": {
+          "type": "string",
+          "enum": [
+            "up",
+            "down",
+            "flat"
+          ]
+        },
+        "Outcome": {
+          "description": "One of the two tradeable outcomes.",
+          "type": "string",
+          "enum": [
+            "yes",
+            "no"
+          ]
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        },
+        "Uint512": {
+          "description": "An implementation of u512 that is using strings for JSON encoding/decoding, such that the full u512 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances out of primitive uint types or `new` to provide big endian bytes:\n\n``` # use cosmwasm_std::Uint512; let a = Uint512::from(258u128); let b = Uint512::new([ 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 1u8, 2u8, ]); assert_eq!(a, b); ```",
+          "type": "string"
+        }
+      }
+    },
+    "quote_sell": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "QuoteResponse",
+      "type": "object",
+      "required": [
+        "average_price",
+        "block_time",
+        "fee",
+        "fee_rate",
+        "gross",
+        "height",
+        "impact_direction",
+        "input",
+        "marginal_after",
+        "marginal_before",
+        "net",
+        "outcome",
+        "output",
+        "price_impact",
+        "reserve_no_after",
+        "reserve_no_before",
+        "reserve_yes_after",
+        "reserve_yes_before"
+      ],
+      "properties": {
+        "average_price": {
+          "$ref": "#/definitions/ExactRatio"
+        },
+        "block_time": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "fee": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "fee_rate": {
+          "$ref": "#/definitions/ExactRatio"
+        },
+        "gross": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "height": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "impact_direction": {
+          "$ref": "#/definitions/ImpactDirection"
+        },
+        "input": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "marginal_after": {
+          "$ref": "#/definitions/ExactRatio"
+        },
+        "marginal_before": {
+          "$ref": "#/definitions/ExactRatio"
+        },
+        "max_in": {
+          "description": "Sell's exact execute-side caller protection. Omitted for buys.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "min_out": {
+          "description": "Buy's exact execute-side caller protection. Omitted for sells.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "net": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "outcome": {
+          "$ref": "#/definitions/Outcome"
+        },
+        "output": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "price_impact": {
+          "$ref": "#/definitions/ExactRatio"
+        },
+        "reserve_no_after": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "reserve_no_before": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "reserve_yes_after": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "reserve_yes_before": {
+          "$ref": "#/definitions/Uint128"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "ExactRatio": {
+          "description": "Exact rational wire value. `Uint512` serializes as an unsigned decimal string and safely holds cross-products used by price impact.",
+          "type": "object",
+          "required": [
+            "denominator",
+            "numerator"
+          ],
+          "properties": {
+            "denominator": {
+              "$ref": "#/definitions/Uint512"
+            },
+            "numerator": {
+              "$ref": "#/definitions/Uint512"
+            }
+          },
+          "additionalProperties": false
+        },
+        "ImpactDirection": {
+          "type": "string",
+          "enum": [
+            "up",
+            "down",
+            "flat"
+          ]
+        },
+        "Outcome": {
+          "description": "One of the two tradeable outcomes.",
+          "type": "string",
+          "enum": [
+            "yes",
+            "no"
+          ]
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        },
+        "Uint512": {
+          "description": "An implementation of u512 that is using strings for JSON encoding/decoding, such that the full u512 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances out of primitive uint types or `new` to provide big endian bytes:\n\n``` # use cosmwasm_std::Uint512; let a = Uint512::from(258u128); let b = Uint512::new([ 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 1u8, 2u8, ]); assert_eq!(a, b); ```",
+          "type": "string"
+        }
+      }
+    },
+    "resolution": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ResolutionResponse",
+      "type": "object",
+      "properties": {
+        "answer": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "answer_base64": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "answer_hex": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "height": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "payout": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Payout"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pool_no_at_resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pool_yes_at_resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "principal_at_resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "terminal_liability_twice": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "time": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "total_no_at_resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "total_yes_at_resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        },
+        "Payout": {
+          "description": "An exact terminal payout vector.\n\nNumerators and the denominator are `Uint128` so JSON never passes these consensus amounts through a floating-point or JavaScript number.",
+          "type": "object",
+          "required": [
+            "denominator",
+            "no_numerator",
+            "yes_numerator"
+          ],
+          "properties": {
+            "denominator": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "no_numerator": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "yes_numerator": {
+              "$ref": "#/definitions/Uint128"
+            }
+          },
+          "additionalProperties": false
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "solvency": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SolvencyResponse",
+      "type": "object",
+      "required": [
+        "accounted_liability",
+        "bank_balance",
+        "block_time",
+        "challenge_liability",
+        "fee_liability",
+        "forced_excess",
+        "height",
+        "lp_whole_coin_accrual",
+        "principal_or_terminal_liability",
+        "shortfall",
+        "solvent"
+      ],
+      "properties": {
+        "accounted_liability": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "bank_balance": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "block_time": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "challenge_liability": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "fee_liability": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "forced_excess": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "height": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "lp_whole_coin_accrual": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "principal_or_terminal_liability": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "shortfall": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "solvent": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "state": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StateResponse",
+      "type": "object",
+      "required": [
+        "activated",
+        "challenge_used",
+        "status"
+      ],
+      "properties": {
+        "activated": {
+          "type": "boolean"
+        },
+        "challenge_used": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/definitions/LifecycleStatus"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "LifecycleStatus": {
+          "type": "string",
+          "enum": [
+            "initializing",
+            "trading",
+            "awaiting_resolution",
+            "pending_arbitration",
+            "resolved"
+          ]
+        }
+      }
+    }
+  }
+}

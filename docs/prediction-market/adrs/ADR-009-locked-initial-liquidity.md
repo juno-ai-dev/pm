@@ -1,6 +1,6 @@
 # ADR-009 — One locked initial liquidity position
 
-**Status:** Proposed  
+**Status:** Accepted 2026-07-16
 **Decision:** Creator supplies all activation liquidity, receives fixed non-transferable LP supply, and cannot add/remove or claim until resolution.
 
 ## Alternatives

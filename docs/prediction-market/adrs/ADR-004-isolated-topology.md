@@ -1,6 +1,6 @@
 # ADR-004 — Immutable factory and isolated markets
 
-**Status:** Proposed  
+**Status:** Accepted 2026-07-16
 **Decision:** One noncustodial immutable factory pins one code/tier; it instantiates one adminless contract per market. New versions deploy new factories.
 
 ## Alternatives

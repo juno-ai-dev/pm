@@ -68,3 +68,15 @@ The following remain required before the selected oracle checksum can be called 
 5. for the recommended fresh oracle, instantiate the reproduced/audited code with both chain admin and stored admin absent, then verify those facts on-chain.
 
 Until then, local source observations are compatibility requirements, not proof of every deployed byte's behavior.
+
+## Issue #3 follow-up tooling
+
+The first-stage tooling in [`../oracle-deployment/`](../oracle-deployment/README.md)
+selects the documented Intel production optimizer by immutable digest and pins
+the corrected repository source at commit
+`454f9777b0bafa71c43b427f7451e626d860269e`. A SHA-pinned CI workflow performs
+two clean builds and byte comparison when an optimizer-capable runner is
+available. The local environment still has no Docker daemon access, so this
+addition records no new wasm checksum and does not change the failed historical
+reproduction verdict above. Audit, frozen-chain deployment, and live smoke
+evidence remain explicitly open.

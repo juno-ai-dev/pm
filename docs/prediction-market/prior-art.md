@@ -1,6 +1,6 @@
 # R2 — Prior art, changes, and incidents
 
-**Status:** candidate research memo  
+**Status:** accepted research and provenance baseline (2026-07-16)
 **Access date:** 2026-07-15
 
 The matrix separates concepts worth reusing from implementation code. A concept can be independently implemented; copying code can carry license obligations.
@@ -53,7 +53,7 @@ The Zeitgeist releases and Augur design note are project-primary artifacts; the 
 | Numerical mechanism change | Zeitgeist release history includes removed mechanisms and math/runtime fixes | Integer-only v1 formulas, versioned instances, property tests, no live migration |
 | Mutable resolution dependency | Height-pinned Juno evidence shows the production cw-reality instance has an admin | Fresh frozen oracle requirement or explicit additional trust; no address-only pin |
 | Documentation/source divergence | Local ARBITRATION.md and README conflict with compiled source | Source/schema matrix, exact query checks, unknown bytes neutral, later docs correction |
-| Stalled arbitration | cw-reality source permits public cancellation only after its deadline | 21-day candidate timeout, explicit monitor, deterministic challenge-bond timeout rule |
+| Stalled arbitration | cw-reality source permits public cancellation only after its deadline | Accepted 21-day timeout, explicit monitor, deterministic challenge-bond timeout rule |
 | Unanswered forever | cw-reality OpenUnanswered has no time transition | Creation-funded bounty, alerts, disclosed non-termination; no secret override |
 | Oracle value exceeds security | Augur's dispute design and optimistic-oracle economics | Market cap bound tied to oracle tier; no arbitrary uncapped permissionless exposure |
 | Price mistaken for probability | AMM equations and thin-pool table | Label as marginal quote, show depth/impact/fee, never promise calibration |
@@ -62,12 +62,9 @@ No claim here attributes a loss event to a project without a primary post-mortem
 
 ## License strategy
 
-The implementation phase must choose one of two documented routes before code:
+The accepted project route is a clean-room independent implementation from the public mathematical specification under Apache-2.0. Implementers must not copy, adapt, or translate Gnosis expression, structure, comments, or tests; citations and notices remain research provenance rather than code derivation.
 
-1. comply with LGPL-3.0 for any derivative of the Gnosis FPMM and preserve notices/source obligations; or
-2. have counsel approve an independent implementation from the public mathematical specification, with engineers who do not copy expression, structure, comments, or tests.
-
-The local claim that cw-reality is a clean-room Apache-2.0 port does not itself resolve upstream GPL analysis. Qualified license counsel must review provenance, the source-walk notes, and the intended distribution. Papers and mechanism ideas may be cited, but source licenses still govern copied expression.
+This project authorization is not qualified legal advice. The local claim that cw-reality is a clean-room Apache-2.0 port does not itself resolve upstream GPL analysis, and issue #26 retains any counsel evidence applicable to actual actors and distribution. Papers and mechanism ideas may be cited, but source licenses still govern copied expression.
 
 ## Conclusions
 

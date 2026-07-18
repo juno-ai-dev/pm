@@ -204,7 +204,13 @@ fn ask_question_nonce_collision_rejected() {
     let mut deps = setup();
     let env = mock_env();
     let info = mock_info("alice", &[]);
-    execute(deps.as_mut(), env.clone(), info.clone(), ask_msg(MIN_FLOOR, DAY, 7)).unwrap();
+    execute(
+        deps.as_mut(),
+        env.clone(),
+        info.clone(),
+        ask_msg(MIN_FLOOR, DAY, 7),
+    )
+    .unwrap();
     let err = execute(deps.as_mut(), env, info, ask_msg(MIN_FLOOR, DAY, 7)).unwrap_err();
     assert!(matches!(err, ContractError::QuestionAlreadyExists { .. }));
 }
@@ -215,7 +221,13 @@ fn ask_question_different_askers_can_share_nonce() {
     let env = mock_env();
     let alice = mock_info("alice", &[]);
     let bob = mock_info("bob", &[]);
-    execute(deps.as_mut(), env.clone(), alice, ask_msg(MIN_FLOOR, DAY, 0)).unwrap();
+    execute(
+        deps.as_mut(),
+        env.clone(),
+        alice,
+        ask_msg(MIN_FLOOR, DAY, 0),
+    )
+    .unwrap();
     // Same nonce, different sender → different question_id.
     execute(deps.as_mut(), env, bob, ask_msg(MIN_FLOOR, DAY, 0)).unwrap();
 }
@@ -243,7 +255,13 @@ fn fund_bounty_happy_path() {
     let mut deps = setup();
     let env = mock_env();
     let alice = mock_info("alice", &[]);
-    let res = execute(deps.as_mut(), env.clone(), alice, ask_msg(MIN_FLOOR, DAY, 0)).unwrap();
+    let res = execute(
+        deps.as_mut(),
+        env.clone(),
+        alice,
+        ask_msg(MIN_FLOOR, DAY, 0),
+    )
+    .unwrap();
     let qid_attr = res
         .attributes
         .iter()
@@ -262,9 +280,7 @@ fn fund_bounty_happy_path() {
     )
     .unwrap();
 
-    let q = QUESTIONS
-        .load(&deps.storage, qid_bytes.as_slice())
-        .unwrap();
+    let q = QUESTIONS.load(&deps.storage, qid_bytes.as_slice()).unwrap();
     assert_eq!(q.bounty, Uint128::from(1_000u128));
 }
 
@@ -273,7 +289,13 @@ fn fund_bounty_rejects_wrong_denom() {
     let mut deps = setup();
     let env = mock_env();
     let alice = mock_info("alice", &[]);
-    let res = execute(deps.as_mut(), env.clone(), alice, ask_msg(MIN_FLOOR, DAY, 0)).unwrap();
+    let res = execute(
+        deps.as_mut(),
+        env.clone(),
+        alice,
+        ask_msg(MIN_FLOOR, DAY, 0),
+    )
+    .unwrap();
     let qid_attr = res
         .attributes
         .iter()
@@ -299,7 +321,13 @@ fn fund_bounty_rejects_zero_amount() {
     let mut deps = setup();
     let env = mock_env();
     let alice = mock_info("alice", &[]);
-    let res = execute(deps.as_mut(), env.clone(), alice, ask_msg(MIN_FLOOR, DAY, 0)).unwrap();
+    let res = execute(
+        deps.as_mut(),
+        env.clone(),
+        alice,
+        ask_msg(MIN_FLOOR, DAY, 0),
+    )
+    .unwrap();
     let qid_attr = res
         .attributes
         .iter()
@@ -397,7 +425,10 @@ fn submit_answer_first_round_happy_path() {
         },
     )
     .unwrap();
-    assert!(res.attributes.iter().any(|a| a.key == "action" && a.value == "submit_answer"));
+    assert!(res
+        .attributes
+        .iter()
+        .any(|a| a.key == "action" && a.value == "submit_answer"));
 
     let q = QUESTIONS.load(&deps.storage, qid.as_slice()).unwrap();
     assert_eq!(q.round_count, 1);
@@ -898,7 +929,10 @@ fn claim_bad_history_hash_rejected() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ContractError::HistoryHashMismatch { step: 0 }));
+    assert!(matches!(
+        err,
+        ContractError::HistoryHashMismatch { step: 0 }
+    ));
 }
 
 #[test]
@@ -936,7 +970,10 @@ fn withdraw_drains_balance() {
         _ => panic!("expected BankMsg::Send"),
     }
     let carol_bal_after: Option<Uint128> = BALANCES
-        .may_load(&deps.storage, (&cosmwasm_std::Addr::unchecked("carol"), "ujuno"))
+        .may_load(
+            &deps.storage,
+            (&cosmwasm_std::Addr::unchecked("carol"), "ujuno"),
+        )
         .unwrap();
     assert!(carol_bal_after.is_none(), "balance entry removed");
 }
@@ -1102,8 +1139,8 @@ fn query_list_paginates() {
 
 // ---- cw20 Receive ----
 
-use cosmwasm_std::to_json_binary;
 use crate::msg::ReceiveAction;
+use cosmwasm_std::to_json_binary;
 
 #[test]
 fn receive_ask_question_via_cw20() {
@@ -1368,7 +1405,10 @@ fn request_arbitration_happy_path() {
         q.arbitration_deadline,
         Some(env.block.time.seconds() + 7 * u64::from(DAY))
     );
-    assert_eq!(q.state_at(env.block.time.seconds()), State::PendingArbitration);
+    assert_eq!(
+        q.state_at(env.block.time.seconds()),
+        State::PendingArbitration
+    );
 }
 
 #[test]
@@ -1648,9 +1688,7 @@ fn submit_arbitration_unresolved_sentinel() {
         mock_info("arb", &[]),
         ExecuteMsg::SubmitArbitration {
             question_id: Binary::from(qid),
-            winning_answer: Binary::from(
-                crate::state::UNRESOLVED_ANSWER_BYTES.to_vec(),
-            ),
+            winning_answer: Binary::from(crate::state::UNRESOLVED_ANSWER_BYTES.to_vec()),
             payee: "verdict_payee".to_string(),
         },
     )

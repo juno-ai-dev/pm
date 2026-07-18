@@ -1,0 +1,64 @@
+name: repository-security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '17 5 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: ludeeus/action-shellcheck@00b27aa7cb85167568cb48a3838b75f4265f2bca # master, reviewed 2026-07-15
+        with:
+          scandir: './scripts'
+
+  links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
+        with:
+          # Research notes preserve source citations, including historical URLs
+          # that may disappear or reject automated clients. Check maintained
+          # documentation and code-facing guidance instead.
+          args: >-
+            --no-progress
+            --exclude-path docs/prediction-market/evidence
+            --exclude-path docs/prediction-market/prior-art.md
+            --exclude-path depricated_ui
+            --exclude-path docs/juno-reality/research-notes-bond-economics.md
+            --exclude-path docs/juno-reality/research-notes-cw-prior-art.md
+            --exclude-path docs/juno-reality/research-notes-reality-source.md
+            --exclude-path docs/juno-reality/research-notes-v2v3-safesnap.md
+            # Omen's legacy static host intermittently returns 504 for this
+            # historical rules citation; do not make CI depend on that host.
+            --exclude '^https://omen\\.eth\\.link/rules\\.pdf$'
+            './**/*.md'
+          fail: true
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # master, reviewed 2026-07-15
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2
+        with:
+          command: check advisories bans licenses sources
+          manifest-path: contracts/Cargo.toml

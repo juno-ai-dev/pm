@@ -1,0 +1,782 @@
+{
+  "contract_name": "market-factory",
+  "contract_version": "0.1.0",
+  "idl_version": "1.0.0",
+  "instantiate": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "InstantiateMsg",
+    "type": "object",
+    "required": [
+      "collateral_denom",
+      "market_checksum",
+      "market_code_id",
+      "oracle",
+      "oracle_checksum",
+      "oracle_code_id",
+      "oracle_min_answer_timeout_secs",
+      "oracle_min_initial_bond_floor",
+      "protocol_version",
+      "tier",
+      "tier_id",
+      "verdict_authority"
+    ],
+    "properties": {
+      "collateral_denom": {
+        "type": "string"
+      },
+      "market_checksum": {
+        "$ref": "#/definitions/HexBinary"
+      },
+      "market_code_id": {
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0.0
+      },
+      "oracle": {
+        "type": "string"
+      },
+      "oracle_checksum": {
+        "$ref": "#/definitions/HexBinary"
+      },
+      "oracle_code_id": {
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0.0
+      },
+      "oracle_min_answer_timeout_secs": {
+        "type": "integer",
+        "format": "uint32",
+        "minimum": 0.0
+      },
+      "oracle_min_initial_bond_floor": {
+        "$ref": "#/definitions/Uint128"
+      },
+      "protocol_version": {
+        "$ref": "#/definitions/ProtocolVersion"
+      },
+      "tier": {
+        "$ref": "#/definitions/TierConfig"
+      },
+      "tier_id": {
+        "type": "integer",
+        "format": "uint16",
+        "minimum": 0.0
+      },
+      "verdict_authority": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "definitions": {
+      "HexBinary": {
+        "description": "This is a wrapper around Vec<u8> to add hex de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is similar to `cosmwasm_std::Binary` but uses hex. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+        "type": "string"
+      },
+      "ProtocolVersion": {
+        "description": "Version of the shared prediction-market wire protocol.",
+        "type": "string",
+        "enum": [
+          "v1"
+        ]
+      },
+      "TierConfig": {
+        "type": "object",
+        "required": [
+          "answer_timeout_secs",
+          "arbitration_timeout_secs",
+          "challenge_bond",
+          "collateral_cap",
+          "fee_bps",
+          "max_initial_liquidity",
+          "max_oracle_bounty",
+          "max_position_per_side",
+          "max_trade_bps",
+          "min_initial_liquidity",
+          "min_oracle_bounty",
+          "min_trade",
+          "oracle_initial_bond"
+        ],
+        "properties": {
+          "answer_timeout_secs": {
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0.0
+          },
+          "arbitration_timeout_secs": {
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0.0
+          },
+          "challenge_bond": {
+            "$ref": "#/definitions/Uint128"
+          },
+          "collateral_cap": {
+            "$ref": "#/definitions/Uint128"
+          },
+          "fee_bps": {
+            "type": "integer",
+            "format": "uint16",
+            "minimum": 0.0
+          },
+          "max_initial_liquidity": {
+            "$ref": "#/definitions/Uint128"
+          },
+          "max_oracle_bounty": {
+            "$ref": "#/definitions/Uint128"
+          },
+          "max_position_per_side": {
+            "$ref": "#/definitions/Uint128"
+          },
+          "max_trade_bps": {
+            "type": "integer",
+            "format": "uint16",
+            "minimum": 0.0
+          },
+          "min_initial_liquidity": {
+            "$ref": "#/definitions/Uint128"
+          },
+          "min_oracle_bounty": {
+            "$ref": "#/definitions/Uint128"
+          },
+          "min_trade": {
+            "$ref": "#/definitions/Uint128"
+          },
+          "oracle_initial_bond": {
+            "$ref": "#/definitions/Uint128"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Uint128": {
+        "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+        "type": "string"
+      }
+    }
+  },
+  "execute": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ExecuteMsg",
+    "oneOf": [
+      {
+        "type": "object",
+        "required": [
+          "create_market"
+        ],
+        "properties": {
+          "create_market": {
+            "$ref": "#/definitions/CreateMarketMsg"
+          }
+        },
+        "additionalProperties": false
+      }
+    ],
+    "definitions": {
+      "CreateMarketMsg": {
+        "type": "object",
+        "required": [
+          "close_ts",
+          "initial_liquidity",
+          "opening_ts",
+          "oracle_bounty",
+          "question"
+        ],
+        "properties": {
+          "close_ts": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          "initial_liquidity": {
+            "$ref": "#/definitions/Uint128"
+          },
+          "opening_ts": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          "oracle_bounty": {
+            "$ref": "#/definitions/Uint128"
+          },
+          "question": {
+            "$ref": "#/definitions/QuestionInput"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ObservationInput": {
+        "type": "object",
+        "required": [
+          "cutoff_ts",
+          "end_ts",
+          "inclusivity",
+          "revision_policy",
+          "start_ts"
+        ],
+        "properties": {
+          "cutoff_ts": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          "end_ts": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          "inclusivity": {
+            "type": "string"
+          },
+          "revision_policy": {
+            "type": "string"
+          },
+          "start_ts": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          }
+        },
+        "additionalProperties": false
+      },
+      "QuestionInput": {
+        "type": "object",
+        "required": [
+          "definitions",
+          "invalid_conditions",
+          "observation",
+          "primary_sources",
+          "proposition",
+          "secondary_sources",
+          "source_disagreement_policy",
+          "title"
+        ],
+        "properties": {
+          "definitions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "invalid_conditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "observation": {
+            "$ref": "#/definitions/ObservationInput"
+          },
+          "primary_sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/SourceInput"
+            }
+          },
+          "proposition": {
+            "type": "string"
+          },
+          "secondary_sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/SourceInput"
+            }
+          },
+          "source_disagreement_policy": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SourceInput": {
+        "type": "object",
+        "required": [
+          "fallback_condition",
+          "identifier",
+          "publication_revision_policy",
+          "publisher",
+          "retrieval",
+          "url"
+        ],
+        "properties": {
+          "fallback_condition": {
+            "type": "string"
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "publication_revision_policy": {
+            "type": "string"
+          },
+          "publisher": {
+            "type": "string"
+          },
+          "retrieval": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Uint128": {
+        "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+        "type": "string"
+      }
+    }
+  },
+  "query": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "QueryMsg",
+    "oneOf": [
+      {
+        "type": "object",
+        "required": [
+          "config"
+        ],
+        "properties": {
+          "config": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "market"
+        ],
+        "properties": {
+          "market": {
+            "type": "object",
+            "required": [
+              "nonce"
+            ],
+            "properties": {
+              "nonce": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "next_nonce"
+        ],
+        "properties": {
+          "next_nonce": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "list_markets"
+        ],
+        "properties": {
+          "list_markets": {
+            "type": "object",
+            "properties": {
+              "limit": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint32",
+                "minimum": 0.0
+              },
+              "start_after_nonce": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    ]
+  },
+  "migrate": null,
+  "sudo": null,
+  "responses": {
+    "config": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ConfigResponse",
+      "type": "object",
+      "required": [
+        "collateral_denom",
+        "market_checksum",
+        "market_code_id",
+        "oracle",
+        "oracle_checksum",
+        "oracle_code_id",
+        "oracle_min_answer_timeout_secs",
+        "oracle_min_initial_bond_floor",
+        "protocol_version",
+        "tier",
+        "tier_id",
+        "verdict_authority"
+      ],
+      "properties": {
+        "collateral_denom": {
+          "type": "string"
+        },
+        "market_checksum": {
+          "$ref": "#/definitions/HexBinary"
+        },
+        "market_code_id": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "oracle": {
+          "type": "string"
+        },
+        "oracle_checksum": {
+          "$ref": "#/definitions/HexBinary"
+        },
+        "oracle_code_id": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "oracle_min_answer_timeout_secs": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "oracle_min_initial_bond_floor": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "protocol_version": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "tier": {
+          "$ref": "#/definitions/TierConfig"
+        },
+        "tier_id": {
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "verdict_authority": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "HexBinary": {
+          "description": "This is a wrapper around Vec<u8> to add hex de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is similar to `cosmwasm_std::Binary` but uses hex. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        },
+        "ProtocolVersion": {
+          "description": "Version of the shared prediction-market wire protocol.",
+          "type": "string",
+          "enum": [
+            "v1"
+          ]
+        },
+        "TierConfig": {
+          "type": "object",
+          "required": [
+            "answer_timeout_secs",
+            "arbitration_timeout_secs",
+            "challenge_bond",
+            "collateral_cap",
+            "fee_bps",
+            "max_initial_liquidity",
+            "max_oracle_bounty",
+            "max_position_per_side",
+            "max_trade_bps",
+            "min_initial_liquidity",
+            "min_oracle_bounty",
+            "min_trade",
+            "oracle_initial_bond"
+          ],
+          "properties": {
+            "answer_timeout_secs": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "arbitration_timeout_secs": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "challenge_bond": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "collateral_cap": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "fee_bps": {
+              "type": "integer",
+              "format": "uint16",
+              "minimum": 0.0
+            },
+            "max_initial_liquidity": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "max_oracle_bounty": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "max_position_per_side": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "max_trade_bps": {
+              "type": "integer",
+              "format": "uint16",
+              "minimum": 0.0
+            },
+            "min_initial_liquidity": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "min_oracle_bounty": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "min_trade": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "oracle_initial_bond": {
+              "$ref": "#/definitions/Uint128"
+            }
+          },
+          "additionalProperties": false
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "list_markets": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ListMarketsResponse",
+      "type": "object",
+      "required": [
+        "markets"
+      ],
+      "properties": {
+        "markets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MarketRecord"
+          }
+        },
+        "next_start_after_nonce": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        },
+        "MarketRecord": {
+          "type": "object",
+          "required": [
+            "close_ts",
+            "created_height",
+            "created_time",
+            "creator",
+            "initial_liquidity",
+            "market",
+            "nonce",
+            "opening_ts",
+            "oracle_bounty",
+            "question_hash",
+            "question_id",
+            "tier_id"
+          ],
+          "properties": {
+            "close_ts": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "created_height": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "created_time": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "creator": {
+              "type": "string"
+            },
+            "initial_liquidity": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "market": {
+              "type": "string"
+            },
+            "nonce": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "opening_ts": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "oracle_bounty": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "question_hash": {
+              "$ref": "#/definitions/Binary"
+            },
+            "question_id": {
+              "$ref": "#/definitions/Binary"
+            },
+            "tier_id": {
+              "type": "integer",
+              "format": "uint16",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "market": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MarketResponse",
+      "type": "object",
+      "required": [
+        "market"
+      ],
+      "properties": {
+        "market": {
+          "$ref": "#/definitions/MarketRecord"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        },
+        "MarketRecord": {
+          "type": "object",
+          "required": [
+            "close_ts",
+            "created_height",
+            "created_time",
+            "creator",
+            "initial_liquidity",
+            "market",
+            "nonce",
+            "opening_ts",
+            "oracle_bounty",
+            "question_hash",
+            "question_id",
+            "tier_id"
+          ],
+          "properties": {
+            "close_ts": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "created_height": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "created_time": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "creator": {
+              "type": "string"
+            },
+            "initial_liquidity": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "market": {
+              "type": "string"
+            },
+            "nonce": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "opening_ts": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "oracle_bounty": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "question_hash": {
+              "$ref": "#/definitions/Binary"
+            },
+            "question_id": {
+              "$ref": "#/definitions/Binary"
+            },
+            "tier_id": {
+              "type": "integer",
+              "format": "uint16",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "next_nonce": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "NextNonceResponse",
+      "type": "object",
+      "required": [
+        "next_nonce"
+      ],
+      "properties": {
+        "next_nonce": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

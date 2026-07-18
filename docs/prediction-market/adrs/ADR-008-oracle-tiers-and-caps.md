@@ -1,7 +1,7 @@
 # ADR-008 — Oracle tiers and market caps
 
-**Status:** Proposed; explicit risk acceptance open  
-**Decision:** One immutable factory represents one tier. Candidate canary: P cap 200 JUNO, 10-JUNO initial oracle bond, 10-JUNO challenge floor, 1-JUNO bounty, and named 20-JUNO first-counter monitoring capacity.
+**Status:** Accepted 2026-07-16; documented economic residual risks retained
+**Decision:** One immutable factory represents one tier. Accepted canary: P cap 200 JUNO, 10-JUNO initial oracle bond, 10-JUNO challenge floor, 1-JUNO bounty, and named 20-JUNO first-counter monitoring capacity.
 
 ## Alternatives
 
@@ -15,8 +15,8 @@ Wrong canonical results can redirect up to P. Existing production oracle floors 
 
 ## Consequences
 
-Canary cap is containment, not proof. P <= 20× initial bond is a candidate ratio requiring human acceptance. Scaling requires current governance/concentration and acquisition analysis.
+Canary cap is containment, not proof. P <= 20× initial bond is an accepted canary ratio with documented residual risk. Scaling requires current governance/concentration and acquisition analysis plus a new decision.
 
 ## Safe default and revisit
 
-No deployment until accepted. Revisit with observed volume, committed monitoring capital, governance rehearsal, and current chain evidence; do not copy the ratio automatically.
+Acceptance authorizes implementation only. Deployment remains separately unauthorized until current chain evidence, committed monitoring capacity, governance rehearsal, audit/readiness gates, and an explicit deployment decision exist. Revisit with observed volume; do not copy the ratio automatically.

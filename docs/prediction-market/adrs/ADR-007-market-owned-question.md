@@ -1,6 +1,6 @@
 # ADR-007 — Atomic market-owned oracle question
 
-**Status:** Proposed  
+**Status:** Accepted 2026-07-16
 **Decision:** Market instantiate asks the question, locally derives the source-defined ID, and full-field verifies it in reply before activation.
 
 ## Alternatives

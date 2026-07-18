@@ -1,6 +1,6 @@
 # ADR-002 — Integer fixed-product market maker
 
-**Status:** Proposed  
+**Status:** Accepted 2026-07-16; clean-room independent implementation required
 **Decision:** Use the R1 binary FPMM formulas with checked Uint256 intermediates and caller-adverse ceiling rules.
 
 ## Alternatives

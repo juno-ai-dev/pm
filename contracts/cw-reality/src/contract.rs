@@ -4,9 +4,7 @@
 //! slice; subsequent slices fill in `execute_ask_question`,
 //! `execute_submit_answer`, etc., per the state machine in `state.rs`.
 
-use cosmwasm_std::{
-    entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
-};
+use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
@@ -17,7 +15,7 @@ use crate::state::{Config, CONFIG};
 const CONTRACT_NAME: &str = "crates.io:cw-reality";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
@@ -36,10 +34,7 @@ pub fn instantiate(
         return Err(ContractError::AnswerTimeoutTooHigh {});
     }
 
-    let admin = msg
-        .admin
-        .map(|a| deps.api.addr_validate(&a))
-        .transpose()?;
+    let admin = msg.admin.map(|a| deps.api.addr_validate(&a)).transpose()?;
 
     CONFIG.save(
         deps.storage,
@@ -62,7 +57,7 @@ pub fn instantiate(
         ))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -161,7 +156,7 @@ pub fn execute(
     }
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
@@ -203,7 +198,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     Ok(Response::new().add_attribute("action", "migrate"))

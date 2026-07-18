@@ -14,17 +14,19 @@ pub fn execute_fund_bounty(
     info: MessageInfo,
     question_id: Binary,
 ) -> Result<Response, ContractError> {
-    let qid: [u8; 32] = question_id
-        .as_slice()
-        .try_into()
-        .map_err(|_| ContractError::QuestionNotFound {
-            id: question_id.to_base64(),
-        })?;
-    let mut question = QUESTIONS
-        .may_load(deps.storage, &qid)?
-        .ok_or_else(|| ContractError::QuestionNotFound {
-            id: hex::encode(qid),
-        })?;
+    let qid: [u8; 32] =
+        question_id
+            .as_slice()
+            .try_into()
+            .map_err(|_| ContractError::QuestionNotFound {
+                id: question_id.to_base64(),
+            })?;
+    let mut question =
+        QUESTIONS
+            .may_load(deps.storage, &qid)?
+            .ok_or_else(|| ContractError::QuestionNotFound {
+                id: hex::encode(qid),
+            })?;
 
     let now = env.block.time.seconds();
     match question.state_at(now) {

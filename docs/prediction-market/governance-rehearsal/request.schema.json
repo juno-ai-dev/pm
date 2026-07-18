@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/juno-ai-dev/pm/governance-rehearsal/request.schema.json",
+  "title": "Juno PM governance rehearsal request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "chain_id", "observed_unix", "governance_module", "market", "oracle",
+    "question_id", "answer", "payee", "challenge_deadline_unix",
+    "market_state", "oracle_state", "title", "summary"
+  ],
+  "properties": {
+    "chain_id": { "const": "juno-1" },
+    "observed_unix": { "type": "integer", "minimum": 0 },
+    "governance_module": { "$ref": "#/$defs/junoAddress" },
+    "market": { "$ref": "#/$defs/junoAddress" },
+    "oracle": { "$ref": "#/$defs/junoAddress" },
+    "question_id": { "$ref": "#/$defs/bytes32" },
+    "answer": { "$ref": "#/$defs/bytes32" },
+    "payee": { "$ref": "#/$defs/junoAddress" },
+    "challenge_deadline_unix": { "type": "integer", "minimum": 0 },
+    "title": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "market_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "governance", "oracle", "question_id", "deadline_unix"],
+      "properties": {
+        "status": { "const": "pending_arbitration" },
+        "governance": { "$ref": "#/$defs/junoAddress" },
+        "oracle": { "$ref": "#/$defs/junoAddress" },
+        "question_id": { "$ref": "#/$defs/bytes32" },
+        "deadline_unix": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "oracle_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "arbitrator", "question_id", "deadline_unix"],
+      "properties": {
+        "status": { "const": "pending_arbitration" },
+        "arbitrator": { "$ref": "#/$defs/junoAddress" },
+        "question_id": { "$ref": "#/$defs/bytes32" },
+        "deadline_unix": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "junoAddress": { "type": "string", "pattern": "^juno1[023456789acdefghjklmnpqrstuvwxyz]{6,85}$" },
+    "bytes32": { "type": "string", "pattern": "^[A-Za-z0-9+/]{43}=$" }
+  }
+}

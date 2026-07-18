@@ -28,7 +28,15 @@ pub fn execute_submit_answer(
     answer: Binary,
     current_bond_seen: Option<Uint128>,
 ) -> Result<Response, ContractError> {
-    apply_answer(deps, env, info, question_id, answer, current_bond_seen, "submit_answer")
+    apply_answer(
+        deps,
+        env,
+        info,
+        question_id,
+        answer,
+        current_bond_seen,
+        "submit_answer",
+    )
 }
 
 pub fn execute_dispute_answer(
@@ -59,16 +67,19 @@ fn apply_answer(
     current_bond_seen: Option<Uint128>,
     action_label: &str,
 ) -> Result<Response, ContractError> {
-    let qid: [u8; 32] = question_id.as_slice().try_into().map_err(|_| {
-        ContractError::QuestionNotFound {
-            id: question_id.to_base64(),
-        }
-    })?;
-    let mut question = QUESTIONS
-        .may_load(deps.storage, &qid)?
-        .ok_or_else(|| ContractError::QuestionNotFound {
-            id: hex::encode(qid),
-        })?;
+    let qid: [u8; 32] =
+        question_id
+            .as_slice()
+            .try_into()
+            .map_err(|_| ContractError::QuestionNotFound {
+                id: question_id.to_base64(),
+            })?;
+    let mut question =
+        QUESTIONS
+            .may_load(deps.storage, &qid)?
+            .ok_or_else(|| ContractError::QuestionNotFound {
+                id: hex::encode(qid),
+            })?;
 
     let now = env.block.time.seconds();
     match question.state_at(now) {

@@ -1,6 +1,6 @@
 # ADR-011 — Permissionless creation
 
-**Status:** Proposed; owner direction recorded 2026-07-15  
+**Status:** Accepted 2026-07-16
 **Decision:** Any address may create under objective immutable tier bounds. No creator allowlist or contract content moderator exists.
 
 ## Alternatives

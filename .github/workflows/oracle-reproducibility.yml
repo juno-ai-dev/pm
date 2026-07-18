@@ -1,0 +1,71 @@
+name: oracle-reproducibility
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/oracle-reproducibility.yml'
+      - 'scripts/oracle/**'
+      - 'tests/oracle/**'
+      - 'docs/prediction-market/oracle-deployment/**'
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_COMMIT: 454f9777b0bafa71c43b427f7451e626d860269e
+  OPTIMIZER_IMAGE: cosmwasm/optimizer:0.17.0@sha256:7e0b9229c1a4118d0c9a2af2e7f5d95a91f264c26a2ce5681c779926e74d7f85
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        builder: [one, two]
+    name: independent build ${{ matrix.builder }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+      - name: Build pinned source in pinned optimizer
+        run: ./scripts/oracle/build-reproducible.sh "out-${{ matrix.builder }}"
+      - name: Record immutable inputs
+        run: |
+          test "$OPTIMIZER_IMAGE" = "$(cat out-${{ matrix.builder }}/optimizer-image.txt)"
+          test "$SOURCE_COMMIT" = "$(cat out-${{ matrix.builder }}/source-commit.txt)"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: oracle-build-${{ matrix.builder }}
+          path: out-${{ matrix.builder }}/
+          if-no-files-found: error
+          retention-days: 30
+
+  compare:
+    name: byte-for-byte comparison
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: oracle-build-one
+          path: one
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: oracle-build-two
+          path: two
+      - name: Require identical bytes and record checksum
+        run: |
+          cmp one/cw_reality.wasm two/cw_reality.wasm
+          sha256sum one/cw_reality.wasm
+          test "$(cat one/cw_reality.wasm.sha256)" = "$(cat two/cw_reality.wasm.sha256)"
+          test "$(sha256sum one/cw_reality.wasm | cut -d ' ' -f1)" = "$(cat one/cw_reality.wasm.sha256)"
+          cp one/cw_reality.wasm cw_reality.wasm
+          cp one/cw_reality.wasm.sha256 cw_reality.wasm.sha256
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: oracle-reproduced-artifact
+          path: |
+            cw_reality.wasm
+            cw_reality.wasm.sha256
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,29 @@
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+  # CosmWasm 1.5.x pins curve25519-dalek 3.2.0 for native crypto support. The
+  # affected crate is absent from the wasm32 contract graph; remove this
+  # exception with the planned CosmWasm major-version upgrade.
+  { id = "RUSTSEC-2024-0344", reason = "transitive native-only CosmWasm 1.5 dependency; not present in wasm32 contract artifact" },
+  # derivative is an unmaintained (not vulnerable) transitive dependency of
+  # CosmWasm 1.5.x. Replacing it requires the same compatibility upgrade.
+  { id = "RUSTSEC-2024-0388", reason = "unmaintained transitive CosmWasm 1.5 dependency pending compatibility upgrade" },
+]
+
+[licenses]
+version = 2
+# No repository-wide license decision is implied by this dependency allowlist.
+allow = ["Apache-2.0", "MIT", "Unicode-3.0", "BSD-3-Clause"]
+confidence-threshold = 0.8
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/juno-ai-dev/pm/blob/main/docs/prediction-market/oracle-deployment/manifest.schema.json",
+  "title": "cw-reality source, artifact, audit, and deployment manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source", "build", "artifact", "deployment", "audit"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["repository", "commit", "tree", "contract_tree", "contract_path"],
+      "properties": {
+        "repository": {"type": "string", "format": "uri"},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "tree": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "contract_tree": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "contract_path": {"const": "contracts/cw-reality"}
+      }
+    },
+    "build": {
+      "type": "object", "additionalProperties": false,
+      "required": ["optimizer_image", "optimizer_digest", "platform", "locked", "builds"],
+      "properties": {
+        "optimizer_image": {"type": "string", "pattern": "@sha256:[0-9a-f]{64}$"},
+        "optimizer_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "platform": {"const": "linux/amd64"},
+        "locked": {"const": true},
+        "builds": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["builder", "sha256"],
+            "properties": {
+              "builder": {"type": "string", "minLength": 1},
+              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["filename", "sha256", "size"],
+      "properties": {
+        "filename": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "size": {"type": "integer", "minimum": 1}
+      }
+    },
+    "deployment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["chain_id", "code_id", "contract_address", "chain_admin", "stored_admin", "config"],
+      "properties": {
+        "chain_id": {"const": "juno-1"},
+        "code_id": {"type": "integer", "minimum": 1},
+        "contract_address": {"type": "string", "pattern": "^juno1[023456789acdefghjklmnpqrstuvwxyz]{58}$"},
+        "chain_admin": {"type": "null"},
+        "stored_admin": {"type": "null"},
+        "config": {
+          "type": "object", "additionalProperties": false,
+          "required": ["min_initial_bond_floor", "min_answer_timeout_secs"],
+          "properties": {
+            "min_initial_bond_floor": {"const": "10000000"},
+            "min_answer_timeout_secs": {"const": 86400}
+          }
+        }
+      }
+    },
+    "audit": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "report", "audited_commit", "audited_sha256"],
+      "properties": {
+        "status": {"enum": ["pending", "accepted"]},
+        "report": {"type": ["string", "null"]},
+        "audited_commit": {"type": ["string", "null"]},
+        "audited_sha256": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

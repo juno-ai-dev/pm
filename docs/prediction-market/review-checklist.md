@@ -1,101 +1,77 @@
 # Prediction-market phase review
 
-**Audit date:** 2026-07-15  
-**Verdict:** phase not closed; implementation is not authorized  
-**Reason:** the candidate architecture is documented, but human acceptance, parameter risk acceptance, legal advice, reproducible oracle build/audit, gas evidence, and an authorized Juno governance rehearsal are missing
+**Decision review date:** 2026-07-16
+**Verdict:** issue #2 decision gate closed; scoped milestone implementation authorized
+**Authorization boundary:** deployment, fund movement, and mainnet governance-rehearsal transaction execution are not authorized
 
-This is an evidence audit, not a progress summary. “Documented” means the candidate answer exists. It does not mean accepted or externally verified.
+Jake Hartnell accepted the complete decision packet on 2026-07-16 and delegated architecture, economic-security, and license/provenance decisions to Juno AI. Dissent: none recorded. The accepted architecture and parameters retain every documented residual risk; acceptance does not turn missing evidence into completed audits, legal advice, deployed checksums, funded transactions, or operational readiness.
+
+**Machine-readable authorization:** [`authorization.json`](authorization.json) records `implementation_authorized: true`, `critical_parameters_accepted: true`, the accepted clean-room license route, and fail-closed execution gates. The [issue #2 decision packet](issue-2-decision-packet.md) records reviewer identities, dates, evidence, residual risks, and exact scope.
 
 ## Mission questions
 
-| Question | Candidate answer | Evidence | Verdict |
+| Question | Accepted answer | Evidence | Review result |
 | --- | --- | --- | --- |
-| What is traded/backed? | Internal YES/NO complete sets; Y=N=P; native ujuno | [R1](mechanism.md), [A1](architecture.md) | Documented; review open |
-| How are prices/liquidity formed? | Integer FPMM, locked creator LP, candidate 2% fee | [R1](mechanism.md), [ADR-002](adrs/ADR-002-fpmm.md), [ADR-009](adrs/ADR-009-locked-initial-liquidity.md) | Formulas/examples proven on paper; fee/LP policy acceptance open |
-| What exact oracle bytes settle? | Exact 32-byte 0/1; every other result neutral | [R3 compatibility](cw-reality-compatibility.md), [question spec](question-specification.md), [ADR-014](adrs/ADR-014-answer-bytes-and-template.md) | Documented; human acceptance open |
-| What happens in every resolution failure? | Counter clocks reset; challenge/governance/stall paths bounded; unanswered explicitly unbounded | [R3](cw-reality-compatibility.md), [A3](user-journeys.md), [ADR-013](adrs/ADR-013-resolution-liveness.md) | Documented; governance path unproven |
-| Who is trusted? | Immutable code/chain; x/gov only for challenged answer/payee; off-chain no authority | [A1](architecture.md), [R4](juno-and-topology.md), [R5](product-legal-operations.md) | Documented; frozen deployment/counsel/rehearsal open |
+| What is traded/backed? | Internal YES/NO complete sets; Y=N=P; native ujuno | [R1](mechanism.md), [A1](architecture.md) | Accepted |
+| How are prices/liquidity formed? | Integer FPMM, locked creator LP, exact 200-bps LP fee | [R1](mechanism.md), [ADR-002](adrs/ADR-002-fpmm.md), [ADR-009](adrs/ADR-009-locked-initial-liquidity.md) | Accepted with residual model/liquidity risk |
+| What exact oracle bytes settle? | Exact 32-byte 0/1; every other result neutral | [R3 compatibility](cw-reality-compatibility.md), [question spec](question-specification.md), [ADR-014](adrs/ADR-014-answer-bytes-and-template.md) | Accepted |
+| What happens in resolution failures? | Counter clocks reset; challenge/stall paths are bounded; unanswered is explicitly unbounded | [R3](cw-reality-compatibility.md), [A3](user-journeys.md), [ADR-013](adrs/ADR-013-resolution-liveness.md) | Accepted architecture; #45 implementation evidence open |
+| Who is trusted? | Immutable code/chain; each market pins an immutable verdict authority, initially the Juno Agents DAO core; off-chain systems have no settlement authority | [A1](architecture.md), [ADR-017](adrs/ADR-017-juno-governance-arbitration.md), [R5](product-legal-operations.md) | Accepted architecture; DAO governance/upgrades and deployment readiness remain external risks |
 
-## Deliverable audit
+## Deliverable and decision audit
 
-| ID | Artifact | Scope evidence | Review evidence | Verdict |
-| --- | --- | --- | --- | --- |
-| R1 | [mechanism.md](mechanism.md) | Formulas, rounding, multi-trade conservation, impact, LP payoff, dust | No human sign-off | Candidate complete; open |
-| R2 | [prior-art.md](prior-art.md) | Required systems, changes/failures, dispositions, licenses | License counsel absent | Candidate complete; open |
-| R3 | [cw-reality-compatibility.md](cw-reality-compatibility.md), [question-specification.md](question-specification.md) | Source matrix, bytes, governance, sequences, discrepancies | Governance rehearsal absent | Candidate complete; open |
-| R4 | [juno-and-topology.md](juno-and-topology.md) | Chain profile, units, topology, admin/version/deployment | Market gas/storage cannot be measured in no-code phase | Candidate complete; open |
-| R5 | [product-legal-operations.md](product-legal-operations.md) | No-entity posture, roles, content/discovery, runbooks | Qualified counsel and named operators absent | Candidate complete; open |
-| A1 | [architecture.md](architecture.md) | Components, lifecycle, storage, actions/queries/events, failures, upgrades | No architecture reviewer | Candidate complete; open |
-| A2 | [security-and-economics.md](security-and-economics.md) | Invariants, threats, tier, params, audit/tests | Parameter acceptance absent | Candidate complete; open |
-| A3 | [user-journeys.md](user-journeys.md) | All named roles and normal/adverse cases | No acceptance-test reviewer | Candidate complete; open |
-| ADRs | [ADR index](adrs/README.md) | 001–018 each has alternatives/evidence/consequences/revisit | All Proposed except ADR-017 deferred | Not accepted |
+| ID | Artifact | Decision review | Remaining evidence boundary |
+| --- | --- | --- | --- |
+| R1 | [mechanism.md](mechanism.md) | Accepted 2026-07-16 | Implementation model, property, gas, and economic observations |
+| R2 | [prior-art.md](prior-art.md) | Accepted provenance baseline | Maintain clean-room contributor provenance; no qualified legal opinion claimed |
+| R3 | [cw-reality compatibility](cw-reality-compatibility.md), [question specification](question-specification.md) | Accepted integration specification | Independent audit/reproducible build and issue #4 rehearsal |
+| R4 | [juno-and-topology.md](juno-and-topology.md) | Accepted topology | Refresh addresses/checksums and measure gas before deployment |
+| R5 | [product-legal-operations.md](product-legal-operations.md) | Architecture/product posture accepted | Issue #26 qualified legal and operational-readiness evidence |
+| A1 | [architecture.md](architecture.md) | Accepted | Implementation verification and audit |
+| A2 | [security-and-economics.md](security-and-economics.md) | Exact canary tier and residual risks accepted | Tests, audit, measurements, monitoring, and scaling review |
+| A3 | [user-journeys.md](user-journeys.md) | Accepted | Executable acceptance tests and operational exercises |
+| ADRs | [ADR index](adrs/README.md) | ADR-001–018 Accepted | Revisit triggers and residual evidence remain as recorded |
+| Decision | [decision packet](issue-2-decision-packet.md), [authorization](authorization.json) | Accepted and implementation authorized | Deployment/funds/governance transactions remain false |
 
 ## GOAL.md section 13 gate audit
 
-| Gate | Authoritative evidence required | Current evidence | Verdict |
-| --- | --- | --- | --- |
-| R1–R5 and A1–A3 reviewed/linked | Files plus reviewer acceptance | Files linked above; no reviewer record | **Open** |
-| ADRs 001–018 accepted or safely deferred | Status, reviewer/date, safe default/revisit | All exist; ADR-017 safely blocks launch; others Proposed | **Open** |
-| cw-reality source/schema and production instance independently verified | Source/schema pin, tests, on-chain state, reproducible wasm/audit | [Source baseline](evidence/source-baseline.md), 57 tests, [height snapshot](evidence/2026-07-15-juno.md), and [wasm attempt](evidence/oracle-wasm-reproducibility.md); deployed bytes agree across providers, but the best-effort source build mismatched and no independent audit exists | **Open** |
-| Live evidence archived with raw values/height/authorities | Untouched bodies+headers at one height and sign-off refresh | [Byte-exact two-provider archive](evidence/raw/39830878/README.md) at 39,830,878 now satisfies the collection format; sign-off refresh and reviewer attestation remain | **Evidence archived; sign-off open** |
-| Result bytes/payout fixed in writing | Accepted immutable spec | Exact table exists in R3/ADR-014; Proposed | **Open** |
-| Every settlement sequence terminates or discloses nontermination | Reviewed sequence/state analysis | Normal/counter/challenge/stall/neutral and unanswered nontermination documented | **Documented; review open** |
-| Invariants balance for buys/sells/LP/fees/rounding/payouts/partial/forced funds | Worked examples plus independent calculation | R1/A3 exact 105-JUNO reconciliation, dust/partial/forced rules; no independent reviewer/model | **Open** |
-| Market cap/oracle tier approved | Dated quantitative risk acceptance | Candidate 200/10-JUNO tier and limitations in A2; no approval | **Open** |
-| ujuno/display/liquidity conversions verified | Chain denom facts and reviewed conversions | R4 conversions plus [single-venue Osmosis measurement](evidence/2026-07-15-osmosis-juno-liquidity.md); venue-complete/long-window evidence and human acceptance remain | **Open** |
-| Permissions enumerated address by address | Accepted matrix with refreshed addresses | A1/R4 matrix; x/gov height-pinned; future frozen oracle/factory/market addresses absent | **Open** |
-| Challenge accounting all paths | Accepted state/accounting table | A2/ADR-018 cover changed/same/rejected/failed/stale/timeout/direct cancel | **Documented; review open** |
-| Juno governance verdict rehearsed or path rejected | Authorized on-chain rehearsal evidence or replacement owner decision | Passed proposals 357/363 establish generic x/gov `MsgExecuteContract` precedent; exact market verdict/payee, cw-reality effects, gas, stale/failure paths remain unrehearsed | **Open—blocking** |
-| Implementation test plan covers required classes | Traceable test/audit plan | A2 includes unit/property/multi/adversarial/migration/gas/on-chain | **Documented; review open** |
-| License strategy approved | Counsel/owner approval and provenance | Two candidate routes in R2; no approval/counsel | **Open** |
-| Product/legal/content posture documented | Memo plus applicable legal advice | R5 documented; counsel absent | **Open** |
-| Human can trace one unit end to end | Reviewer demonstration | A3 cross-journey and R1 amounts exist; no human attestation | **Open** |
-
-## Definition-of-success audit
-
-| Requirement | Candidate control | Evidence quality |
+| Gate | Current result | Evidence / boundary |
 | --- | --- | --- |
-| No action creates excess claims | P/Y/N/F/C equations, checked actions | Paper specification and local oracle tests only; future property/model tests required |
-| No trading at/after close | Derived state and execute guard | Specified for every price-changing action; future boundary test required |
-| Finalized exact oracle/question only | dual query plus full-field checks | Matches inspected source; future multi-contract test/reproducible oracle required |
-| Deterministic all-answer payout | exact-byte total mapping | Fully specified; not accepted |
-| Immutable/governed policies explicit | no admins; x/gov narrow verdict | Explicit; frozen addresses do not yet exist |
-| Rounding/fees/dust/forced/partial/last behavior | R1 cumulative and dust rules | Worked evidence; independent review/model missing |
-| Oracle security relative to value | fixed candidate tier/cap | Relationship explicit but not proven/accepted |
-| Permissionless Internet consequences | R5 actor/content/ops matrix | Documented; counsel/owners missing |
-| Test/audit plan from invariants | A2 trace | Documented; no implementation execution authorized |
+| R1–R5 and A1–A3 reviewed/linked | **Decision gate closed** | Juno AI delegated review and Jake Hartnell owner acceptance, 2026-07-16 |
+| ADRs 001–018 accepted | **Closed** | All accepted; ADR-017 architecture is settled, with issue #4 retaining rehearsal evidence |
+| cw-reality source/schema and selected deployment independently verified | **Open deployment evidence** | [Source baseline](evidence/source-baseline.md), local tests, [height snapshot](evidence/2026-07-15-juno.md), and [wasm attempt](evidence/oracle-wasm-reproducibility.md); build mismatch/no independent audit remain |
+| Live evidence archived | **Archived; refresh before deployment** | [Two-provider archive](evidence/raw/39830878/README.md) at height 39,830,878 |
+| Result bytes/payout fixed in writing | **Closed** | R3 and ADR-014 accepted |
+| Settlement sequences terminate or disclose nontermination | **Closed as specification** | Unanswered nontermination and all documented paths accepted; execution tests remain |
+| Financial invariants/specification reviewed | **Closed as decision** | R1/A2/A3 accepted; implementation models/tests remain required |
+| Market cap/oracle tier approved | **Closed** | Every exact §4 value accepted 2026-07-16 with residual risk |
+| ujuno conventions accepted | **Closed as decision** | R4 accepted; venue/long-window evidence remains a deployment/scaling input |
+| Permissions enumerated | **Closed as architecture** | A1/R4 accepted; future deployed addresses/checksums remain absent |
+| Challenge accounting specified | **Closed** | A2/ADR-018 accepted |
+| Verdict-authority architecture | **Amended; issue #45 implementation open** | Immutable address boundary accepted; Juno Agents DAO core is the v1 profile; no authority rotation or generic relay |
+| Live authority rehearsal | **Launch/canary gate** | No DAO proposal, transaction, funding, or end-to-end evidence is claimed or authorized here; #4/#13 preserve deferred x/gov compatibility evidence |
+| Implementation test plan | **Closed as specification** | A2 trace accepted; execution evidence belongs to implementation issues |
+| License strategy approved | **Closed as project authorization** | Clean-room independent implementation from repository formulas/specifications under Apache-2.0; do not copy/adapt LGPL source; preserve citations/notices as provenance |
+| Product/legal/content posture | **Architecture accepted; issue #26 readiness open** | No qualified legal advice or operational readiness is claimed |
 
-## Source claim classification audit
+## Authorized implementation traceability
 
-- **Observed facts:** local source behavior, schema hash, 57-test result, source commits, two-provider height-pinned chain/oracle state, deployed wasm retrieval, governance precedents, and single-venue Osmosis reserves/TWAP are labeled.
-- **Author claims/project policy:** mechanism papers and official project docs are cited as such.
-- **Inferences/recommendations:** FPMM choice, locked LP, frozen oracle, canary values, and content controls are labeled candidate.
-- **Owner decisions:** native JUNO, permissionless creation, Juno governance, experimental/no-entity posture are traced to GOAL.md section 14.
-- **Missing evidence:** no document converts rehearsal, counsel, review, gas, audit, or risk acceptance into a passing claim.
-
-## Implementation-test traceability
-
-| Invariants/risks | Planned evidence |
+| Invariants/risks | Required implementation evidence |
 | --- | --- |
-| 1–8 pre-resolution complete sets, resolved T2 coverage, product/fees/principal | arbitrary-precision action-sequence model and exact R1 vectors |
-| 9 close | one second before/at/after plus same-block ordering |
-| 10 resolution binding | every oracle/question field mismatch and checksum/admin deployment failure |
-| 11–15 redemption/arithmetic/dust/path | partition fuzzing, neutral odd-address permutations, overflow boundaries |
-| 16–17 challenge/verdict | multi-contract challenge, spoof, direct cancel, every proposal outcome |
-| 18 immutability | chain admin queries and failed migrate attempts |
-| 19 cap | split/buy exact boundary and overflow |
-| 20 no sweep/forced funds | random bank excess and abandoned positions |
-| Threat model | adversarial suite in A2 plus interface/indexer fault exercises |
-| Operations | monitored frozen-oracle/canary/governance rehearsal with incident timeline |
+| Complete sets, resolved liabilities, product/fees/principal | Arbitrary-precision action-sequence model and exact R1 vectors |
+| Close boundary | One second before/at/after plus same-block ordering |
+| Resolution binding | Every oracle/question field mismatch and checksum/admin deployment failure |
+| Redemption/arithmetic/dust | Partition fuzzing, neutral odd-address permutations, overflow boundaries |
+| Challenge/verdict | Multi-contract challenge, spoof, direct cancel, and every proposal outcome; mainnet execution separately authorized under issue #4 |
+| Immutability | Chain admin queries and failed migrate attempts before deployment |
+| Cap and forced funds | Exact-boundary/overflow tests, random bank excess, and abandoned positions |
+| Operations | Tooling may be built; operational readiness requires issue #26 evidence and a separately authorized canary/rehearsal |
 
-## Blocking evidence/actions
+## Residual gates carried forward
 
-1. Human reviewers must accept/reject every deliverable and ADR, record dissent, and approve or replace quantitative parameters.
-2. Independently audit cw-reality and reproduce the selected on-chain/future frozen wasm checksum from pinned source; the recorded best-effort mismatch is not provenance.
-3. Have a reviewer verify the byte-exact archive and repeat the two-provider height-pinned capture at sign-off.
-4. Obtain qualified legal and license advice for actual participants/operators.
-5. In a separately authorized phase, measure market/factory gas/storage once an implementation candidate exists.
-6. In a separately authorized, funded rehearsal, execute the Juno x/gov verdict path including failure cases; otherwise obtain a replacement owner decision.
-7. Name and exercise content-review, monitoring, incident, deposit-sponsor, and keeper roles.
-
-Until those are satisfied, unchecked gates in GOAL.md must remain unchecked and no implementation plan is authorized.
+1. Independently audit cw-reality and reproduce the selected frozen wasm checksum from pinned source; do not represent the recorded best-effort mismatch as provenance.
+2. Refresh chain/oracle evidence, deployed addresses, code IDs, checksums, admins, gas, and storage before any deployment authorization.
+3. Maintain clean-room implementation provenance. Do not copy or adapt LGPL source; preserve source notices/citations as research provenance rather than code derivation.
+4. Issue #45 must produce authoritative DAO-core contract tests and a reviewable non-broadcast Juno Agents DAO proposal packet. Any live DAO proposal/funded canary needs separate authorization. Issues #4 and #13 are deferred x/gov compatibility work, not v1 blockers.
+5. Issue #26 must collect qualified, actor- and jurisdiction-specific legal advice and exercised operational controls. This packet contains no legal advice.
+6. No deployment or fund movement is authorized by issue #2 acceptance.

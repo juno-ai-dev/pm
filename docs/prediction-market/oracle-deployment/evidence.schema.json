@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/juno-ai-dev/pm/blob/main/docs/prediction-market/oracle-deployment/evidence.schema.json",
+  "title": "Height-pinned cw-reality deployment observations",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "observed", "chain_id", "code_info", "contract_info", "config"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "observed": {
+      "type": "object", "additionalProperties": false, "required": ["height", "endpoint"],
+      "properties": {"height": {"type": "integer", "minimum": 1}, "endpoint": {"type": "string", "format": "uri"}}
+    },
+    "chain_id": {"type": "string", "minLength": 1},
+    "code_info": {
+      "type": "object", "additionalProperties": false, "required": ["code_id", "checksum"],
+      "properties": {"code_id": {"type": "integer", "minimum": 1}, "checksum": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+    },
+    "contract_info": {
+      "type": "object", "additionalProperties": false, "required": ["address", "code_id", "admin"],
+      "properties": {"address": {"type": "string", "pattern": "^juno1[023456789acdefghjklmnpqrstuvwxyz]{58}$"}, "code_id": {"type": "integer", "minimum": 1}, "admin": {"type": ["string", "null"]}}
+    },
+    "config": {
+      "type": "object", "additionalProperties": false,
+      "required": ["admin", "min_initial_bond_floor", "min_answer_timeout_secs"],
+      "properties": {
+        "admin": {"type": ["string", "null"]},
+        "min_initial_bond_floor": {"type": "string", "pattern": "^[0-9]+$"},
+        "min_answer_timeout_secs": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

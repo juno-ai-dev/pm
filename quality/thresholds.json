@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "wasm_size_bytes": {
+    "binary_market.wasm": 800000,
+    "cw_reality.wasm": 800000,
+    "market_factory.wasm": 800000
+  },
+  "gas": {
+    "transaction_max": 5000000,
+    "query_max": 1000000,
+    "required_headroom_bps": 2000
+  },
+  "storage_bytes": {
+    "transaction_delta_max": 131072,
+    "query_response_max": 131072
+  }
+}

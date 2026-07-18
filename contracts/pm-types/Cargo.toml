@@ -1,0 +1,16 @@
+[package]
+name = "pm-types"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[features]
+test-utils = []
+
+[dependencies]
+cosmwasm-schema.workspace = true
+cosmwasm-std.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true

@@ -1,6 +1,6 @@
 # R4 — Juno, collateral, and contract topology
 
-**Status:** candidate topology decision  
+**Status:** accepted topology decision (2026-07-16); deployment evidence remains open
 **Chain evidence:** juno-1 heights 39,829,829 and 39,830,878; Osmosis height 66,387,548
 
 ## Decision
@@ -56,7 +56,7 @@ This is delegation concentration, not a claim that three operators control every
 
 A [primary single-venue supplement](evidence/2026-07-15-osmosis-juno-liquidity.md) now measures Osmosis at height 66,387,548. Equal-weight pools 497 and 498 held 355,829.816267 and 711,889.169521 JUNO respectively. A calculated 200-JUNO sale into either pool was 0.0562% or 0.0281% of its JUNO reserve, with about 0.356% or 0.328% fee-plus-curve shortfall before taker fees/routing. Twenty-four hourly JUNO/ATOM TWAPs over one day had a 1.886% high/low range and -1.754% first-to-last move.
 
-That is not venue-complete liquidity or long-horizon volatility. External depth can change faster than immutable market terms and is not a solvency input; external pools also do not create prediction-market LP participation. Before accepting a tier, risk review still needs repeat executable-depth measurements, 30/90-day volatility, concentration and historical governance turnout. The snapshot supports keeping a canary small relative to observed external reserves but does not approve the cap, bond, or fee.
+That is not venue-complete liquidity or long-horizon volatility. External depth can change faster than immutable market terms and is not a solvency input; external pools also do not create prediction-market LP participation. The accepted canary tier remains subject to deployment-policy review using repeat executable-depth measurements, 30/90-day volatility, concentration, and historical governance turnout. The snapshot supports keeping the canary small relative to observed external reserves but is not evidence for deployment or scaling beyond the accepted cap, bond, and fee.
 
 ## Height-pinned chain profile
 
@@ -77,7 +77,7 @@ Observed values and raw evidence are in [the snapshot](evidence/2026-07-15-juno.
 | Governance precedent | Passed proposals 357 and 363 used x/gov-originated `MsgExecuteContract` |
 | Single-venue liquidity | Osmosis pools 497/498 held 1.068m JUNO total; one-day TWAP sample only |
 
-Block limits are not safe transaction limits. The phase has no market wasm artifact, so it cannot honestly report instantiate, storage, trade, or resolution gas. Candidate 16-KiB question and 4-KiB discoverability-metadata limits remain contingent on implementation-phase gas measurement. That measurement must cover worst-case events and reply queries, not just a happy-path simulation.
+Block limits are not safe transaction limits. The phase has no market wasm artifact, so it cannot honestly report instantiate, storage, trade, or resolution gas. The accepted 16-KiB question and 4-KiB discoverability-metadata limits remain contingent on implementation-phase gas measurement before deployment. That measurement must cover worst-case events and reply queries, not just a happy-path simulation.
 
 wasmd v0.54 exposes Instantiate2 at the platform version level. The architecture does not depend on it: the instantiated market knows its own address and asks its question from instantiate/reply. If future indexing uses predictable addresses, Juno must separately rehearse creator, salt, checksum, and canonical-address derivation.
 
@@ -104,7 +104,7 @@ multi-market total =
   one instantiate + N × (market-key prefixes + market state)
 ~~~
 
-The multi-market design will be cheaper in repeated base state and address indexing. Exact difference is missing because generating a candidate contract solely to benchmark it is prohibited in this phase. The safety benefit of directly auditable isolated balances is load-bearing and outweighs an unmeasured cost optimization for v1. A future change requires measured gas/storage, an incident-blast-radius review, and an ADR; it cannot migrate old balances.
+The multi-market design will be cheaper in repeated base state and address indexing. Exact difference remains missing and is now authorized implementation-measurement work. The safety benefit of directly auditable isolated balances is load-bearing and outweighs an unmeasured cost optimization for v1. A future change requires measured gas/storage, an incident-blast-radius review, and an ADR; it cannot migrate old balances.
 
 ## Factory
 
@@ -130,7 +130,7 @@ Objective factory bounds include:
 - market code ID/checksum represented by the factory;
 - close/open ordering, minimum lead time, and maximum duration;
 - initial liquidity, fee, question/metadata size, oracle bond/bounty, challenge bond, and collateral cap ranges;
-- AnswerType Bool, answer_schema None, 24-hour answer timeout, and candidate 21-day arbitration timeout.
+- AnswerType Bool, answer_schema None, 24-hour answer timeout, and accepted 21-day arbitration timeout.
 
 It cannot enforce prose quality, legality, geographic eligibility, or source truth.
 
@@ -187,8 +187,8 @@ This is a future planning gate, not authorization:
 4. audit market/factory code and reproduce both wasm checksums;
 5. benchmark worst-case factory instantiate/reply, trade, challenge, resolution, and batched redemption against current Juno gas;
 6. query current chain ID/software, consensus, wasm access, governance params/module account, and every code/contract admin at one finalized height;
-7. execute the authorized governance verdict rehearsal;
-8. obtain parameter risk acceptance, legal advice, content/runbook review, and named monitoring coverage;
+7. obtain separate authorization for, then execute, the governance verdict rehearsal;
+8. refresh parameter risk evidence and obtain qualified legal advice, content/runbook review, and named monitoring coverage;
 9. deploy factory with admin None and verify its code/checksum/config;
 10. create a capped canary market only under a separately authorized phase; reconcile every liability and event before broader discovery.
 

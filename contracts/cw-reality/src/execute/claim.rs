@@ -36,16 +36,19 @@ pub fn execute_claim(
     question_id: Binary,
     history_entries: Vec<HistoryEntry>,
 ) -> Result<Response, ContractError> {
-    let qid: [u8; 32] = question_id.as_slice().try_into().map_err(|_| {
-        ContractError::QuestionNotFound {
-            id: question_id.to_base64(),
-        }
-    })?;
-    let mut question = QUESTIONS
-        .may_load(deps.storage, &qid)?
-        .ok_or_else(|| ContractError::QuestionNotFound {
-            id: hex::encode(qid),
-        })?;
+    let qid: [u8; 32] =
+        question_id
+            .as_slice()
+            .try_into()
+            .map_err(|_| ContractError::QuestionNotFound {
+                id: question_id.to_base64(),
+            })?;
+    let mut question =
+        QUESTIONS
+            .may_load(deps.storage, &qid)?
+            .ok_or_else(|| ContractError::QuestionNotFound {
+                id: hex::encode(qid),
+            })?;
 
     let now = env.block.time.seconds();
     if question.state_at(now) != State::Finalized {
@@ -84,12 +87,11 @@ pub fn execute_claim(
         }
 
         // Verify the supplied entry hashes against the cursor.
-        let prev_hash: HistoryHash =
-            entry
-                .prev_hash
-                .as_slice()
-                .try_into()
-                .map_err(|_| ContractError::HistoryHashMismatch { step: i })?;
+        let prev_hash: HistoryHash = entry
+            .prev_hash
+            .as_slice()
+            .try_into()
+            .map_err(|_| ContractError::HistoryHashMismatch { step: i })?;
         let answerer = deps.api.addr_validate(&entry.answerer)?;
         let expected = next_history_hash(
             deps.api,

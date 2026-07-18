@@ -29,16 +29,19 @@ pub fn execute_request_arbitration(
     question_id: Binary,
     current_bond_seen: Option<Uint128>,
 ) -> Result<Response, ContractError> {
-    let qid: [u8; 32] = question_id.as_slice().try_into().map_err(|_| {
-        ContractError::QuestionNotFound {
-            id: question_id.to_base64(),
-        }
-    })?;
-    let mut question = QUESTIONS
-        .may_load(deps.storage, &qid)?
-        .ok_or_else(|| ContractError::QuestionNotFound {
-            id: hex::encode(qid),
-        })?;
+    let qid: [u8; 32] =
+        question_id
+            .as_slice()
+            .try_into()
+            .map_err(|_| ContractError::QuestionNotFound {
+                id: question_id.to_base64(),
+            })?;
+    let mut question =
+        QUESTIONS
+            .may_load(deps.storage, &qid)?
+            .ok_or_else(|| ContractError::QuestionNotFound {
+                id: hex::encode(qid),
+            })?;
 
     let arbitrator = question
         .arbitrator
@@ -97,16 +100,19 @@ pub fn execute_cancel_arbitration(
     info: MessageInfo,
     question_id: Binary,
 ) -> Result<Response, ContractError> {
-    let qid: [u8; 32] = question_id.as_slice().try_into().map_err(|_| {
-        ContractError::QuestionNotFound {
-            id: question_id.to_base64(),
-        }
-    })?;
-    let mut question = QUESTIONS
-        .may_load(deps.storage, &qid)?
-        .ok_or_else(|| ContractError::QuestionNotFound {
-            id: hex::encode(qid),
-        })?;
+    let qid: [u8; 32] =
+        question_id
+            .as_slice()
+            .try_into()
+            .map_err(|_| ContractError::QuestionNotFound {
+                id: question_id.to_base64(),
+            })?;
+    let mut question =
+        QUESTIONS
+            .may_load(deps.storage, &qid)?
+            .ok_or_else(|| ContractError::QuestionNotFound {
+                id: hex::encode(qid),
+            })?;
 
     if !question.is_pending_arbitration {
         return Err(ContractError::InvalidState {
@@ -160,16 +166,19 @@ pub fn execute_submit_arbitration(
     winning_answer: Binary,
     payee: String,
 ) -> Result<Response, ContractError> {
-    let qid: [u8; 32] = question_id.as_slice().try_into().map_err(|_| {
-        ContractError::QuestionNotFound {
-            id: question_id.to_base64(),
-        }
-    })?;
-    let mut question = QUESTIONS
-        .may_load(deps.storage, &qid)?
-        .ok_or_else(|| ContractError::QuestionNotFound {
-            id: hex::encode(qid),
-        })?;
+    let qid: [u8; 32] =
+        question_id
+            .as_slice()
+            .try_into()
+            .map_err(|_| ContractError::QuestionNotFound {
+                id: question_id.to_base64(),
+            })?;
+    let mut question =
+        QUESTIONS
+            .may_load(deps.storage, &qid)?
+            .ok_or_else(|| ContractError::QuestionNotFound {
+                id: hex::encode(qid),
+            })?;
 
     let arbitrator = question
         .arbitrator
@@ -188,12 +197,10 @@ pub fn execute_submit_arbitration(
     let payee: Addr = deps.api.addr_validate(&payee)?;
 
     // Reality.eth lets the arbitrator pick ANY answer (including new ones not
-    // in history). We match that — the ARBITRATION.md "pick from history"
-    // wording was tightened in the source-walk: the trust boundary is the
-    // arbitrator address, not the answer surface. The arbitrator authoring
-    // a new answer is functionally equivalent to choosing a juror's answer
-    // off-chain. The `UNRESOLVED_ANSWER_BYTES` sentinel is the explicit-
-    // decline path.
+    // in history). We match that: the trust boundary is the arbitrator
+    // address, not the answer surface. The arbitrator authoring a new answer
+    // is functionally equivalent to choosing a juror's answer off-chain. The
+    // `UNRESOLVED_ANSWER_BYTES` sentinel is the explicit-decline path.
     let is_unresolved = winning_answer.as_slice() == UNRESOLVED_ANSWER_BYTES.as_slice();
 
     let now = env.block.time.seconds();

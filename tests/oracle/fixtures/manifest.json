@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "source": {
+    "repository": "https://github.com/juno-ai-dev/pm.git",
+    "commit": "454f9777b0bafa71c43b427f7451e626d860269e",
+    "tree": "e7cad35d114197fbae3cb0ff9e44ac05d0309bfa",
+    "contract_tree": "cc53d2ea0aa9fcd04fe11ba910b02db11276a0b1",
+    "contract_path": "contracts/cw-reality"
+  },
+  "build": {
+    "optimizer_image": "cosmwasm/optimizer:0.17.0@sha256:7e0b9229c1a4118d0c9a2af2e7f5d95a91f264c26a2ce5681c779926e74d7f85",
+    "optimizer_digest": "sha256:7e0b9229c1a4118d0c9a2af2e7f5d95a91f264c26a2ce5681c779926e74d7f85",
+    "platform": "linux/amd64",
+    "locked": true,
+    "builds": [
+      {"builder": "fixture-a", "sha256": "dbc6f04743a1cfdadae99016df7a69c5b8352ba568991d8417c4d297573ab629"},
+      {"builder": "fixture-b", "sha256": "dbc6f04743a1cfdadae99016df7a69c5b8352ba568991d8417c4d297573ab629"}
+    ]
+  },
+  "artifact": {
+    "filename": "cw_reality.wasm",
+    "sha256": "dbc6f04743a1cfdadae99016df7a69c5b8352ba568991d8417c4d297573ab629",
+    "size": 32
+  },
+  "deployment": {
+    "chain_id": "juno-1",
+    "code_id": 7000,
+    "contract_address": "juno1qqqsyqcyq5rqwzqfpg9scrgwpugpzysnzs23v9ccrydpk8qarc0s9c0m82",
+    "chain_admin": null,
+    "stored_admin": null,
+    "config": {
+      "min_initial_bond_floor": "10000000",
+      "min_answer_timeout_secs": 86400
+    }
+  },
+  "audit": {
+    "status": "accepted",
+    "report": "fixture-audit-report",
+    "audited_commit": "454f9777b0bafa71c43b427f7451e626d860269e",
+    "audited_sha256": "dbc6f04743a1cfdadae99016df7a69c5b8352ba568991d8417c4d297573ab629"
+  }
+}

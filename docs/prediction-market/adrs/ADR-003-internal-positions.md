@@ -1,6 +1,6 @@
 # ADR-003 — Internal outcome positions
 
-**Status:** Proposed  
+**Status:** Accepted 2026-07-16
 **Decision:** Store YES/NO balances inside each market. Expose Split, Merge, Buy, Sell, and Redeem; do not expose transfer.
 
 ## Alternatives
