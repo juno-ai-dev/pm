@@ -2,13 +2,20 @@
 
 A prediction market on Juno Network.
 
+## Maintained frontend
+
+The fixture-backed Juno app lives in [`app/`](app/README.md). It provides the
+responsive Markets, Create, Portfolio, and market-reference routes for the
+`uni-7` demo environment. Run its independent validation with `npm ci`,
+`npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` from `app/`. The
+`depricated_ui/` tree remains unsupported historical material.
+
 ## Contract workspace
 
 The maintained Rust workspace is rooted at `contracts/Cargo.toml`. It contains
 the existing `cw-reality` oracle, shared `pm-types`, and state-transition-free
 package boundaries for the future `binary-market` and `market-factory`
-contracts. The `depricated_ui/` tree is unsupported historical material, and
-live-network scripts are quarantined under `scripts/unsafe/`.
+contracts. Live-network scripts are quarantined under `scripts/unsafe/`.
 
 Run the core local gate from the repository root:
 

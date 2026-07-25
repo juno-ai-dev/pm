@@ -1,19 +1,41 @@
-name: ui-policy
+name: frontend
 
 on:
   push:
     branches: [main]
     paths:
+      - 'app/**'
       - 'depricated_ui/**'
       - 'scripts/check-ui-policy.sh'
       - '.github/workflows/ui.yml'
   pull_request:
     paths:
+      - 'app/**'
       - 'depricated_ui/**'
       - 'scripts/check-ui-policy.sh'
       - '.github/workflows/ui.yml'
 
 jobs:
+  maintained-app:
+    name: maintained app checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:a11y
+      - run: npm run build
+
   unsupported-ui-policy:
     name: deprecated UI remains explicitly unsupported
     runs-on: ubuntu-latest
