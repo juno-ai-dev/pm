@@ -26,7 +26,7 @@ FACTORY = "juno1" + "r" * 38
 MARKET = "juno1" + "s" * 38
 CREATOR = "juno1" + "t" * 38
 AUTHORITY = "juno1" + "p" * 38
-ENDPOINTS = ("https://rpc-a.example", "https://rpc-b.example")
+ENDPOINTS = ("https://rpc-a.provider-one.org", "https://rpc-b.provider-two.net")
 PROVIDERS = ("provider-a", "provider-b")
 QID = "d" * 64
 QHASH = "e" * 64
@@ -152,14 +152,28 @@ class StatusAndEndpointTests(unittest.TestCase):
             with self.subTest(key=key, bad=bad), self.assertRaises(DEPLOY.ValidationError):
                 DEPLOY.parse_status(value)
 
-    def test_endpoint_is_https_persistable_and_host_distinct(self):
-        self.assertEqual(DEPLOY.normalize_endpoint("https://RPC.EXAMPLE.:443/base/")[0], "https://rpc.example/base")
-        for endpoint in ("http://rpc.example", "https://user@rpc.example", "https://rpc.example?q=token",
-                         "https://rpc.example/#fragment", "https://rpc.example?password=x"):
+    def test_endpoint_is_https_persistable_public_dns_and_host_distinct(self):
+        self.assertEqual(
+            DEPLOY.normalize_endpoint("https://RPC.PROVIDER-ONE.ORG.:443/base/")[0],
+            "https://rpc.provider-one.org/base",
+        )
+        for endpoint in (
+            "http://rpc.provider.org",
+            "https://user@rpc.provider.org",
+            "https://rpc.provider.org?q=token",
+            "https://rpc.provider.org/#fragment",
+            "https://rpc.provider.org?password=x",
+            "https://localhost",
+            "https://127.0.0.1",
+            "https://[::1]",
+            "https://bad_host.provider.org",
+            "https://singlelabel",
+            "https://rpc.example",
+        ):
             with self.subTest(endpoint=endpoint), self.assertRaises(DEPLOY.ValidationError):
                 DEPLOY.normalize_endpoint(endpoint)
         manifest = complete_manifest()
-        manifest["observations"][1]["endpoint"] = "https://rpc-a.example/other"
+        manifest["observations"][1]["endpoint"] = ENDPOINTS[0] + "/other"
         manifest["observations"][1]["provider"] = "provider-b"
         with self.assertRaises(DEPLOY.ValidationError):
             DEPLOY.validate_manifest(manifest)
@@ -188,6 +202,41 @@ class ReceiptTests(unittest.TestCase):
         receipt = self.store(); receipt["events"][0]["attributes"].append({"key": "code_id", "value": "43"})
         with self.assertRaises(DEPLOY.ValidationError):
             DEPLOY.parse_receipt(receipt, "store")
+
+    def test_market_receipt_normalizes_real_factory_and_oracle_question_formats(self):
+        question_base64 = base64.b64encode(bytes.fromhex(QID)).decode()
+        receipt = {
+            "code": 0,
+            "txhash": TX,
+            "height": 34,
+            "events": [
+                {"attributes": [
+                    {"key": "_contract_address", "value": FACTORY},
+                    {"key": "_contract_address", "value": MARKET},
+                    {"key": "_contract_address", "value": ADDR},
+                    {"key": "market", "value": MARKET},
+                    {"key": "question_id", "value": question_base64},
+                ]},
+                {"attributes": [
+                    {"key": "question_id", "value": QID},
+                    {"key": "question_id", "value": question_base64},
+                ]},
+            ],
+        }
+        self.assertEqual(DEPLOY.parse_receipt(receipt, "market")["question_id"], QID)
+
+        conflicting = copy.deepcopy(receipt)
+        conflicting["events"][1]["attributes"].append({
+            "key": "question_id",
+            "value": base64.b64encode(bytes.fromhex("e" * 64)).decode(),
+        })
+        with self.assertRaises(DEPLOY.ValidationError):
+            DEPLOY.parse_receipt(conflicting, "market")
+
+        malformed = copy.deepcopy(receipt)
+        malformed["events"][0]["attributes"][4]["value"] = "not-a-question-id"
+        with self.assertRaises(DEPLOY.ValidationError):
+            DEPLOY.parse_receipt(malformed, "market")
 
     def test_dual_receipts_must_match_and_be_independent(self):
         manifest = complete_manifest()
@@ -311,12 +360,12 @@ class ManifestTests(unittest.TestCase):
             DEPLOY.validate_manifest(manifest, complete=True)
         manifest = complete_manifest()
         manifest["artifacts"]["binary_market.wasm"]["receipt_evidence"][1].update(
-            provider="provider-c", endpoint="https://rpc-c.example")
+            provider="provider-c", endpoint="https://rpc-c.provider-three.com")
         with self.assertRaises(DEPLOY.ValidationError):
             DEPLOY.validate_manifest(manifest, complete=True)
         manifest = complete_manifest()
         manifest["contracts"]["factory"]["receipt_evidence"][1].update(
-            provider="provider-c", endpoint="https://rpc-c.example")
+            provider="provider-c", endpoint="https://rpc-c.provider-three.com")
         with self.assertRaises(DEPLOY.ValidationError):
             DEPLOY.validate_manifest(manifest, complete=True)
 

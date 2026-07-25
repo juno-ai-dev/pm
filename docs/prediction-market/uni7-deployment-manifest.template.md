@@ -113,6 +113,11 @@ The factory record additionally has the public disclosure field
 
 An oracle/factory receipt has `provider`, `endpoint`, `txhash`, `height`, and
 `address`. A seeded-market receipt has those five fields plus `question_id`.
+The recorder selects the market from the factory's canonical `market` attribute
+because a create transaction may contain several `_contract_address` values. It
+accepts the real factory/oracle 32-byte question ID encodings in either canonical
+base64 or hex, and persists one normalized lowercase hex value only when all
+representations agree.
 Receipts never contain or imply `admin`; admin comes only from each provider's
 independent contract-info query.
 

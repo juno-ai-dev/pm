@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 import datetime
 import hashlib
 import importlib.util
+import ipaddress
 import json
 import pathlib
 import re
@@ -36,6 +38,11 @@ HEX64 = re.compile(r"^[0-9a-f]{64}$")
 TXHASH = re.compile(r"^[0-9A-F]{64}$")
 ADDRESS = re.compile(r"^juno1[023456789acdefghjklmnpqrstuvwxyz]{20,90}$")
 PROVIDER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$")
+DNS_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+SPECIAL_DNS_SUFFIXES = (
+    "localhost", ".localhost", ".local", ".internal", ".home", ".lan",
+    ".invalid", ".test", ".example", ".onion", ".arpa",
+)
 FORBIDDEN_KEYS = re.compile(
     r"(mnemonic|private.?key|seed.?phrase|keyring|pass(word|phrase)?|secret|"
     r"api.?key|access.?key|bearer|token)", re.I
@@ -148,6 +155,22 @@ def normalize_endpoint(endpoint: Any) -> tuple[str, str]:
     host = parsed.hostname.lower().rstrip(".")
     if not host or any(character.isspace() for character in host):
         raise ValidationError("RPC endpoint host is invalid")
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        labels = host.split(".")
+        if (
+            len(labels) < 2
+            or len(host) > 253
+            or any(not DNS_LABEL.fullmatch(label) for label in labels)
+            or not labels[-1].isalpha()
+            or len(labels[-1]) < 2
+            or host == "localhost"
+            or host.endswith(SPECIAL_DNS_SUFFIXES)
+        ):
+            raise ValidationError("RPC endpoint must use a globally routable DNS provider host")
+    else:
+        raise ValidationError("RPC endpoint must use a DNS provider host, not an IP literal")
     netloc = host if port in (None, 443) else f"{host}:{port}"
     path = parsed.path.rstrip("/")
     normalized = urllib.parse.urlunsplit(("https", netloc, path, "", ""))
@@ -336,6 +359,18 @@ def event_attributes(receipt: dict[str, Any]) -> dict[str, list[str]]:
     return found
 
 
+def _question_id_hex(value: str) -> str:
+    if re.fullmatch(r"[0-9a-fA-F]{64}", value):
+        return value.lower()
+    try:
+        raw = base64.b64decode(value, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise ValidationError("question_id is neither 32-byte hex nor canonical base64") from exc
+    if len(raw) != 32 or base64.b64encode(raw).decode("ascii") != value:
+        raise ValidationError("question_id is neither 32-byte hex nor canonical base64")
+    return raw.hex()
+
+
 def parse_receipt(receipt: dict[str, Any], kind: str) -> dict[str, Any]:
     tx = receipt.get("tx_response", receipt)
     if not isinstance(tx, dict):
@@ -363,15 +398,20 @@ def parse_receipt(receipt: dict[str, Any], kind: str) -> dict[str, Any]:
             raise ValidationError("receipt does not contain one unambiguous code_id")
         result["code_id"] = int(values[0])
     elif kind in {"instantiate", "market"}:
-        candidates = list(dict.fromkeys(attrs.get("_contract_address", []) + attrs.get("contract_address", [])))
+        address_values = attrs.get("market", []) if kind == "market" else \
+            attrs.get("_contract_address", []) + attrs.get("contract_address", [])
+        candidates = list(dict.fromkeys(address_values))
         if len(candidates) != 1 or not ADDRESS.fullmatch(candidates[0]):
-            raise ValidationError("receipt does not contain one valid contract address")
+            raise ValidationError(f"receipt does not contain one valid {kind} address")
         result["address"] = candidates[0]
         if kind == "market":
-            questions = list(dict.fromkeys(attrs.get("question_id", [])))
-            if len(questions) != 1 or not re.fullmatch(r"[0-9a-fA-F]{64}", questions[0]):
-                raise ValidationError("market receipt does not contain one question_id")
-            result["question_id"] = questions[0].lower()
+            raw_questions = attrs.get("question_id", [])
+            if not raw_questions:
+                raise ValidationError("market receipt does not contain a question_id")
+            questions = {_question_id_hex(value) for value in raw_questions}
+            if len(questions) != 1:
+                raise ValidationError("market receipt contains conflicting question_id values")
+            result["question_id"] = questions.pop()
     else:
         raise ValidationError("unknown receipt kind")
     return result

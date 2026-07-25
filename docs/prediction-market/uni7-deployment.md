@@ -16,8 +16,10 @@ evidence PR is authorized.
 ## Hard prerequisites and blockers
 
 * Chain ID is exactly `uni-7`; native collateral/bond denom is exactly `ujunox`.
-* Use two independently operated HTTPS RPC providers. Both must report
-  `catching_up=false`; the preflight defaults to at most 20 blocks of drift.
+* Use two independently operated HTTPS RPC providers with distinct globally
+  routable DNS hosts. Both must report `catching_up=false`; the preflight defaults
+  to at most 20 blocks of drift. Localhost, IP literals, private/internal names,
+  URL credentials, query strings, and fragments are rejected.
 * Consume a twice-reproduced, reviewed `build-release.sh` output. Do not rebuild
   during deployment and do not substitute similarly named files.
 * The canonical release gate remains the pinned
