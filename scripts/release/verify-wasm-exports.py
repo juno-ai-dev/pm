@@ -5,9 +5,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import pathlib
+import shutil
+import subprocess
 import sys
 
 MAGIC_AND_VERSION = b"\x00asm\x01\x00\x00\x00"
+SECTION_ORDER = {**{section: section for section in range(1, 10)}, 12: 10, 10: 11, 11: 12}
 
 
 def read_uleb(data: bytes, offset: int) -> tuple[int, int]:
@@ -45,7 +48,7 @@ def exported_names(data: bytes) -> set[str]:
     offset = len(MAGIC_AND_VERSION)
     function_exports: set[str] = set()
     seen_sections: set[int] = set()
-    last_section = 0
+    last_section_rank = 0
     while offset < len(data):
         section_id = data[offset]
         offset += 1
@@ -54,10 +57,11 @@ def exported_names(data: bytes) -> set[str]:
         if section_id != 0:
             if section_id in seen_sections:
                 raise ValueError(f"duplicate Wasm section id: {section_id}")
-            if section_id < last_section:
+            rank = SECTION_ORDER[section_id]
+            if rank < last_section_rank:
                 raise ValueError("out-of-order Wasm section")
             seen_sections.add(section_id)
-            last_section = section_id
+            last_section_rank = rank
         size, offset = read_uleb(data, offset)
         end = offset + size
         if end > len(data):
@@ -92,6 +96,18 @@ def exported_names(data: bytes) -> set[str]:
 
 
 def verify(path: pathlib.Path, required: set[str]) -> None:
+    validator = shutil.which("wasm-tools")
+    if validator is None:
+        raise ValueError("wasm-tools is required for semantic Wasm validation")
+    result = subprocess.run(
+        [validator, "validate", str(path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or "unknown validation failure"
+        raise ValueError(f"{path}: invalid Wasm: {detail}")
     exports = exported_names(path.read_bytes())
     missing = sorted(required - exports)
     if missing:
