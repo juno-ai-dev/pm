@@ -76,6 +76,15 @@ class StatusParsingTests(unittest.TestCase):
                 DEPLOY.parse_status(value)
 
 
+class JsonParsingTests(unittest.TestCase):
+    def test_rejects_duplicate_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "duplicate.json"
+            source.write_text('{"chain_id":"uni-7","chain_id":"juno-1"}')
+            with self.assertRaises(DEPLOY.ValidationError):
+                DEPLOY.load_json(source)
+
+
 class ReceiptParsingTests(unittest.TestCase):
     def test_store_from_logs(self):
         receipt = {"tx_response": {"code": 0, "txhash": TX, "height": "33", "logs": [{"events": [
@@ -86,9 +95,14 @@ class ReceiptParsingTests(unittest.TestCase):
     def test_base64_tendermint_attributes(self):
         enc = lambda value: base64.b64encode(value.encode()).decode()
         receipt = {"code": 0, "txhash": TX, "height": "34", "events": [{"attributes": [
-            {"key": enc("_contract_address"), "value": ADDR}
+            {"key": enc("_contract_address"), "value": enc(ADDR)}
         ]}]}
         self.assertEqual(DEPLOY.parse_receipt(receipt, "instantiate")["contract_address"], ADDR)
+
+        store = {"code": 0, "txhash": TX, "height": "34", "events": [{"attributes": [
+            {"key": enc("code_id"), "value": enc("42")}
+        ]}]}
+        self.assertEqual(DEPLOY.parse_receipt(store, "store")["code_id"], 42)
 
     def test_market_identity_and_failed_receipt(self):
         receipt = {"code": 0, "txhash": TX, "height": "35", "events": [{"attributes": [

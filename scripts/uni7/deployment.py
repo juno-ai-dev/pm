@@ -48,9 +48,18 @@ class ValidationError(ValueError):
     pass
 
 
+def _reject_duplicate_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, child in pairs:
+        if key in value:
+            raise ValidationError(f"duplicate JSON key: {key}")
+        value[key] = child
+    return value
+
+
 def load_json(path: pathlib.Path) -> Any:
     try:
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(), object_pairs_hook=_reject_duplicate_pairs)
     except (OSError, json.JSONDecodeError) as exc:
         raise ValidationError(f"cannot read JSON {path}: {exc}") from exc
 
@@ -159,20 +168,18 @@ def validate_artifacts(root: pathlib.Path, release: pathlib.Path, artifact_dir: 
     }
 
 
-def _decoded(value: Any) -> str:
+EVENT_KEYS = {"code_id", "_contract_address", "contract_address", "question_id"}
+
+
+def _base64_text(value: Any) -> str | None:
     if not isinstance(value, str):
-        return str(value)
-    # Tendermint's older JSON API base64-encodes event attributes. Decode only
-    # printable UTF-8 ending in a known identifier character to avoid changing
-    # ordinary modern attributes that happen to be valid base64.
+        return None
     try:
         raw = base64.b64decode(value, validate=True)
         text = raw.decode()
-        if text and all(c.isprintable() for c in text) and any(c in text for c in ("_", "-")):
-            return text
     except (ValueError, UnicodeDecodeError):
-        pass
-    return value
+        return None
+    return text if text and all(character.isprintable() for character in text) else None
 
 
 def event_attributes(receipt: dict[str, Any]) -> dict[str, list[str]]:
@@ -188,8 +195,13 @@ def event_attributes(receipt: dict[str, Any]) -> dict[str, list[str]]:
             continue
         for attribute in event.get("attributes") or []:
             if isinstance(attribute, dict):
-                key = _decoded(attribute.get("key"))
-                value = _decoded(attribute.get("value"))
+                raw_key = attribute.get("key")
+                decoded_key = _base64_text(raw_key)
+                encoded = decoded_key in EVENT_KEYS
+                key = decoded_key if encoded else str(raw_key)
+                raw_value = attribute.get("value")
+                decoded_value = _base64_text(raw_value) if encoded else None
+                value = decoded_value if decoded_value is not None else str(raw_value)
                 found.setdefault(key, []).append(value)
     return found
 
