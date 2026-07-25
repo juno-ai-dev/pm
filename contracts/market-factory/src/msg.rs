@@ -1,7 +1,7 @@
 use binary_market::question::QuestionInput;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Binary, HexBinary, Uint128};
-use pm_types::{ProtocolVersion, TierId};
+use pm_types::{ContractProfile, ProtocolVersion, TierId};
 
 #[cw_serde]
 pub struct TierConfig {
@@ -22,6 +22,7 @@ pub struct TierConfig {
 
 #[cw_serde]
 pub struct InstantiateMsg {
+    pub contract_profile: ContractProfile,
     pub protocol_version: ProtocolVersion,
     pub market_code_id: u64,
     pub market_checksum: HexBinary,
@@ -68,6 +69,7 @@ pub enum QueryMsg {
 
 #[cw_serde]
 pub struct ConfigResponse {
+    pub contract_profile: ContractProfile,
     pub protocol_version: ProtocolVersion,
     pub market_code_id: u64,
     pub market_checksum: HexBinary,
@@ -84,6 +86,10 @@ pub struct ConfigResponse {
 
 #[cw_serde]
 pub struct MarketRecord {
+    /// Immutable chain/denomination profile of this market.
+    pub contract_profile: ContractProfile,
+    /// Immutable native collateral denomination of this market.
+    pub collateral_denom: String,
     pub nonce: u64,
     pub market: String,
     pub creator: String,

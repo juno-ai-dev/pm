@@ -36,6 +36,7 @@ fn every_v1_query_response_has_an_explicit_golden_field_set() {
         (
             "config",
             &[
+                "contract_profile",
                 "protocol_version",
                 "factory",
                 "creator",
@@ -62,6 +63,8 @@ fn every_v1_query_response_has_an_explicit_golden_field_set() {
         (
             "identity",
             &[
+                "contract_profile",
+                "collateral_denom",
                 "protocol_version",
                 "factory",
                 "market",
@@ -226,6 +229,34 @@ fn every_v1_query_response_has_an_explicit_golden_field_set() {
     for (response, names) in goldens {
         assert_eq!(fields(&schema, response), expected(names), "{response}");
     }
+}
+
+#[test]
+fn every_canonical_event_uses_the_profile_denom_envelope() {
+    let market: String = include_str!("../src/contract.rs")
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .collect();
+    assert_eq!(market.matches("Event::new(\"juno_pm_v1\")").count(), 1);
+    assert!(market.contains("fncanonical_event(config:&Config,env:&Env)->Event"));
+    assert!(market.contains(".add_attribute(\"contract_profile\","));
+    assert!(market.contains(".add_attribute(\"collateral_denom\",config.collateral_denom.clone())"));
+
+    let factory: String = include_str!("../../market-factory/src/contract.rs")
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .collect();
+    assert_eq!(factory.matches("Event::new(\"juno_pm_v1\")").count(), 2);
+    assert_eq!(
+        factory
+            .matches("common(Event::new(\"juno_pm_v1\"))")
+            .count(),
+        2
+    );
+    assert!(factory.contains(".add_attribute(\"contract_profile\","));
+    assert!(
+        factory.contains(".add_attribute(\"collateral_denom\",config.collateral_denom.clone())")
+    );
 }
 
 #[test]

@@ -1,12 +1,13 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, HexBinary, Uint128};
 use cw_storage_plus::{Item, Map};
-use pm_types::{ProtocolVersion, TierId};
+use pm_types::{ContractProfile, ProtocolVersion, TierId};
 
 use crate::msg::{CreateMarketMsg, MarketRecord, TierConfig};
 
 #[cw_serde]
 pub struct Config {
+    pub contract_profile: ContractProfile,
     pub protocol_version: ProtocolVersion,
     pub market_code_id: u64,
     pub market_checksum: HexBinary,

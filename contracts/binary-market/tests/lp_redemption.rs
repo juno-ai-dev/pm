@@ -13,6 +13,7 @@ use pm_types::{Outcome, Payout, ProtocolVersion, TierId};
 
 fn config() -> Config {
     Config {
+        contract_profile: pm_types::ContractProfile::Juno1,
         protocol_version: ProtocolVersion::V1,
         factory: Addr::unchecked("factory"),
         creator: Addr::unchecked("creator"),

@@ -13,6 +13,8 @@ use pm_types::{Payout, TierId};
 
 fn instantiate_msg() -> InstantiateMsg {
     InstantiateMsg {
+        contract_profile: pm_types::ContractProfile::Juno1,
+        collateral_denom: pm_types::UJUNO_DENOM.into(),
         factory: "factory".into(),
         creator: "creator".into(),
         oracle: "oracle".into(),

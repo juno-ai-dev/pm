@@ -26,6 +26,7 @@ permissions:
 
 env:
   OPTIMIZER_IMAGE: cosmwasm/optimizer:0.17.0@sha256:7e0b9229c1a4118d0c9a2af2e7f5d95a91f264c26a2ce5681c779926e74d7f85
+  WASM_TOOLS_VERSION: 1.252.0
 
 jobs:
   workspace:
@@ -35,6 +36,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # master, reviewed 2026-07-15
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - run: cargo install wasm-tools --version "$WASM_TOOLS_VERSION" --locked
       - run: ./scripts/validate.sh
       - run: python3 -m unittest tests/quality/test_quality_report.py
       - run: python3 scripts/quality/verify-report.py quality/gas-storage-report.json
@@ -73,11 +75,18 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # master, reviewed 2026-07-15
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - run: cargo install wasm-tools --version "$WASM_TOOLS_VERSION" --locked
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with: { name: release-build-one, path: one }
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with: { name: release-build-two, path: two }
       - run: python3 scripts/release/compare-builds.py one two
+      - run: python3 scripts/release/verify-wasm-exports.py exports one/artifacts/binary_market.wasm instantiate execute reply query
+      - run: python3 scripts/release/verify-wasm-exports.py exports one/artifacts/cw_reality.wasm instantiate execute query migrate
+      - run: python3 scripts/release/verify-wasm-exports.py exports one/artifacts/market_factory.wasm instantiate execute reply query
+      - run: python3 scripts/release/verify-wasm-exports.py distinct one/artifacts/*.wasm
       - run: python3 scripts/quality/verify-report.py quality/gas-storage-report.json one/release-manifest.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

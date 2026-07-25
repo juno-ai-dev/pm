@@ -60,6 +60,7 @@ fn python_jcs_and_canonical_address_length_vectors_match() {
         &Addr::unchecked("market"),
         &Addr::unchecked("oracle"),
         &Addr::unchecked("governance"),
+        "ujuno",
         1_800_000_000,
         1_800_086_400,
         Uint128::new(10_000_000),
@@ -95,6 +96,7 @@ fn python_jcs_and_canonical_address_length_vectors_match() {
             &market,
             86_400,
             Uint128::new(10_000_000),
+            "ujuno",
             1_800_086_400,
         );
         assert_eq!(hex::encode(id), expected);
@@ -109,6 +111,7 @@ fn python_jcs_and_canonical_address_length_vectors_match() {
         &canonical,
         86_400,
         Uint128::new(10_000_000),
+        "ujuno",
         1_800_086_400,
     );
     let collision = question_id_from_canonical(
@@ -119,6 +122,7 @@ fn python_jcs_and_canonical_address_length_vectors_match() {
         &canonical,
         86_400,
         Uint128::new(10_000_000),
+        "ujuno",
         1_800_086_400,
     );
     let distinct_nonce = question_id_from_canonical(
@@ -129,6 +133,7 @@ fn python_jcs_and_canonical_address_length_vectors_match() {
         &canonical,
         86_400,
         Uint128::new(10_000_000),
+        "ujuno",
         1_800_086_400,
     );
     assert_eq!(id, collision, "the oracle rejects this duplicate ID");
@@ -169,6 +174,8 @@ fn instantiate_asks_and_exact_reply_activates_atomically() {
             market_code,
             factory.clone(),
             &InstantiateMsg {
+                contract_profile: pm_types::ContractProfile::Juno1,
+                collateral_denom: pm_types::UJUNO_DENOM.into(),
                 factory: factory.to_string(),
                 creator: "creator".into(),
                 oracle: oracle.to_string(),
@@ -258,6 +265,8 @@ fn rejected_oracle_ask_rolls_back_question_and_funds() {
             market_code,
             factory.clone(),
             &InstantiateMsg {
+                contract_profile: pm_types::ContractProfile::Juno1,
+                collateral_denom: pm_types::UJUNO_DENOM.into(),
                 factory: factory.to_string(),
                 creator: "creator".into(),
                 oracle: oracle.to_string(),

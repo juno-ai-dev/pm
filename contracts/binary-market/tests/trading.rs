@@ -99,6 +99,8 @@ fn setup_with_position_cap(
             market_code,
             factory.clone(),
             &InstantiateMsg {
+                contract_profile: pm_types::ContractProfile::Juno1,
+                collateral_denom: pm_types::UJUNO_DENOM.into(),
                 factory: factory.to_string(),
                 creator: "creator".into(),
                 oracle: oracle.to_string(),
