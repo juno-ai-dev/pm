@@ -25,11 +25,11 @@ evidence PR is authorized.
   A host-native Cargo/`wasm-opt -Oz` build is **non-canonical and not deployable
   until explicitly approved**. It is useful only for local diagnosis and does
   not weaken or replace the pinned optimizer gate.
-* **Issue #63 / PR #66 is a deployment blocker.** The final release source must
-  expose the explicit `uni7` contract profile and bind it to `ujunox` throughout
+* **Merged PR #66 is a deployment prerequisite.** The approved release source must
+  include the explicit `uni7` contract profile and bind it to `ujunox` throughout
   factory, market, canonical question, oracle, settlement, and payout paths.
   Never deploy a `juno1` profile or pre-profile artifact on uni-7.
-* **Issue #61 / PR #62 is a deployment blocker.** `deployment.py preflight`
+* **Merged PR #62 is a deployment prerequisite.** `deployment.py preflight`
   intentionally requires its reviewed `scripts/release/verify-wasm-exports.py`.
   That gate must prove binary-market exports `instantiate,execute,reply,query`,
   cw-reality exports `instantiate,execute,query,migrate`, and market-factory exports
@@ -48,6 +48,7 @@ Required local commands are `python3`, `junod`, and a POSIX shell. Confirm the
 umask 077
 export WORK="$HOME/uni7-pm-57"                 # outside this checkout
 export RELEASE=/absolute/path/to/reviewed-release
+export SOURCE_COMMIT=FULL_40_HEX_COMMIT_EXPLICITLY_APPROVED_BY_REVIEWERS
 export RPC_A=https://first-independent-rpc.example
 export RPC_B=https://second-independent-rpc.example
 mkdir -p "$WORK/unsigned" "$WORK/receipts" "$WORK/queries"
@@ -55,16 +56,26 @@ mkdir -p "$WORK/unsigned" "$WORK/receipts" "$WORK/queries"
 python3 scripts/uni7/deployment.py preflight \
   --release-manifest "$RELEASE/release-manifest.json" \
   --artifacts "$RELEASE/artifacts" \
+  --source-commit "$SOURCE_COMMIT" \
+  --provider first-operator --provider second-operator \
   --rpc "$RPC_A" --rpc "$RPC_B" \
   --output "$WORK/deployment-manifest.json"
 python3 scripts/uni7/deployment.py validate-manifest \
   --manifest "$WORK/deployment-manifest.json"
 ```
 
-This checks the pinned optimizer identity, exact filename set, SHA-256 and byte
-size, distinct artifact checksums, required exports, chain ID, syncing state,
-height/time, and provider independence. Review the generated manifest and the
-release's source commit. Stop if any value differs from the approved candidate.
+This checks the pinned optimizer identity, SHA-256 and byte size, distinct
+artifact checksums, required exports, chain ID, syncing state, height/time, and
+provider independence. The artifact root must contain **only** the three exact
+regular files (`binary_market.wasm`, `cw_reality.wasm`, and
+`market_factory.wasm`): subdirectories, symlinks, manifests, and every other
+extra root entry fail preflight. `--source-commit` is mandatory, must equal the
+release manifest's full source commit, and must resolve locally as a commit via
+`git cat-file`; never put a transient PR-head SHA in the script or runbook.
+
+RPC URLs are persisted as public evidence. They must be HTTPS, normalized, and
+contain no userinfo, query, or fragment. Provider labels and normalized hosts
+must both differ; two paths on one host are not independent.
 
 ## 2. Generate and inspect three store transactions
 
@@ -90,11 +101,16 @@ junod query tx TX_HASH --node "$RPC_A" -o json > "$WORK/receipts/NAME-a.json"
 junod query tx TX_HASH --node "$RPC_B" -o json > "$WORK/receipts/NAME-b.json"
 python3 scripts/uni7/deployment.py record-receipt \
   --target binary_market.wasm --receipt "$WORK/receipts/NAME-a.json" \
+  --provider first-operator --endpoint "$RPC_A" \
   --manifest "$WORK/deployment-manifest.json"
 ```
 
-Repeat `record-receipt` with the second response: it is idempotent and rejects a
-changed code ID/hash/height. Repeat for all artifact targets. Then query each
+Repeat `record-receipt` with `--provider second-operator --endpoint "$RPC_B"`.
+The command is idempotent per provider and rejects changed code ID/hash/height.
+It records provenance plus parsed public fields only. A receipt is successful
+only when `code` is explicitly the JSON number `0` (missing, string, and Boolean
+values fail). Completion requires matching receipts from both providers. Repeat
+for all artifact targets. Then query each
 code ID from both RPCs at a common height:
 
 ```sh
@@ -117,7 +133,9 @@ scripts/uni7/prepare-unsigned.sh instantiate "$FROM" ORACLE_CODE_ID \
   pm-cw-reality-uni7-testnet "$WORK/oracle.json" "$WORK/unsigned/oracle.json"
 ```
 
-The CLI `--no-admin` and stored `admin:null` are separate immutability checks.
+The CLI `--no-admin` and independently queried chain `admin:null` are separate
+immutability checks. `record-receipt` never writes or infers an admin value from
+an instantiate receipt.
 Dry-run/simulate before any separately authorized signing. After success, fetch
 the receipt from both RPCs and `record-receipt --target oracle`. At the receipt
 height and again at a fresh common height, read back:
@@ -205,9 +223,10 @@ authority, oracle binding and artifact code IDs/checksums.
 
 ## 6. Sanitized completion/readback
 
-Add only the public query results needed by the manifest: both endpoint URLs,
+Add only the public query results needed by the manifest using the exact shape
+in [`uni7-deployment-manifest.template.md`](uni7-deployment-manifest.template.md): both endpoint URLs,
 height/time, code IDs/checksums, tx hashes, addresses, null admins, exact configs,
-question/market identity, source URLs, and explicit test-only authority label.
+question/market identity, and explicit test-only authority label.
 Do not copy CLI configuration, environment, balances unrelated to this demo,
 keyring output, unsigned/signed transaction bodies, or operator machine paths.
 
@@ -216,10 +235,13 @@ python3 scripts/uni7/deployment.py validate-manifest \
   --manifest "$WORK/deployment-manifest.json" --complete
 ```
 
-`--complete` requires dual independent observations, all three successful store
-receipts, oracle/factory/market addresses and receipts, and null top-level chain
-admins. Independent reviewers must re-query RPC B rather than trusting captured
-RPC A files. A valid manifest is evidence of a testnet deployment only; it is not
+`--complete` rejects arbitrary fields and requires matching dual-provider
+receipts, independently queried null chain admins for oracle/factory/market,
+dual artifact code/checksum evidence, and matching factory/market/oracle
+readbacks at one common height per provider (the two heights must remain within
+the recorded drift). It rechecks both status drift and `catching_up=false`.
+Independent reviewers must re-query RPC B rather than trusting captured RPC A
+files. A valid manifest is evidence of a testnet deployment only; it is not
 an audit, production readiness, launch approval, or permission to move funds.
 
 ## Recovery and stop conditions
@@ -230,5 +252,10 @@ first absent field. Never regenerate or rebroadcast a step merely because a CLI
 timed out: query its tx hash and sender sequence first. Stop on a failed tx,
 ambiguous event, chain/provider disagreement, sync status change, changed source
 commit, checksum/export mismatch, unexpected admin, config mismatch, incorrect
-denom, undisclosed authority, insufficient demo window, or any suspected secret
+denom, undisclosed authority, insufficient demo window, arbitrary manifest
+field, non-common query height, or any suspected secret
 capture. Quarantine secret-bearing files outside Git and rotate exposed secrets.
+The validator scans keys **and values**, including URLs, for mnemonic,
+private-key, password, token, bearer, API-key, and related patterns. Do not
+collect secrets in the first place; sanitization is a final fail-closed guard,
+not permission to process secret-bearing input.
