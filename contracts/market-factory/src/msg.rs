@@ -86,6 +86,10 @@ pub struct ConfigResponse {
 
 #[cw_serde]
 pub struct MarketRecord {
+    /// Immutable chain/denomination profile of this market.
+    pub contract_profile: ContractProfile,
+    /// Immutable native collateral denomination of this market.
+    pub collateral_denom: String,
     pub nonce: u64,
     pub market: String,
     pub creator: String,

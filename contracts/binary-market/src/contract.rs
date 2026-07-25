@@ -25,7 +25,7 @@ use cw_reality::{
     },
     state::{AnswerType, Question as OracleQuestion, State as OracleState},
 };
-use pm_types::{Outcome, Payout, ProtocolVersion};
+use pm_types::{ContractProfile, Outcome, Payout, ProtocolVersion};
 
 pub const REPLY_ACTIVATION: u64 = 1;
 pub const REPLY_CHALLENGE: u64 = 2;
@@ -454,13 +454,8 @@ fn execute_challenge_at(
             REPLY_CHALLENGE,
         ))
         .add_event(
-            Event::new("juno_pm_v1")
+            canonical_event(config, &env)
                 .add_attribute("action", "challenge_requested")
-                .add_attribute("protocol_version", "1")
-                .add_attribute("factory", config.factory.to_string())
-                .add_attribute("market", env.contract.address)
-                .add_attribute("height", env.block.height.to_string())
-                .add_attribute("block_time", env.block.time.seconds().to_string())
                 .add_attribute("authority", config.verdict_authority.to_string())
                 .add_attribute("challenger", info.sender)
                 .add_attribute("question_id", question_id.to_base64())
@@ -535,13 +530,8 @@ fn execute_governance_verdict(
             REPLY_GOVERNANCE_VERDICT,
         ))
         .add_event(
-            Event::new("juno_pm_v1")
+            canonical_event(config, &env)
                 .add_attribute("action", "governance_verdict_forwarded")
-                .add_attribute("protocol_version", "1")
-                .add_attribute("factory", config.factory.to_string())
-                .add_attribute("market", env.contract.address)
-                .add_attribute("height", env.block.height.to_string())
-                .add_attribute("block_time", env.block.time.seconds().to_string())
                 .add_attribute("authority", config.verdict_authority.to_string())
                 .add_attribute("question_id", question_id.to_base64())
                 .add_attribute("answer_hex", hex::encode(answer.as_slice()))
@@ -619,7 +609,7 @@ fn settle_challenge(
     })?;
     state::CHALLENGE.remove(deps.storage);
     state::REPLY_IN_PROGRESS.remove(deps.storage);
-    let event = Event::new("juno_pm_v1")
+    let event = canonical_event(config, env)
         .add_attribute(
             "action",
             if refund {
@@ -628,11 +618,6 @@ fn settle_challenge(
                 "challenge_slashed"
             },
         )
-        .add_attribute("protocol_version", "1")
-        .add_attribute("factory", config.factory.to_string())
-        .add_attribute("market", env.contract.address.to_string())
-        .add_attribute("height", env.block.height.to_string())
-        .add_attribute("block_time", env.block.time.seconds().to_string())
         .add_attribute("authority", config.verdict_authority.to_string())
         .add_attribute("challenger", challenge.challenger.to_string())
         .add_attribute("amount", amount)
@@ -707,13 +692,8 @@ fn execute_finalize_stalled(
         verify_pending_challenge(&actual, &question_id, challenge, challenge.deadline)?;
         state::REPLY_IN_PROGRESS.save(deps.storage, &ReplyInProgress::StalledCancellation)?;
         let challenge_bond = state::ACCOUNTING.load(deps.storage)?.challenge;
-        let event = Event::new("juno_pm_v1")
+        let event = canonical_event(config, &env)
             .add_attribute("action", "arbitration_stalled")
-            .add_attribute("protocol_version", "1")
-            .add_attribute("factory", config.factory.to_string())
-            .add_attribute("market", env.contract.address.to_string())
-            .add_attribute("height", env.block.height.to_string())
-            .add_attribute("block_time", env.block.time.seconds().to_string())
             .add_attribute("question_id", question_id.to_base64())
             .add_attribute("arbitration_deadline", challenge.deadline.to_string())
             .add_attribute("challenge_bond", challenge_bond);
@@ -802,12 +782,7 @@ fn execute_redeem_positions(
     state::POSITIONS.save(deps.storage, &info.sender, &position)?;
     state::ACCOUNTING.save(deps.storage, &accounting)?;
 
-    let event = Event::new("juno_pm_v1")
-        .add_attribute("protocol_version", "1")
-        .add_attribute("factory", config.factory.to_string())
-        .add_attribute("market", env.contract.address.to_string())
-        .add_attribute("height", env.block.height.to_string())
-        .add_attribute("block_time", env.block.time.seconds().to_string())
+    let event = canonical_event(config, &env)
         .add_attribute("action", "positions_redeemed")
         .add_attribute("account", info.sender.to_string())
         .add_attribute("yes_burned", yes.to_string())
@@ -939,13 +914,8 @@ fn execute_redeem_lp(
     accounting.terminal_liability_twice = Some(terminal);
     state::ACCOUNTING.save(deps.storage, &accounting)?;
 
-    let event = Event::new("juno_pm_v1")
+    let event = canonical_event(config, &env)
         .add_attribute("action", "lp_redeemed")
-        .add_attribute("protocol_version", "1")
-        .add_attribute("factory", config.factory.to_string())
-        .add_attribute("market", env.contract.address)
-        .add_attribute("height", env.block.height.to_string())
-        .add_attribute("block_time", env.block.time.seconds().to_string())
         .add_attribute("lp", info.sender.to_string())
         .add_attribute("lp_burned", amount)
         .add_attribute("position_paid", position_delta)
@@ -982,13 +952,8 @@ fn execute_claim_lp_accrual(
             amount: vec![cosmwasm_std::coin(payment.u128(), &config.collateral_denom)],
         })
         .add_event(
-            Event::new("juno_pm_v1")
+            canonical_event(config, &env)
                 .add_attribute("action", "lp_accrual_claimed")
-                .add_attribute("protocol_version", "1")
-                .add_attribute("factory", config.factory.to_string())
-                .add_attribute("market", env.contract.address)
-                .add_attribute("height", env.block.height.to_string())
-                .add_attribute("block_time", env.block.time.seconds().to_string())
                 .add_attribute("lp", info.sender)
                 .add_attribute("amount", payment)
                 .add_attribute("lp_accrual_after", "0"),
@@ -1052,11 +1017,8 @@ fn execute_resolve(deps: DepsMut, env: Env, config: &Config) -> Result<Response,
     state::LIFECYCLE.save(deps.storage, &lifecycle)?;
 
     Ok(Response::new().add_event(
-        Event::new("juno_pm_v1")
+        canonical_event(config, &env)
             .add_attribute("action", "market_resolved")
-            .add_attribute("protocol_version", "1")
-            .add_attribute("factory", config.factory.to_string())
-            .add_attribute("market", env.contract.address.to_string())
             .add_attribute("question_id", question_id.to_base64())
             .add_attribute(
                 "answer_hex",
@@ -1071,9 +1033,7 @@ fn execute_resolve(deps: DepsMut, env: Env, config: &Config) -> Result<Response,
             .add_attribute(
                 "terminal_liability_numerator",
                 terminal_liability_twice.to_string(),
-            )
-            .add_attribute("height", env.block.height.to_string())
-            .add_attribute("block_time", env.block.time.seconds().to_string()),
+            ),
     ))
 }
 
@@ -1124,6 +1084,25 @@ fn validate_amount(amount: Uint128, minimum: Uint128) -> Result<(), ContractErro
     Ok(())
 }
 
+/// Constructs the stable canonical event envelope. Profile and denomination
+/// are repeated on every canonical event so amounts always carry their unit.
+fn canonical_event(config: &Config, env: &Env) -> Event {
+    Event::new("juno_pm_v1")
+        .add_attribute("protocol_version", "1")
+        .add_attribute(
+            "contract_profile",
+            match config.contract_profile {
+                ContractProfile::Juno1 => "juno1",
+                ContractProfile::Uni7 => "uni7",
+            },
+        )
+        .add_attribute("collateral_denom", config.collateral_denom.clone())
+        .add_attribute("factory", config.factory.to_string())
+        .add_attribute("market", env.contract.address.to_string())
+        .add_attribute("height", env.block.height.to_string())
+        .add_attribute("block_time", env.block.time.seconds().to_string())
+}
+
 /// Cheap consensus assertion over aggregate ledgers. Map reconciliation is
 /// covered by model tests because maps cannot be summed during execution.
 fn assert_pre_resolution(accounting: &Accounting) -> Result<(), ContractError> {
@@ -1149,12 +1128,7 @@ fn complete_set_event(
     amount: Uint128,
     accounting: &Accounting,
 ) -> Event {
-    Event::new("juno_pm_v1")
-        .add_attribute("protocol_version", "1")
-        .add_attribute("factory", config.factory.to_string())
-        .add_attribute("market", env.contract.address.to_string())
-        .add_attribute("height", env.block.height.to_string())
-        .add_attribute("block_time", env.block.time.seconds().to_string())
+    canonical_event(config, env)
         .add_attribute("action", action)
         .add_attribute("account", caller.to_string())
         .add_attribute("amount", amount.to_string())
@@ -1334,12 +1308,7 @@ fn trade_event(
     before: Reserves,
     accounting: &Accounting,
 ) -> Event {
-    Event::new("juno_pm_v1")
-        .add_attribute("protocol_version", "1")
-        .add_attribute("factory", config.factory.to_string())
-        .add_attribute("market", env.contract.address.to_string())
-        .add_attribute("height", env.block.height.to_string())
-        .add_attribute("block_time", env.block.time.seconds().to_string())
+    canonical_event(config, env)
         .add_attribute("action", "trade")
         .add_attribute("side", side)
         .add_attribute(
@@ -1590,13 +1559,8 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
     state::POSITIONS.save(deps.storage, &config.initial_lp, &Position::default())?;
     state::REPLY_IN_PROGRESS.remove(deps.storage);
     Ok(Response::new().add_event(
-        cosmwasm_std::Event::new("juno_pm_v1")
+        canonical_event(&config, &env)
             .add_attribute("action", "market_activated")
-            .add_attribute("protocol_version", "1")
-            .add_attribute("factory", config.factory.to_string())
-            .add_attribute("market", env.contract.address.to_string())
-            .add_attribute("height", env.block.height.to_string())
-            .add_attribute("block_time", env.block.time.seconds().to_string())
             .add_attribute("creator", config.creator.to_string())
             .add_attribute("verdict_authority", config.verdict_authority.to_string())
             .add_attribute("lp", config.initial_lp.to_string())
@@ -2256,6 +2220,8 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             challenge_bond: config.challenge_bond,
         }),
         QueryMsg::Identity {} => to_json_binary(&IdentityResponse {
+            contract_profile: config.contract_profile,
+            collateral_denom: config.collateral_denom,
             protocol_version: ProtocolVersion::V1,
             factory: config.factory.to_string(),
             market: env.contract.address.to_string(),

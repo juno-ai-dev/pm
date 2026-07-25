@@ -279,6 +279,8 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
         .querier
         .query_wasm_smart(&market, &ChildQueryMsg::Question {})?;
     if identity.protocol_version != config.protocol_version
+        || identity.contract_profile != config.contract_profile
+        || identity.collateral_denom != config.collateral_denom
         || identity.factory != env.contract.address
         || identity.market != market
         || identity.nonce != pending.nonce
@@ -321,6 +323,8 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
         ContractError::ChildVerification("activated child has no question id".into())
     })?;
     let record = MarketRecord {
+        contract_profile: config.contract_profile.clone(),
+        collateral_denom: config.collateral_denom.clone(),
         nonce: pending.nonce,
         market: market.to_string(),
         creator: pending.creator.to_string(),
@@ -339,6 +343,14 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
     let common = |event: Event| {
         event
             .add_attribute("protocol_version", "1")
+            .add_attribute(
+                "contract_profile",
+                match config.contract_profile {
+                    ContractProfile::Juno1 => "juno1",
+                    ContractProfile::Uni7 => "uni7",
+                },
+            )
+            .add_attribute("collateral_denom", config.collateral_denom.clone())
             .add_attribute("factory", env.contract.address.to_string())
             .add_attribute("market", market.to_string())
             .add_attribute("height", env.block.height.to_string())

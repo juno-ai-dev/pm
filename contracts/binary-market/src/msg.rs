@@ -148,6 +148,10 @@ pub struct ConfigResponse {
 
 #[cw_serde]
 pub struct IdentityResponse {
+    /// Immutable chain/denomination profile selected at instantiation.
+    pub contract_profile: ContractProfile,
+    /// Immutable native collateral denomination bound by `contract_profile`.
+    pub collateral_denom: String,
     pub protocol_version: ProtocolVersion,
     pub factory: String,
     pub market: String,
