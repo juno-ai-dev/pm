@@ -25,7 +25,7 @@ use cw_reality::{
     },
     state::{AnswerType, Question as OracleQuestion, State as OracleState},
 };
-use pm_types::{Outcome, Payout, ProtocolVersion, UJUNO_DENOM};
+use pm_types::{Outcome, Payout, ProtocolVersion};
 
 pub const REPLY_ACTIVATION: u64 = 1;
 pub const REPLY_CHALLENGE: u64 = 2;
@@ -41,7 +41,7 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     validate_instantiate(&msg, env.block.time.seconds())?;
     let required = msg.initial_liquidity.checked_add(msg.oracle_bounty)?;
-    guards::exact_funds(&info.funds, UJUNO_DENOM, required)?;
+    guards::exact_funds(&info.funds, &msg.collateral_denom, required)?;
     let factory = deps.api.addr_validate(&msg.factory)?;
     guards::sender(&info.sender, &factory)?;
     let creator = deps.api.addr_validate(&msg.creator)?;
@@ -52,6 +52,7 @@ pub fn instantiate(
         &env.contract.address,
         &oracle,
         &verdict_authority,
+        &msg.collateral_denom,
         msg.close_ts,
         msg.opening_ts,
         msg.oracle_initial_bond,
@@ -65,9 +66,11 @@ pub fn instantiate(
         &question::hash_array(&question_hash)?,
         msg.answer_timeout_secs,
         msg.oracle_initial_bond,
+        &msg.collateral_denom,
         msg.opening_ts,
     )?;
     let config = Config {
+        contract_profile: msg.contract_profile,
         protocol_version: ProtocolVersion::V1,
         factory,
         initial_lp: creator.clone(),
@@ -75,7 +78,7 @@ pub fn instantiate(
         oracle,
         verdict_authority,
         tier: msg.tier,
-        collateral_denom: UJUNO_DENOM.to_owned(),
+        collateral_denom: msg.collateral_denom,
         close_ts: msg.close_ts,
         opening_ts: msg.opening_ts,
         initial_liquidity: msg.initial_liquidity,
@@ -144,7 +147,7 @@ pub fn instantiate(
     let ask = OracleExecuteMsg::AskQuestion {
         text: question_text,
         answer_type: AnswerType::Bool,
-        bond_denom: UJUNO_DENOM.to_owned(),
+        bond_denom: config.collateral_denom.clone(),
         initial_bond: msg.oracle_initial_bond,
         answer_timeout_secs: msg.answer_timeout_secs,
         arbitrator: Some(env.contract.address.to_string()),
@@ -158,7 +161,10 @@ pub fn instantiate(
         msg: CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.oracle.to_string(),
             msg: to_json_binary(&ask)?,
-            funds: vec![cosmwasm_std::coin(msg.oracle_bounty.u128(), UJUNO_DENOM)],
+            funds: vec![cosmwasm_std::coin(
+                msg.oracle_bounty.u128(),
+                &config.collateral_denom,
+            )],
         }),
         gas_limit: None,
         reply_on: ReplyOn::Success,
@@ -171,6 +177,11 @@ pub fn instantiate(
 }
 
 fn validate_instantiate(msg: &InstantiateMsg, creation_ts: u64) -> Result<(), ContractError> {
+    if msg.collateral_denom != msg.contract_profile.collateral_denom() {
+        return Err(ContractError::InvalidConfig(
+            "collateral denom does not match the explicit contract profile".into(),
+        ));
+    }
     if msg.close_ts <= creation_ts || msg.opening_ts < msg.close_ts {
         return Err(ContractError::InvalidConfig(
             "opening_ts must be at or after a future close_ts".into(),
@@ -217,7 +228,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::Split { amount } => {
             guards::trading(&env, &config, &lifecycle)?;
-            guards::exact_funds(&info.funds, UJUNO_DENOM, amount)?;
+            guards::exact_funds(&info.funds, &config.collateral_denom, amount)?;
             execute_split(deps, env, info, &config, amount)
         }
         ExecuteMsg::Buy {
@@ -228,12 +239,12 @@ pub fn execute(
             guards::trading(&env, &config, &lifecycle)?;
             guards::user_deadline(&env, deadline)?;
             if info.funds.len() != 1
-                || info.funds[0].denom != UJUNO_DENOM
+                || info.funds[0].denom != config.collateral_denom
                 || info.funds[0].amount.is_zero()
             {
                 return Err(ContractError::InvalidFunds {
                     expected: Uint128::zero(),
-                    denom: UJUNO_DENOM.into(),
+                    denom: config.collateral_denom.clone(),
                 });
             }
             let gross = info.funds[0].amount;
@@ -400,7 +411,7 @@ fn execute_challenge_at(
     let (answer, oracle_bond) =
         verify_challengeable_question(&actual, &question_id, config, &env.contract.address, now)?;
     let required = config.challenge_bond.max(oracle_bond);
-    guards::exact_funds(&info.funds, UJUNO_DENOM, required)?;
+    guards::exact_funds(&info.funds, &config.collateral_denom, required)?;
     let deadline = now
         .checked_add(u64::from(config.arbitration_timeout_secs))
         .ok_or(ContractError::ArbitrationDeadlineOverflow)?;
@@ -642,7 +653,7 @@ fn settle_challenge(
     if refund {
         Ok(response.add_message(BankMsg::Send {
             to_address: challenge.challenger.to_string(),
-            amount: vec![cosmwasm_std::coin(amount.u128(), UJUNO_DENOM)],
+            amount: vec![cosmwasm_std::coin(amount.u128(), &config.collateral_denom)],
         }))
     } else {
         Ok(response)
@@ -809,7 +820,7 @@ fn execute_redeem_positions(
     } else {
         Ok(response.add_message(BankMsg::Send {
             to_address: info.sender.to_string(),
-            amount: vec![cosmwasm_std::coin(payment.u128(), UJUNO_DENOM)],
+            amount: vec![cosmwasm_std::coin(payment.u128(), &config.collateral_denom)],
         }))
     }
 }
@@ -946,7 +957,7 @@ fn execute_redeem_lp(
     } else {
         Ok(response.add_message(BankMsg::Send {
             to_address: info.sender.to_string(),
-            amount: vec![cosmwasm_std::coin(payment.u128(), UJUNO_DENOM)],
+            amount: vec![cosmwasm_std::coin(payment.u128(), &config.collateral_denom)],
         }))
     }
 }
@@ -968,7 +979,7 @@ fn execute_claim_lp_accrual(
     Ok(Response::new()
         .add_message(BankMsg::Send {
             to_address: info.sender.to_string(),
-            amount: vec![cosmwasm_std::coin(payment.u128(), UJUNO_DENOM)],
+            amount: vec![cosmwasm_std::coin(payment.u128(), &config.collateral_denom)],
         })
         .add_event(
             Event::new("juno_pm_v1")
@@ -1221,7 +1232,7 @@ fn execute_merge(
     Ok(Response::new()
         .add_message(BankMsg::Send {
             to_address: info.sender.to_string(),
-            amount: vec![cosmwasm_std::coin(amount.u128(), UJUNO_DENOM)],
+            amount: vec![cosmwasm_std::coin(amount.u128(), &config.collateral_denom)],
         })
         .add_event(complete_set_event(
             "merge",
@@ -1439,7 +1450,10 @@ fn execute_sell(
     Ok(Response::new()
         .add_message(BankMsg::Send {
             to_address: info.sender.to_string(),
-            amount: vec![cosmwasm_std::coin(return_amount.u128(), UJUNO_DENOM)],
+            amount: vec![cosmwasm_std::coin(
+                return_amount.u128(),
+                &config.collateral_denom,
+            )],
         })
         .add_event(trade_event(
             "sell",
@@ -1606,7 +1620,7 @@ fn verify_oracle_question(
         && q.asker == *market
         && q.text.as_bytes() == config.question.as_bytes()
         && q.answer_type == AnswerType::Bool
-        && q.bond_denom == UJUNO_DENOM
+        && q.bond_denom == config.collateral_denom
         && q.initial_bond == config.oracle_initial_bond
         && q.min_bond == config.oracle_initial_bond
         && q.answer_timeout_secs == config.answer_timeout_secs
@@ -1653,12 +1667,13 @@ mod activation_verification_tests {
         msg::{FinalAnswerResponse, QueryMsg as OracleQueryMsg, QuestionResponse},
         state::{AnswerType, Question, State},
     };
-    use pm_types::{ProtocolVersion, TierId};
+    use pm_types::{ContractProfile, ProtocolVersion, TierId};
 
     fn fixture() -> (Config, Addr, Binary, QuestionResponse) {
         let market = Addr::unchecked("market");
         let expected_id = Binary::from(vec![7; 32]);
         let config = Config {
+            contract_profile: ContractProfile::Juno1,
             protocol_version: ProtocolVersion::V1,
             factory: Addr::unchecked("factory"),
             creator: Addr::unchecked("creator"),
@@ -2217,6 +2232,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     let config = state::CONFIG.load(deps.storage)?;
     match msg {
         QueryMsg::Config {} => to_json_binary(&ConfigResponse {
+            contract_profile: config.contract_profile,
             protocol_version: config.protocol_version,
             factory: config.factory.to_string(),
             creator: config.creator.to_string(),

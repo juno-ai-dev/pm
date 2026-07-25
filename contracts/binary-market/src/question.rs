@@ -63,7 +63,7 @@ struct CanonicalDocument<'a> {
     arbitration_timeout_secs: u32,
     challenge_bond_rule: &'static str,
     close_ts: u64,
-    collateral_denom: &'static str,
+    collateral_denom: &'a str,
     definitions: &'a [String],
     invalid_conditions: &'a [String],
     language: &'static str,
@@ -71,7 +71,7 @@ struct CanonicalDocument<'a> {
     observation: ObservationDocument<'a>,
     opening_ts: u64,
     oracle: &'a str,
-    oracle_bond_denom: &'static str,
+    oracle_bond_denom: &'a str,
     oracle_initial_bond: String,
     oracle_question_type: &'static str,
     payouts: Payouts,
@@ -195,6 +195,7 @@ pub fn canonical_question(
     market: &Addr,
     oracle: &Addr,
     governance: &Addr,
+    collateral_denom: &str,
     close_ts: u64,
     opening_ts: u64,
     oracle_initial_bond: Uint128,
@@ -251,7 +252,7 @@ pub fn canonical_question(
         arbitration_timeout_secs: ARBITRATION_TIMEOUT_SECS,
         challenge_bond_rule: "max(tier_floor,current_oracle_bond)",
         close_ts,
-        collateral_denom: "ujuno",
+        collateral_denom,
         definitions: &input.definitions,
         invalid_conditions: &input.invalid_conditions,
         language: "en",
@@ -266,7 +267,7 @@ pub fn canonical_question(
         },
         opening_ts,
         oracle: oracle.as_str(),
-        oracle_bond_denom: "ujuno",
+        oracle_bond_denom: collateral_denom,
         oracle_initial_bond: oracle_initial_bond.to_string(),
         oracle_question_type: "bool",
         payouts: Payouts {
@@ -310,6 +311,7 @@ pub fn question_id(
     content_hash: &[u8; 32],
     answer_timeout_secs: u32,
     initial_bond: Uint128,
+    bond_denom: &str,
     opening_ts: u64,
 ) -> StdResult<Binary> {
     let oracle = api.addr_canonicalize(oracle.as_str())?;
@@ -322,6 +324,7 @@ pub fn question_id(
         market.as_slice(),
         answer_timeout_secs,
         initial_bond,
+        bond_denom,
         opening_ts,
     )))
 }
@@ -337,6 +340,7 @@ pub fn question_id_from_canonical(
     arbitrator: &[u8],
     answer_timeout_secs: u32,
     initial_bond: Uint128,
+    bond_denom: &str,
     opening_ts: u64,
 ) -> [u8; 32] {
     let mut hasher = Sha256::new();
@@ -348,8 +352,8 @@ pub fn question_id_from_canonical(
     hasher.update(arbitrator);
     hasher.update(answer_timeout_secs.to_be_bytes());
     hasher.update(initial_bond.u128().to_be_bytes());
-    hasher.update(("ujuno".len() as u32).to_be_bytes());
-    hasher.update(b"ujuno");
+    hasher.update((bond_denom.len() as u32).to_be_bytes());
+    hasher.update(bond_denom.as_bytes());
     hasher.update(opening_ts.to_be_bytes());
     hasher.finalize().into()
 }

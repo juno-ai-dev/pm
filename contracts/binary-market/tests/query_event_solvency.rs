@@ -95,6 +95,8 @@ fn setup() -> (App, Addr) {
             market_code,
             factory.clone(),
             &InstantiateMsg {
+                contract_profile: pm_types::ContractProfile::Juno1,
+                collateral_denom: pm_types::UJUNO_DENOM.into(),
                 factory: factory.to_string(),
                 creator: "creator".into(),
                 oracle: oracle.to_string(),
@@ -405,6 +407,7 @@ fn seed_instantiate(
     msg: SeedMsg,
 ) -> Result<Response, binary_market::error::ContractError> {
     let config = Config {
+        contract_profile: pm_types::ContractProfile::Juno1,
         protocol_version: ProtocolVersion::V1,
         factory: Addr::unchecked("factory"),
         creator: Addr::unchecked("creator"),

@@ -158,6 +158,8 @@ fn setup(initial_answer: Binary) -> Fixture {
             market_code,
             factory.clone(),
             &InstantiateMsg {
+                contract_profile: pm_types::ContractProfile::Juno1,
+                collateral_denom: pm_types::UJUNO_DENOM.into(),
                 factory: factory.to_string(),
                 creator: "creator".into(),
                 oracle: oracle.to_string(),
@@ -951,6 +953,8 @@ fn invalid_authority_rejects_instantiation() {
 
 fn setup_message_for_validation() -> InstantiateMsg {
     InstantiateMsg {
+        contract_profile: pm_types::ContractProfile::Juno1,
+        collateral_denom: pm_types::UJUNO_DENOM.into(),
         factory: "factory".into(),
         creator: "creator".into(),
         oracle: "oracle".into(),

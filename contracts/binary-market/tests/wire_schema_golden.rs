@@ -36,6 +36,7 @@ fn every_v1_query_response_has_an_explicit_golden_field_set() {
         (
             "config",
             &[
+                "contract_profile",
                 "protocol_version",
                 "factory",
                 "creator",

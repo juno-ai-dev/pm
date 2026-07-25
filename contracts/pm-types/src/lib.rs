@@ -6,8 +6,28 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Binary, Uint128};
 
-/// The only collateral denomination supported by the v1 shared types.
+/// Production `juno-1` collateral denomination.
 pub const UJUNO_DENOM: &str = "ujuno";
+/// Testnet `uni-7` collateral denomination.
+pub const UJUNOX_DENOM: &str = "ujunox";
+
+/// Explicit immutable deployment profile. Profiles are never inferred from
+/// funds or chain context.
+#[cw_serde]
+pub enum ContractProfile {
+    Juno1,
+    Uni7,
+}
+
+impl ContractProfile {
+    #[must_use]
+    pub const fn collateral_denom(&self) -> &'static str {
+        match self {
+            Self::Juno1 => UJUNO_DENOM,
+            Self::Uni7 => UJUNOX_DENOM,
+        }
+    }
+}
 
 /// One of the two tradeable outcomes.
 #[cw_serde]
@@ -101,6 +121,7 @@ pub struct Question {
 /// Schema-only aggregate that keeps every shared public type in one snapshot.
 #[cw_serde]
 pub struct PublicTypes {
+    pub contract_profile: ContractProfile,
     pub outcome: Outcome,
     pub payout: Payout,
     pub version: ProtocolVersion,

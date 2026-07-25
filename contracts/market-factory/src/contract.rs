@@ -13,7 +13,7 @@ use cw2::set_contract_version;
 use cw_reality::{msg::QueryMsg as OracleQueryMsg, state::Config as OracleConfig};
 use cw_storage_plus::Bound;
 use cw_utils::parse_reply_instantiate_data;
-use pm_types::{ProtocolVersion, TierId, UJUNO_DENOM};
+use pm_types::{ContractProfile, ProtocolVersion, TierId};
 
 use crate::{
     error::ContractError,
@@ -78,6 +78,7 @@ pub fn instantiate(
     CONFIG.save(
         deps.storage,
         &Config {
+            contract_profile: msg.contract_profile,
             protocol_version: msg.protocol_version,
             market_code_id: msg.market_code_id,
             market_checksum: msg.market_checksum,
@@ -98,9 +99,11 @@ pub fn instantiate(
 
 fn validate_tier(msg: &InstantiateMsg) -> Result<(), ContractError> {
     let t = &msg.tier;
+    let valid_profile = msg.collateral_denom == msg.contract_profile.collateral_denom()
+        && (msg.contract_profile != ContractProfile::Juno1
+            || msg.verdict_authority == V1_VERDICT_AUTHORITY);
     if msg.protocol_version != ProtocolVersion::V1
-        || msg.collateral_denom != UJUNO_DENOM
-        || msg.verdict_authority != V1_VERDICT_AUTHORITY
+        || !valid_profile
         || msg.market_code_id == 0
         || msg.oracle_code_id == 0
         || msg.oracle_checksum.is_empty()
@@ -176,6 +179,7 @@ fn create_market(
         &env.contract.address,
         &config.oracle,
         &config.verdict_authority,
+        &config.collateral_denom,
         request.close_ts,
         request.opening_ts,
         config.tier.oracle_initial_bond,
@@ -197,6 +201,8 @@ fn create_market(
         },
     )?;
     let child = ChildInstantiateMsg {
+        contract_profile: config.contract_profile.clone(),
+        collateral_denom: config.collateral_denom.clone(),
         factory: env.contract.address.to_string(),
         creator: info.sender.to_string(),
         oracle: config.oracle.to_string(),
@@ -280,6 +286,7 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
         || !state.activated
         || state.status == LifecycleStatus::Initializing
         || child.protocol_version != config.protocol_version
+        || child.contract_profile != config.contract_profile
         || child.factory != env.contract.address
         || child.creator != pending.creator
         || child.initial_lp != pending.creator
@@ -403,6 +410,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<cosmwasm_std::Bi
 
 fn config_response(config: Config) -> ConfigResponse {
     ConfigResponse {
+        contract_profile: config.contract_profile,
         protocol_version: config.protocol_version,
         market_code_id: config.market_code_id,
         market_checksum: config.market_checksum,

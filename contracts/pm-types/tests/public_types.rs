@@ -1,13 +1,14 @@
 use cosmwasm_schema::schema_for;
 use cosmwasm_std::{from_json, to_json_binary, Binary, Uint128};
 use pm_types::{
-    OracleAnswer, Outcome, Payout, ProtocolVersion, PublicTypes, Question, TierId, Ujuno,
-    UnixTimestamp, UJUNO_DENOM,
+    ContractProfile, OracleAnswer, Outcome, Payout, ProtocolVersion, PublicTypes, Question, TierId,
+    Ujuno, UnixTimestamp, UJUNOX_DENOM, UJUNO_DENOM,
 };
 
 #[test]
 fn public_types_round_trip_without_losing_wire_meaning() {
     let value = PublicTypes {
+        contract_profile: ContractProfile::Juno1,
         outcome: Outcome::Yes,
         payout: Payout::neutral(),
         version: ProtocolVersion::V1,
@@ -27,9 +28,12 @@ fn public_types_round_trip_without_losing_wire_meaning() {
 
     assert_eq!(decoded, value);
     assert_eq!(UJUNO_DENOM, "ujuno");
+    assert_eq!(UJUNOX_DENOM, "ujunox");
+    assert_eq!(ContractProfile::Juno1.collateral_denom(), UJUNO_DENOM);
+    assert_eq!(ContractProfile::Uni7.collateral_denom(), UJUNOX_DENOM);
     assert_eq!(
         String::from_utf8(encoded.to_vec()).unwrap(),
-        r#"{"outcome":"yes","payout":{"yes_numerator":"1","no_numerator":"1","denominator":"2"},"version":"v1","tier":7,"question":{"id":"AAH/","text":"Will the event occur?","close_time":1800000000,"opening_time":1800000001},"amount":"1000000","answer":"AP8B"}"#
+        r#"{"contract_profile":"juno1","outcome":"yes","payout":{"yes_numerator":"1","no_numerator":"1","denominator":"2"},"version":"v1","tier":7,"question":{"id":"AAH/","text":"Will the event occur?","close_time":1800000000,"opening_time":1800000001},"amount":"1000000","answer":"AP8B"}"#
     );
 }
 

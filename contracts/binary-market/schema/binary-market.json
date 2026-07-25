@@ -12,6 +12,8 @@
       "challenge_bond",
       "close_ts",
       "collateral_cap",
+      "collateral_denom",
+      "contract_profile",
       "creator",
       "factory",
       "fee_bps",
@@ -49,6 +51,18 @@
       },
       "collateral_cap": {
         "$ref": "#/definitions/Uint128"
+      },
+      "collateral_denom": {
+        "description": "Must exactly match `contract_profile`.",
+        "type": "string"
+      },
+      "contract_profile": {
+        "description": "Explicit chain/denom profile; never inferred from attached funds.",
+        "allOf": [
+          {
+            "$ref": "#/definitions/ContractProfile"
+          }
+        ]
       },
       "creator": {
         "type": "string"
@@ -121,6 +135,14 @@
     },
     "additionalProperties": false,
     "definitions": {
+      "ContractProfile": {
+        "description": "Explicit immutable deployment profile. Profiles are never inferred from funds or chain context.",
+        "type": "string",
+        "enum": [
+          "juno1",
+          "uni7"
+        ]
+      },
       "ObservationInput": {
         "type": "object",
         "required": [
@@ -1147,6 +1169,7 @@
         "close_ts",
         "collateral_cap",
         "collateral_denom",
+        "contract_profile",
         "creator",
         "factory",
         "fee_bps",
@@ -1187,6 +1210,9 @@
         },
         "collateral_denom": {
           "type": "string"
+        },
+        "contract_profile": {
+          "$ref": "#/definitions/ContractProfile"
         },
         "creator": {
           "type": "string"
@@ -1245,6 +1271,14 @@
       },
       "additionalProperties": false,
       "definitions": {
+        "ContractProfile": {
+          "description": "Explicit immutable deployment profile. Profiles are never inferred from funds or chain context.",
+          "type": "string",
+          "enum": [
+            "juno1",
+            "uni7"
+          ]
+        },
         "ProtocolVersion": {
           "description": "Version of the shared prediction-market wire protocol.",
           "type": "string",

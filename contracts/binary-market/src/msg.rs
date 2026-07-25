@@ -4,10 +4,14 @@ use crate::question::QuestionInput;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Binary, Uint128, Uint512};
 use cw_reality::state::Question as OracleQuestion;
-use pm_types::{Outcome, Payout, ProtocolVersion, TierId};
+use pm_types::{ContractProfile, Outcome, Payout, ProtocolVersion, TierId};
 
 #[cw_serde]
 pub struct InstantiateMsg {
+    /// Explicit chain/denom profile; never inferred from attached funds.
+    pub contract_profile: ContractProfile,
+    /// Must exactly match `contract_profile`.
+    pub collateral_denom: String,
     pub factory: String,
     pub creator: String,
     pub oracle: String,
@@ -117,6 +121,7 @@ pub enum LifecycleStatus {
 
 #[cw_serde]
 pub struct ConfigResponse {
+    pub contract_profile: ContractProfile,
     pub protocol_version: ProtocolVersion,
     pub factory: String,
     pub creator: String,
