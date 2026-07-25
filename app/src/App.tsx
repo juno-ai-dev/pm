@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type MouseEvent, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { Button, StatePanel } from './components/ui'
 import { markets } from './fixtures/markets'
 import { useWallet, WalletProvider } from './wallet'
@@ -18,7 +18,7 @@ function useRoute() {
   return route
 }
 
-function Link({ to, children, className, label }: { to: string; children: ReactNode; className?: string; label?: string }) {
+function Link({ to, children, className, label, current = false }: { to: string; children: ReactNode; className?: string; label?: string; current?: boolean }) {
   const { navigate } = useRoute()
   const follow = (event: MouseEvent<HTMLAnchorElement>) => {
     if (!event.defaultPrevented && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
@@ -26,7 +26,7 @@ function Link({ to, children, className, label }: { to: string; children: ReactN
       navigate(to)
     }
   }
-  return <a href={to} className={className} aria-label={label} onClick={follow}>{children}</a>
+  return <a href={to} className={className} aria-label={label} aria-current={current ? 'page' : undefined} onClick={follow}>{children}</a>
 }
 
 function WalletControl() {
@@ -60,6 +60,13 @@ function WalletControl() {
 function Shell() {
   const { url } = useRoute()
   const path = url.split('?')[0]
+  const previousPath = useRef(path)
+  useEffect(() => {
+    if (previousPath.current !== path) {
+      document.getElementById('main-content')?.focus()
+      previousPath.current = path
+    }
+  }, [path])
   let route: ReactNode
   if (path === '/markets') route = <Markets />
   else if (path.startsWith('/markets/')) route = <MarketDetail address={decodeURIComponent(path.slice('/markets/'.length))} />
@@ -81,9 +88,10 @@ function Shell() {
         <WalletControl />
       </header>
       <nav className="primary-nav" aria-label="Primary navigation">
-        {navigation.map((item) => (
-          <Link key={item.to} to={item.to} className={path === item.to || (item.to === '/markets' && path.startsWith('/markets/')) ? 'active' : undefined}>{item.label}</Link>
-        ))}
+        {navigation.map((item) => {
+          const current = path === item.to || (item.to === '/markets' && path.startsWith('/markets/'))
+          return <Link key={item.to} to={item.to} current={current} className={current ? 'active' : undefined}>{item.label}</Link>
+        })}
       </nav>
       <main id="main-content" tabIndex={-1}>{route}</main>
       <footer>

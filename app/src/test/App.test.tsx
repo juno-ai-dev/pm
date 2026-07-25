@@ -30,6 +30,8 @@ describe('maintained app shell', () => {
     expect(create).toHaveFocus()
     await user.keyboard('{Enter}')
     expect(screen.getByRole('heading', { level: 1, name: 'Create market' })).toBeInTheDocument()
+    expect(screen.getByRole('main')).toHaveFocus()
+    expect(create).toHaveAttribute('aria-current', 'page')
   })
 
   it('renders the address-based fixture route without presenting a live address', () => {
