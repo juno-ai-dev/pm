@@ -19,7 +19,8 @@ evidence PR is authorized.
 * Use two independently operated HTTPS RPC providers with distinct globally
   routable DNS hosts. Both must report `catching_up=false`; the preflight defaults
   to at most 20 blocks of drift. Localhost, IP literals, private/internal names,
-  URL credentials, query strings, and fragments are rejected.
+  URL credentials, query strings, and fragments are rejected. DNS resolution must
+  succeed and every returned address must be globally routable.
 * Consume a twice-reproduced, reviewed `build-release.sh` output. Do not rebuild
   during deployment and do not substitute similarly named files.
 * The canonical release gate remains the pinned

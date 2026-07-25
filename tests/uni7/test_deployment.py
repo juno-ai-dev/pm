@@ -20,6 +20,20 @@ assert SPEC and SPEC.loader
 DEPLOY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(DEPLOY)
 
+REAL_DNS_RESOLVER = DEPLOY._resolve_public_dns
+TEST_PUBLIC_HOSTS = {
+    "rpc-a.provider-one.org", "rpc-b.provider-two.net",
+    "rpc.provider-one.org", "rpc-c.provider-three.com",
+}
+
+
+def _test_dns_resolver(host: str) -> None:
+    if host not in TEST_PUBLIC_HOSTS:
+        raise DEPLOY.ValidationError("test host is not publicly resolvable")
+
+
+setattr(DEPLOY, "_resolve_public_dns", _test_dns_resolver)
+
 TX = "A" * 64
 ADDR = "juno1" + "q" * 38
 FACTORY = "juno1" + "r" * 38
@@ -152,6 +166,18 @@ class StatusAndEndpointTests(unittest.TestCase):
             with self.subTest(key=key, bad=bad), self.assertRaises(DEPLOY.ValidationError):
                 DEPLOY.parse_status(value)
 
+    def test_dns_resolution_requires_only_global_addresses(self):
+        public_answer = [(DEPLOY.socket.AF_INET, DEPLOY.socket.SOCK_STREAM, 6, "", ("8.8.8.8", 443))]
+        private_answer = [(DEPLOY.socket.AF_INET, DEPLOY.socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443))]
+        with mock.patch.object(DEPLOY.socket, "getaddrinfo", return_value=public_answer):
+            REAL_DNS_RESOLVER.__wrapped__("rpc.provider.org")
+        with mock.patch.object(DEPLOY.socket, "getaddrinfo", return_value=private_answer):
+            with self.assertRaises(DEPLOY.ValidationError):
+                REAL_DNS_RESOLVER.__wrapped__("rpc.provider.org")
+        with mock.patch.object(DEPLOY.socket, "getaddrinfo", side_effect=DEPLOY.socket.gaierror()):
+            with self.assertRaises(DEPLOY.ValidationError):
+                REAL_DNS_RESOLVER.__wrapped__("rpc.alt")
+
     def test_endpoint_is_https_persistable_public_dns_and_host_distinct(self):
         self.assertEqual(
             DEPLOY.normalize_endpoint("https://RPC.PROVIDER-ONE.ORG.:443/base/")[0],
@@ -169,6 +195,10 @@ class StatusAndEndpointTests(unittest.TestCase):
             "https://bad_host.provider.org",
             "https://singlelabel",
             "https://rpc.example",
+            "https://rpc.alt",
+            "https://rpc.localdomain",
+            "https://rpc.corp",
+            "https://rpc.private",
         ):
             with self.subTest(endpoint=endpoint), self.assertRaises(DEPLOY.ValidationError):
                 DEPLOY.normalize_endpoint(endpoint)
@@ -204,6 +234,7 @@ class ReceiptTests(unittest.TestCase):
             DEPLOY.parse_receipt(receipt, "store")
 
     def test_market_receipt_normalizes_real_factory_and_oracle_question_formats(self):
+        encode = lambda value: base64.b64encode(value.encode()).decode()
         question_base64 = base64.b64encode(bytes.fromhex(QID)).decode()
         receipt = {
             "code": 0,
@@ -211,11 +242,11 @@ class ReceiptTests(unittest.TestCase):
             "height": 34,
             "events": [
                 {"attributes": [
-                    {"key": "_contract_address", "value": FACTORY},
-                    {"key": "_contract_address", "value": MARKET},
-                    {"key": "_contract_address", "value": ADDR},
-                    {"key": "market", "value": MARKET},
-                    {"key": "question_id", "value": question_base64},
+                    {"key": encode("_contract_address"), "value": encode(FACTORY)},
+                    {"key": encode("_contract_address"), "value": encode(MARKET)},
+                    {"key": encode("_contract_address"), "value": encode(ADDR)},
+                    {"key": encode("market"), "value": encode(MARKET)},
+                    {"key": encode("question_id"), "value": encode(question_base64)},
                 ]},
                 {"attributes": [
                     {"key": "question_id", "value": QID},

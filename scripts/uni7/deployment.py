@@ -10,12 +10,14 @@ import argparse
 import base64
 import binascii
 import datetime
+import functools
 import hashlib
 import importlib.util
 import ipaddress
 import json
 import pathlib
 import re
+import socket
 import subprocess
 import sys
 import urllib.parse
@@ -140,6 +142,24 @@ def _amount(value: Any, path: str, *, positive: bool = False) -> int:
     return int(value)
 
 
+@functools.lru_cache(maxsize=32)
+def _resolve_public_dns(host: str) -> None:
+    try:
+        answers = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise ValidationError("RPC endpoint DNS host is not publicly resolvable") from exc
+    addresses = {answer[4][0] for answer in answers}
+    if not addresses:
+        raise ValidationError("RPC endpoint DNS host has no address records")
+    for address in addresses:
+        try:
+            parsed = ipaddress.ip_address(address)
+        except ValueError as exc:
+            raise ValidationError("RPC endpoint DNS returned a malformed address") from exc
+        if not parsed.is_global:
+            raise ValidationError("RPC endpoint DNS must resolve only to globally routable addresses")
+
+
 def normalize_endpoint(endpoint: Any) -> tuple[str, str]:
     if not isinstance(endpoint, str) or endpoint != endpoint.strip() or FORBIDDEN_VALUES.search(endpoint):
         raise ValidationError("RPC endpoint is invalid or secret-bearing")
@@ -171,6 +191,7 @@ def normalize_endpoint(endpoint: Any) -> tuple[str, str]:
             raise ValidationError("RPC endpoint must use a globally routable DNS provider host")
     else:
         raise ValidationError("RPC endpoint must use a DNS provider host, not an IP literal")
+    _resolve_public_dns(host)
     netloc = host if port in (None, 443) else f"{host}:{port}"
     path = parsed.path.rstrip("/")
     normalized = urllib.parse.urlunsplit(("https", netloc, path, "", ""))
@@ -314,7 +335,7 @@ def validate_artifacts(root: pathlib.Path, release: pathlib.Path, artifact_dir: 
             "artifacts": result}
 
 
-EVENT_KEYS = {"code_id", "_contract_address", "contract_address", "question_id"}
+EVENT_KEYS = {"code_id", "_contract_address", "contract_address", "market", "question_id"}
 
 
 def _base64_text(value: Any) -> str | None:
