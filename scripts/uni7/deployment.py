@@ -310,8 +310,12 @@ def validate_manifest(value: dict[str, Any], *, complete: bool = False) -> None:
         if not ADDRESS.fullmatch(str(authority)) or factory.get("verdict_authority_kind") not in {
             "disclosed test-only authority", "verified uni-7 DAO core"}:
             raise ValidationError("factory verdict authority is invalid or not explicitly disclosed")
-        if factory.get("tier") != EXPECTED_TIER or factory.get("collateral_denom") != DENOM:
-            raise ValidationError("factory tier/denom readback does not match the accepted canary")
+        if (
+            factory.get("contract_profile") != "uni7"
+            or factory.get("tier") != EXPECTED_TIER
+            or factory.get("collateral_denom") != DENOM
+        ):
+            raise ValidationError("factory profile/tier/denom readback does not match the accepted canary")
         links = (
             (factory.get("code_id"), artifacts["market_factory.wasm"].get("code_id")),
             (factory.get("market_code_id"), artifacts["binary_market.wasm"].get("code_id")),
@@ -321,6 +325,7 @@ def validate_manifest(value: dict[str, Any], *, complete: bool = False) -> None:
             (market.get("factory"), factory.get("address")),
             (market.get("oracle"), oracle.get("address")),
             (market.get("verdict_authority"), authority),
+            (market.get("contract_profile"), "uni7"),
             (market.get("collateral_denom"), DENOM),
         )
         if any(actual != expected for actual, expected in links):

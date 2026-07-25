@@ -159,15 +159,22 @@ class ManifestTests(unittest.TestCase):
             "oracle": {"address": ADDR, "txhash": TX, "admin": None,
                        "config": dict(DEPLOY.EXPECTED_ORACLE)},
             "factory": {"address": ADDR, "txhash": TX, "admin": None, "code_id": 3,
-                        "market_code_id": 1, "oracle_code_id": 2, "oracle": ADDR,
+                        "contract_profile": "uni7", "market_code_id": 1,
+                        "oracle_code_id": 2, "oracle": ADDR,
                         "tier": dict(DEPLOY.EXPECTED_TIER), "collateral_denom": "ujunox",
                         "verdict_authority": authority,
                         "verdict_authority_kind": "disclosed test-only authority"},
             "seeded_market": {"address": ADDR, "txhash": TX, "code_id": 1,
-                              "factory": ADDR, "oracle": ADDR, "collateral_denom": "ujunox",
+                              "contract_profile": "uni7", "factory": ADDR,
+                              "oracle": ADDR, "collateral_denom": "ujunox",
                               "verdict_authority": authority, "question_id": "d" * 64},
         }
         DEPLOY.validate_manifest(manifest, complete=True)
+        for contract in ("factory", "seeded_market"):
+            wrong_profile = json.loads(json.dumps(manifest))
+            wrong_profile["contracts"][contract]["contract_profile"] = "juno1"
+            with self.assertRaises(DEPLOY.ValidationError):
+                DEPLOY.validate_manifest(wrong_profile, complete=True)
         manifest["contracts"]["factory"]["tier"]["fee_bps"] = 201
         with self.assertRaises(DEPLOY.ValidationError):
             DEPLOY.validate_manifest(manifest, complete=True)
