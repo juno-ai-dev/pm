@@ -28,6 +28,10 @@ dist/
 .env.*
 !.env.example
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Logs
 *.log
 npm-debug.log*

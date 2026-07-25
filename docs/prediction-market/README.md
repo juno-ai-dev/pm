@@ -1,5 +1,8 @@
 # Prediction-market architecture phase
 
+The testnet-only, unsigned deployment procedure is documented in the
+[uni-7 deployment runbook](uni7-deployment.md). It is not launch authorization.
+
 **Snapshot:** accepted 2026-07-16
 **Scope:** accepted architecture and authorized milestone implementation specification
 **Review status:** decision packet, ADRs, and exact canary parameters accepted; deployment, funds, legal/operational readiness, audit/build evidence, and governance-rehearsal transactions remain gated
