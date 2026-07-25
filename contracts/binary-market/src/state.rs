@@ -4,10 +4,11 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Binary, Uint128};
 use cw_reality::state::Question as OracleQuestion;
 use cw_storage_plus::{Item, Map};
-use pm_types::{Payout, ProtocolVersion, TierId};
+use pm_types::{ContractProfile, Payout, ProtocolVersion, TierId};
 
 #[cw_serde]
 pub struct Config {
+    pub contract_profile: ContractProfile,
     pub protocol_version: ProtocolVersion,
     pub factory: Addr,
     pub creator: Addr,

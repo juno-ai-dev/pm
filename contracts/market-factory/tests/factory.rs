@@ -7,7 +7,7 @@ use binary_market::{
     question::{self, ObservationInput, QuestionInput, SourceInput},
 };
 use cosmwasm_std::{
-    coin, from_json, to_json_binary, Addr, Binary, Deps, DepsMut, Empty, Env, HexBinary,
+    coin, from_json, to_json_binary, Addr, Binary, Deps, DepsMut, Empty, Env, Event, HexBinary,
     MessageInfo, Response, StdError, StdResult, Uint128,
 };
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
@@ -25,12 +25,33 @@ use market_factory::{
         MarketResponse, NextNonceResponse, QueryMsg, TierConfig,
     },
 };
-use pm_types::{ProtocolVersion, TierId, UJUNO_DENOM};
+use pm_types::{ContractProfile, ProtocolVersion, TierId, UJUNOX_DENOM, UJUNO_DENOM};
 
 const NOW: u64 = 1_799_800_000;
 const DAO: &str = "juno18k65at7fkf8elhece0fnhsvuxggqg6cved6trp5fyk3lftfn93xsmpeaac";
 const PRINCIPAL: u128 = 100_000_000;
 const BOUNTY: u128 = 1_000_000;
+
+fn assert_canonical_profile(events: &[Event], profile: &str, denom: &str) {
+    let canonical: Vec<_> = events
+        .iter()
+        .filter(|event| event.ty == "wasm-juno_pm_v1")
+        .collect();
+    assert!(!canonical.is_empty(), "expected a canonical event");
+    for event in canonical {
+        let value = |key: &str| {
+            event
+                .attributes
+                .iter()
+                .find(|attribute| attribute.key == key)
+                .unwrap_or_else(|| panic!("missing {key} from canonical event {}", event.ty))
+                .value
+                .as_str()
+        };
+        assert_eq!(value("contract_profile"), profile);
+        assert_eq!(value("collateral_denom"), denom);
+    }
+}
 
 fn oracle_contract() -> Box<dyn Contract<Empty>> {
     Box::new(ContractWrapper::new(
@@ -70,6 +91,8 @@ fn market_contract() -> Box<dyn Contract<Empty>> {
 fn spoof_identity_query(deps: Deps, env: Env, parsed: MarketQueryMsg) -> StdResult<Binary> {
     if matches!(parsed, MarketQueryMsg::Identity {}) {
         return to_json_binary(&binary_market::msg::IdentityResponse {
+            contract_profile: ContractProfile::Juno1,
+            collateral_denom: UJUNO_DENOM.into(),
             protocol_version: ProtocolVersion::V1,
             factory: "spoofed-factory".into(),
             market: env.contract.address.to_string(),
@@ -85,6 +108,26 @@ fn spoof_identity_nonce_query(deps: Deps, env: Env, parsed: MarketQueryMsg) -> S
         let mut identity: binary_market::msg::IdentityResponse =
             from_json(market_query(deps, env.clone(), parsed)?)?;
         identity.nonce = identity.nonce.saturating_add(1);
+        return to_json_binary(&identity);
+    }
+    market_query(deps, env, parsed)
+}
+
+fn spoof_identity_profile_query(deps: Deps, env: Env, parsed: MarketQueryMsg) -> StdResult<Binary> {
+    if matches!(parsed, MarketQueryMsg::Identity {}) {
+        let mut identity: binary_market::msg::IdentityResponse =
+            from_json(market_query(deps, env.clone(), parsed)?)?;
+        identity.contract_profile = ContractProfile::Uni7;
+        return to_json_binary(&identity);
+    }
+    market_query(deps, env, parsed)
+}
+
+fn spoof_identity_denom_query(deps: Deps, env: Env, parsed: MarketQueryMsg) -> StdResult<Binary> {
+    if matches!(parsed, MarketQueryMsg::Identity {}) {
+        let mut identity: binary_market::msg::IdentityResponse =
+            from_json(market_query(deps, env.clone(), parsed)?)?;
+        identity.collateral_denom = UJUNOX_DENOM.into();
         return to_json_binary(&identity);
     }
     market_query(deps, env, parsed)
@@ -133,7 +176,19 @@ fn app() -> App {
             .init_balance(
                 storage,
                 &Addr::unchecked("creator"),
-                vec![coin(20_000_000_000, UJUNO_DENOM), coin(10, "uatom")],
+                vec![
+                    coin(20_000_000_000, UJUNO_DENOM),
+                    coin(20_000_000_000, UJUNOX_DENOM),
+                    coin(10, "uatom"),
+                ],
+            )
+            .unwrap();
+        router
+            .bank
+            .init_balance(
+                storage,
+                &Addr::unchecked("answerer"),
+                vec![coin(20_000_000, UJUNOX_DENOM)],
             )
             .unwrap();
     })
@@ -228,6 +283,7 @@ fn oracle_msg() -> OracleInstantiateMsg {
 
 fn factory_msg(codes: &Codes, oracle: &Addr) -> InstantiateMsg {
     InstantiateMsg {
+        contract_profile: ContractProfile::Juno1,
         protocol_version: ProtocolVersion::V1,
         market_code_id: codes.market_id,
         market_checksum: codes.market_checksum.clone(),
@@ -315,11 +371,14 @@ fn exact_profile_factory_nonce_and_identity_rich_events() {
     assert_eq!(initial.next_nonce, 0);
 
     let response = execute_create(&mut app, &factory, create()).unwrap();
+    assert_canonical_profile(&response.events, "juno1", UJUNO_DENOM);
     let listed = list(&app, &factory, None);
     assert_eq!(listed.markets.len(), 1);
     assert_eq!(listed.next_start_after_nonce, None);
     let record = &listed.markets[0];
     assert_eq!(record.nonce, 0);
+    assert_eq!(record.contract_profile, ContractProfile::Juno1);
+    assert_eq!(record.collateral_denom, UJUNO_DENOM);
     assert_eq!(record.creator, "creator");
     assert_eq!(record.question_id.len(), 32);
     assert_eq!(record.question_hash.len(), 32);
@@ -334,6 +393,12 @@ fn exact_profile_factory_nonce_and_identity_rich_events() {
         .query_wasm_smart(&record.market, &MarketQueryMsg::State {})
         .unwrap();
     assert!(state.activated);
+    let identity: binary_market::msg::IdentityResponse = app
+        .wrap()
+        .query_wasm_smart(&record.market, &MarketQueryMsg::Identity {})
+        .unwrap();
+    assert_eq!(identity.contract_profile, ContractProfile::Juno1);
+    assert_eq!(identity.collateral_denom, UJUNO_DENOM);
     let config: ConfigResponse = app
         .wrap()
         .query_wasm_smart(&factory, &QueryMsg::Config {})
@@ -358,6 +423,8 @@ fn exact_profile_factory_nonce_and_identity_rich_events() {
             .expect("canonical event");
         for key in [
             "protocol_version",
+            "contract_profile",
+            "collateral_denom",
             "factory",
             "market",
             "height",
@@ -748,6 +815,8 @@ fn wrong_child_identity_config_or_question_reverts_everything() {
     for child in [
         spoof_market_contract(spoof_identity_query),
         spoof_market_contract(spoof_identity_nonce_query),
+        spoof_market_contract(spoof_identity_profile_query),
+        spoof_market_contract(spoof_identity_denom_query),
         spoof_market_contract(spoof_config_query),
         spoof_market_contract(spoof_question_query),
     ] {
@@ -849,4 +918,223 @@ fn pagination_default_max_zero_rejection_and_next_cursor() {
         .query_wasm_smart(&factory, &QueryMsg::Market { nonce: 2 })
         .unwrap();
     assert_eq!(by_nonce.market.nonce, 2);
+}
+
+#[test]
+fn uni_7_ujunox_profile_creates_trades_resolves_and_redeems_end_to_end() {
+    let mut app = app();
+    app.update_block(|b| b.time = cosmwasm_std::Timestamp::from_seconds(NOW));
+    let codes = store(&mut app, oracle_contract(), market_contract());
+    let oracle = app
+        .instantiate_contract(
+            codes.oracle_id,
+            Addr::unchecked("deployer"),
+            &oracle_msg(),
+            &[],
+            "uni-7 oracle",
+            None,
+        )
+        .unwrap();
+    let mut msg = factory_msg(&codes, &oracle);
+    msg.contract_profile = ContractProfile::Uni7;
+    msg.collateral_denom = UJUNOX_DENOM.into();
+    msg.verdict_authority = "uni7-test-authority".into();
+    let factory = app
+        .instantiate_contract(
+            codes.factory_id,
+            Addr::unchecked("deployer"),
+            &msg,
+            &[],
+            "uni-7 factory",
+            None,
+        )
+        .unwrap();
+
+    for wrong in [UJUNO_DENOM, "uatom"] {
+        assert!(app
+            .execute_contract(
+                Addr::unchecked("creator"),
+                factory.clone(),
+                &ExecuteMsg::CreateMarket(create()),
+                &[coin(PRINCIPAL + BOUNTY, wrong)],
+            )
+            .is_err());
+    }
+    let nonce: NextNonceResponse = app
+        .wrap()
+        .query_wasm_smart(&factory, &QueryMsg::NextNonce {})
+        .unwrap();
+    assert_eq!(nonce.next_nonce, 0);
+
+    let create_response = app
+        .execute_contract(
+            Addr::unchecked("creator"),
+            factory.clone(),
+            &ExecuteMsg::CreateMarket(create()),
+            &[coin(PRINCIPAL + BOUNTY, UJUNOX_DENOM)],
+        )
+        .unwrap();
+    assert_canonical_profile(&create_response.events, "uni7", UJUNOX_DENOM);
+    let factory_config: ConfigResponse = app
+        .wrap()
+        .query_wasm_smart(&factory, &QueryMsg::Config {})
+        .unwrap();
+    assert_eq!(factory_config.contract_profile, ContractProfile::Uni7);
+    assert_eq!(factory_config.collateral_denom, UJUNOX_DENOM);
+    let record = list(&app, &factory, None).markets.remove(0);
+    assert_eq!(record.contract_profile, ContractProfile::Uni7);
+    assert_eq!(record.collateral_denom, UJUNOX_DENOM);
+    let market = Addr::unchecked(&record.market);
+    let identity: binary_market::msg::IdentityResponse = app
+        .wrap()
+        .query_wasm_smart(&market, &MarketQueryMsg::Identity {})
+        .unwrap();
+    assert_eq!(identity.contract_profile, ContractProfile::Uni7);
+    assert_eq!(identity.collateral_denom, UJUNOX_DENOM);
+    let market_config: ChildConfig = app
+        .wrap()
+        .query_wasm_smart(&market, &MarketQueryMsg::Config {})
+        .unwrap();
+    assert_eq!(market_config.contract_profile, ContractProfile::Uni7);
+    assert_eq!(market_config.collateral_denom, UJUNOX_DENOM);
+    let bound: binary_market::msg::QuestionResponse = app
+        .wrap()
+        .query_wasm_smart(&market, &MarketQueryMsg::Question {})
+        .unwrap();
+    assert_eq!(bound.question_id.as_ref(), Some(&record.question_id));
+    assert_eq!(bound.hash, record.question_hash);
+    assert!(bound.text.contains("\"collateral_denom\":\"ujunox\""));
+    assert!(bound.text.contains("\"oracle_bond_denom\":\"ujunox\""));
+    let oracle_record: cw_reality::msg::QuestionResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &oracle,
+            &cw_reality::msg::QueryMsg::Question {
+                question_id: record.question_id.clone(),
+            },
+        )
+        .unwrap();
+    assert_eq!(oracle_record.question_id, record.question_id);
+    assert_eq!(oracle_record.question.text, bound.text);
+    assert_eq!(oracle_record.question.bond_denom, UJUNOX_DENOM);
+
+    assert!(app
+        .execute_contract(
+            Addr::unchecked("creator"),
+            market.clone(),
+            &binary_market::msg::ExecuteMsg::Buy {
+                outcome: pm_types::Outcome::Yes,
+                min_out: Uint128::zero(),
+                deadline: NOW + 100,
+            },
+            &[coin(1_000_000, UJUNO_DENOM)],
+        )
+        .is_err());
+    let buy_response = app
+        .execute_contract(
+            Addr::unchecked("creator"),
+            market.clone(),
+            &binary_market::msg::ExecuteMsg::Buy {
+                outcome: pm_types::Outcome::Yes,
+                min_out: Uint128::zero(),
+                deadline: NOW + 100,
+            },
+            &[coin(1_000_000, UJUNOX_DENOM)],
+        )
+        .unwrap();
+    assert_canonical_profile(&buy_response.events, "uni7", UJUNOX_DENOM);
+    let position: binary_market::msg::PositionResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &market,
+            &MarketQueryMsg::Position {
+                address: "creator".into(),
+            },
+        )
+        .unwrap();
+    assert!(!position.yes.is_zero());
+
+    app.update_block(|b| b.time = cosmwasm_std::Timestamp::from_seconds(NOW + 86_400));
+    app.execute_contract(
+        Addr::unchecked("answerer"),
+        oracle,
+        &OracleExecuteMsg::SubmitAnswer {
+            question_id: record.question_id,
+            answer: Binary::from({
+                let mut yes = vec![0; 32];
+                yes[31] = 1;
+                yes
+            }),
+            current_bond_seen: Some(Uint128::zero()),
+        },
+        &[coin(10_000_000, UJUNOX_DENOM)],
+    )
+    .unwrap();
+    app.update_block(|b| b.time = cosmwasm_std::Timestamp::from_seconds(NOW + 172_800));
+    let resolve_response = app
+        .execute_contract(
+            Addr::unchecked("creator"),
+            market.clone(),
+            &binary_market::msg::ExecuteMsg::Resolve {},
+            &[],
+        )
+        .unwrap();
+    assert_canonical_profile(&resolve_response.events, "uni7", UJUNOX_DENOM);
+    let before = app
+        .wrap()
+        .query_balance("creator", UJUNOX_DENOM)
+        .unwrap()
+        .amount;
+    let redeem_response = app
+        .execute_contract(
+            Addr::unchecked("creator"),
+            market,
+            &binary_market::msg::ExecuteMsg::RedeemPositions {
+                yes: position.yes,
+                no: Uint128::zero(),
+            },
+            &[],
+        )
+        .unwrap();
+    assert_canonical_profile(&redeem_response.events, "uni7", UJUNOX_DENOM);
+    let after = app
+        .wrap()
+        .query_balance("creator", UJUNOX_DENOM)
+        .unwrap()
+        .amount;
+    assert!(after > before);
+}
+
+#[test]
+fn explicit_profiles_reject_ujuno_ujunox_configuration_mismatches() {
+    for (profile, denom) in [
+        (ContractProfile::Juno1, UJUNOX_DENOM),
+        (ContractProfile::Uni7, UJUNO_DENOM),
+    ] {
+        let mut app = app();
+        let codes = store(&mut app, oracle_contract(), market_contract());
+        let oracle = app
+            .instantiate_contract(
+                codes.oracle_id,
+                Addr::unchecked("deployer"),
+                &oracle_msg(),
+                &[],
+                "oracle",
+                None,
+            )
+            .unwrap();
+        let mut msg = factory_msg(&codes, &oracle);
+        msg.contract_profile = profile;
+        msg.collateral_denom = denom.into();
+        assert!(app
+            .instantiate_contract(
+                codes.factory_id,
+                Addr::unchecked("deployer"),
+                &msg,
+                &[],
+                "mismatched factory",
+                None,
+            )
+            .is_err());
+    }
 }

@@ -25,7 +25,7 @@ use cw_reality::{
     },
     state::{AnswerType, Question as OracleQuestion, State as OracleState},
 };
-use pm_types::{Outcome, Payout, ProtocolVersion, UJUNO_DENOM};
+use pm_types::{ContractProfile, Outcome, Payout, ProtocolVersion};
 
 pub const REPLY_ACTIVATION: u64 = 1;
 pub const REPLY_CHALLENGE: u64 = 2;
@@ -41,7 +41,7 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     validate_instantiate(&msg, env.block.time.seconds())?;
     let required = msg.initial_liquidity.checked_add(msg.oracle_bounty)?;
-    guards::exact_funds(&info.funds, UJUNO_DENOM, required)?;
+    guards::exact_funds(&info.funds, &msg.collateral_denom, required)?;
     let factory = deps.api.addr_validate(&msg.factory)?;
     guards::sender(&info.sender, &factory)?;
     let creator = deps.api.addr_validate(&msg.creator)?;
@@ -52,6 +52,7 @@ pub fn instantiate(
         &env.contract.address,
         &oracle,
         &verdict_authority,
+        &msg.collateral_denom,
         msg.close_ts,
         msg.opening_ts,
         msg.oracle_initial_bond,
@@ -65,9 +66,11 @@ pub fn instantiate(
         &question::hash_array(&question_hash)?,
         msg.answer_timeout_secs,
         msg.oracle_initial_bond,
+        &msg.collateral_denom,
         msg.opening_ts,
     )?;
     let config = Config {
+        contract_profile: msg.contract_profile,
         protocol_version: ProtocolVersion::V1,
         factory,
         initial_lp: creator.clone(),
@@ -75,7 +78,7 @@ pub fn instantiate(
         oracle,
         verdict_authority,
         tier: msg.tier,
-        collateral_denom: UJUNO_DENOM.to_owned(),
+        collateral_denom: msg.collateral_denom,
         close_ts: msg.close_ts,
         opening_ts: msg.opening_ts,
         initial_liquidity: msg.initial_liquidity,
@@ -144,7 +147,7 @@ pub fn instantiate(
     let ask = OracleExecuteMsg::AskQuestion {
         text: question_text,
         answer_type: AnswerType::Bool,
-        bond_denom: UJUNO_DENOM.to_owned(),
+        bond_denom: config.collateral_denom.clone(),
         initial_bond: msg.oracle_initial_bond,
         answer_timeout_secs: msg.answer_timeout_secs,
         arbitrator: Some(env.contract.address.to_string()),
@@ -158,7 +161,10 @@ pub fn instantiate(
         msg: CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.oracle.to_string(),
             msg: to_json_binary(&ask)?,
-            funds: vec![cosmwasm_std::coin(msg.oracle_bounty.u128(), UJUNO_DENOM)],
+            funds: vec![cosmwasm_std::coin(
+                msg.oracle_bounty.u128(),
+                &config.collateral_denom,
+            )],
         }),
         gas_limit: None,
         reply_on: ReplyOn::Success,
@@ -171,6 +177,11 @@ pub fn instantiate(
 }
 
 fn validate_instantiate(msg: &InstantiateMsg, creation_ts: u64) -> Result<(), ContractError> {
+    if msg.collateral_denom != msg.contract_profile.collateral_denom() {
+        return Err(ContractError::InvalidConfig(
+            "collateral denom does not match the explicit contract profile".into(),
+        ));
+    }
     if msg.close_ts <= creation_ts || msg.opening_ts < msg.close_ts {
         return Err(ContractError::InvalidConfig(
             "opening_ts must be at or after a future close_ts".into(),
@@ -217,7 +228,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::Split { amount } => {
             guards::trading(&env, &config, &lifecycle)?;
-            guards::exact_funds(&info.funds, UJUNO_DENOM, amount)?;
+            guards::exact_funds(&info.funds, &config.collateral_denom, amount)?;
             execute_split(deps, env, info, &config, amount)
         }
         ExecuteMsg::Buy {
@@ -228,12 +239,12 @@ pub fn execute(
             guards::trading(&env, &config, &lifecycle)?;
             guards::user_deadline(&env, deadline)?;
             if info.funds.len() != 1
-                || info.funds[0].denom != UJUNO_DENOM
+                || info.funds[0].denom != config.collateral_denom
                 || info.funds[0].amount.is_zero()
             {
                 return Err(ContractError::InvalidFunds {
                     expected: Uint128::zero(),
-                    denom: UJUNO_DENOM.into(),
+                    denom: config.collateral_denom.clone(),
                 });
             }
             let gross = info.funds[0].amount;
@@ -400,7 +411,7 @@ fn execute_challenge_at(
     let (answer, oracle_bond) =
         verify_challengeable_question(&actual, &question_id, config, &env.contract.address, now)?;
     let required = config.challenge_bond.max(oracle_bond);
-    guards::exact_funds(&info.funds, UJUNO_DENOM, required)?;
+    guards::exact_funds(&info.funds, &config.collateral_denom, required)?;
     let deadline = now
         .checked_add(u64::from(config.arbitration_timeout_secs))
         .ok_or(ContractError::ArbitrationDeadlineOverflow)?;
@@ -443,13 +454,8 @@ fn execute_challenge_at(
             REPLY_CHALLENGE,
         ))
         .add_event(
-            Event::new("juno_pm_v1")
+            canonical_event(config, &env)
                 .add_attribute("action", "challenge_requested")
-                .add_attribute("protocol_version", "1")
-                .add_attribute("factory", config.factory.to_string())
-                .add_attribute("market", env.contract.address)
-                .add_attribute("height", env.block.height.to_string())
-                .add_attribute("block_time", env.block.time.seconds().to_string())
                 .add_attribute("authority", config.verdict_authority.to_string())
                 .add_attribute("challenger", info.sender)
                 .add_attribute("question_id", question_id.to_base64())
@@ -524,13 +530,8 @@ fn execute_governance_verdict(
             REPLY_GOVERNANCE_VERDICT,
         ))
         .add_event(
-            Event::new("juno_pm_v1")
+            canonical_event(config, &env)
                 .add_attribute("action", "governance_verdict_forwarded")
-                .add_attribute("protocol_version", "1")
-                .add_attribute("factory", config.factory.to_string())
-                .add_attribute("market", env.contract.address)
-                .add_attribute("height", env.block.height.to_string())
-                .add_attribute("block_time", env.block.time.seconds().to_string())
                 .add_attribute("authority", config.verdict_authority.to_string())
                 .add_attribute("question_id", question_id.to_base64())
                 .add_attribute("answer_hex", hex::encode(answer.as_slice()))
@@ -608,7 +609,7 @@ fn settle_challenge(
     })?;
     state::CHALLENGE.remove(deps.storage);
     state::REPLY_IN_PROGRESS.remove(deps.storage);
-    let event = Event::new("juno_pm_v1")
+    let event = canonical_event(config, env)
         .add_attribute(
             "action",
             if refund {
@@ -617,11 +618,6 @@ fn settle_challenge(
                 "challenge_slashed"
             },
         )
-        .add_attribute("protocol_version", "1")
-        .add_attribute("factory", config.factory.to_string())
-        .add_attribute("market", env.contract.address.to_string())
-        .add_attribute("height", env.block.height.to_string())
-        .add_attribute("block_time", env.block.time.seconds().to_string())
         .add_attribute("authority", config.verdict_authority.to_string())
         .add_attribute("challenger", challenge.challenger.to_string())
         .add_attribute("amount", amount)
@@ -642,7 +638,7 @@ fn settle_challenge(
     if refund {
         Ok(response.add_message(BankMsg::Send {
             to_address: challenge.challenger.to_string(),
-            amount: vec![cosmwasm_std::coin(amount.u128(), UJUNO_DENOM)],
+            amount: vec![cosmwasm_std::coin(amount.u128(), &config.collateral_denom)],
         }))
     } else {
         Ok(response)
@@ -696,13 +692,8 @@ fn execute_finalize_stalled(
         verify_pending_challenge(&actual, &question_id, challenge, challenge.deadline)?;
         state::REPLY_IN_PROGRESS.save(deps.storage, &ReplyInProgress::StalledCancellation)?;
         let challenge_bond = state::ACCOUNTING.load(deps.storage)?.challenge;
-        let event = Event::new("juno_pm_v1")
+        let event = canonical_event(config, &env)
             .add_attribute("action", "arbitration_stalled")
-            .add_attribute("protocol_version", "1")
-            .add_attribute("factory", config.factory.to_string())
-            .add_attribute("market", env.contract.address.to_string())
-            .add_attribute("height", env.block.height.to_string())
-            .add_attribute("block_time", env.block.time.seconds().to_string())
             .add_attribute("question_id", question_id.to_base64())
             .add_attribute("arbitration_deadline", challenge.deadline.to_string())
             .add_attribute("challenge_bond", challenge_bond);
@@ -791,12 +782,7 @@ fn execute_redeem_positions(
     state::POSITIONS.save(deps.storage, &info.sender, &position)?;
     state::ACCOUNTING.save(deps.storage, &accounting)?;
 
-    let event = Event::new("juno_pm_v1")
-        .add_attribute("protocol_version", "1")
-        .add_attribute("factory", config.factory.to_string())
-        .add_attribute("market", env.contract.address.to_string())
-        .add_attribute("height", env.block.height.to_string())
-        .add_attribute("block_time", env.block.time.seconds().to_string())
+    let event = canonical_event(config, &env)
         .add_attribute("action", "positions_redeemed")
         .add_attribute("account", info.sender.to_string())
         .add_attribute("yes_burned", yes.to_string())
@@ -809,7 +795,7 @@ fn execute_redeem_positions(
     } else {
         Ok(response.add_message(BankMsg::Send {
             to_address: info.sender.to_string(),
-            amount: vec![cosmwasm_std::coin(payment.u128(), UJUNO_DENOM)],
+            amount: vec![cosmwasm_std::coin(payment.u128(), &config.collateral_denom)],
         }))
     }
 }
@@ -928,13 +914,8 @@ fn execute_redeem_lp(
     accounting.terminal_liability_twice = Some(terminal);
     state::ACCOUNTING.save(deps.storage, &accounting)?;
 
-    let event = Event::new("juno_pm_v1")
+    let event = canonical_event(config, &env)
         .add_attribute("action", "lp_redeemed")
-        .add_attribute("protocol_version", "1")
-        .add_attribute("factory", config.factory.to_string())
-        .add_attribute("market", env.contract.address)
-        .add_attribute("height", env.block.height.to_string())
-        .add_attribute("block_time", env.block.time.seconds().to_string())
         .add_attribute("lp", info.sender.to_string())
         .add_attribute("lp_burned", amount)
         .add_attribute("position_paid", position_delta)
@@ -946,7 +927,7 @@ fn execute_redeem_lp(
     } else {
         Ok(response.add_message(BankMsg::Send {
             to_address: info.sender.to_string(),
-            amount: vec![cosmwasm_std::coin(payment.u128(), UJUNO_DENOM)],
+            amount: vec![cosmwasm_std::coin(payment.u128(), &config.collateral_denom)],
         }))
     }
 }
@@ -968,16 +949,11 @@ fn execute_claim_lp_accrual(
     Ok(Response::new()
         .add_message(BankMsg::Send {
             to_address: info.sender.to_string(),
-            amount: vec![cosmwasm_std::coin(payment.u128(), UJUNO_DENOM)],
+            amount: vec![cosmwasm_std::coin(payment.u128(), &config.collateral_denom)],
         })
         .add_event(
-            Event::new("juno_pm_v1")
+            canonical_event(config, &env)
                 .add_attribute("action", "lp_accrual_claimed")
-                .add_attribute("protocol_version", "1")
-                .add_attribute("factory", config.factory.to_string())
-                .add_attribute("market", env.contract.address)
-                .add_attribute("height", env.block.height.to_string())
-                .add_attribute("block_time", env.block.time.seconds().to_string())
                 .add_attribute("lp", info.sender)
                 .add_attribute("amount", payment)
                 .add_attribute("lp_accrual_after", "0"),
@@ -1041,11 +1017,8 @@ fn execute_resolve(deps: DepsMut, env: Env, config: &Config) -> Result<Response,
     state::LIFECYCLE.save(deps.storage, &lifecycle)?;
 
     Ok(Response::new().add_event(
-        Event::new("juno_pm_v1")
+        canonical_event(config, &env)
             .add_attribute("action", "market_resolved")
-            .add_attribute("protocol_version", "1")
-            .add_attribute("factory", config.factory.to_string())
-            .add_attribute("market", env.contract.address.to_string())
             .add_attribute("question_id", question_id.to_base64())
             .add_attribute(
                 "answer_hex",
@@ -1060,9 +1033,7 @@ fn execute_resolve(deps: DepsMut, env: Env, config: &Config) -> Result<Response,
             .add_attribute(
                 "terminal_liability_numerator",
                 terminal_liability_twice.to_string(),
-            )
-            .add_attribute("height", env.block.height.to_string())
-            .add_attribute("block_time", env.block.time.seconds().to_string()),
+            ),
     ))
 }
 
@@ -1113,6 +1084,25 @@ fn validate_amount(amount: Uint128, minimum: Uint128) -> Result<(), ContractErro
     Ok(())
 }
 
+/// Constructs the stable canonical event envelope. Profile and denomination
+/// are repeated on every canonical event so amounts always carry their unit.
+fn canonical_event(config: &Config, env: &Env) -> Event {
+    Event::new("juno_pm_v1")
+        .add_attribute("protocol_version", "1")
+        .add_attribute(
+            "contract_profile",
+            match config.contract_profile {
+                ContractProfile::Juno1 => "juno1",
+                ContractProfile::Uni7 => "uni7",
+            },
+        )
+        .add_attribute("collateral_denom", config.collateral_denom.clone())
+        .add_attribute("factory", config.factory.to_string())
+        .add_attribute("market", env.contract.address.to_string())
+        .add_attribute("height", env.block.height.to_string())
+        .add_attribute("block_time", env.block.time.seconds().to_string())
+}
+
 /// Cheap consensus assertion over aggregate ledgers. Map reconciliation is
 /// covered by model tests because maps cannot be summed during execution.
 fn assert_pre_resolution(accounting: &Accounting) -> Result<(), ContractError> {
@@ -1138,12 +1128,7 @@ fn complete_set_event(
     amount: Uint128,
     accounting: &Accounting,
 ) -> Event {
-    Event::new("juno_pm_v1")
-        .add_attribute("protocol_version", "1")
-        .add_attribute("factory", config.factory.to_string())
-        .add_attribute("market", env.contract.address.to_string())
-        .add_attribute("height", env.block.height.to_string())
-        .add_attribute("block_time", env.block.time.seconds().to_string())
+    canonical_event(config, env)
         .add_attribute("action", action)
         .add_attribute("account", caller.to_string())
         .add_attribute("amount", amount.to_string())
@@ -1221,7 +1206,7 @@ fn execute_merge(
     Ok(Response::new()
         .add_message(BankMsg::Send {
             to_address: info.sender.to_string(),
-            amount: vec![cosmwasm_std::coin(amount.u128(), UJUNO_DENOM)],
+            amount: vec![cosmwasm_std::coin(amount.u128(), &config.collateral_denom)],
         })
         .add_event(complete_set_event(
             "merge",
@@ -1323,12 +1308,7 @@ fn trade_event(
     before: Reserves,
     accounting: &Accounting,
 ) -> Event {
-    Event::new("juno_pm_v1")
-        .add_attribute("protocol_version", "1")
-        .add_attribute("factory", config.factory.to_string())
-        .add_attribute("market", env.contract.address.to_string())
-        .add_attribute("height", env.block.height.to_string())
-        .add_attribute("block_time", env.block.time.seconds().to_string())
+    canonical_event(config, env)
         .add_attribute("action", "trade")
         .add_attribute("side", side)
         .add_attribute(
@@ -1439,7 +1419,10 @@ fn execute_sell(
     Ok(Response::new()
         .add_message(BankMsg::Send {
             to_address: info.sender.to_string(),
-            amount: vec![cosmwasm_std::coin(return_amount.u128(), UJUNO_DENOM)],
+            amount: vec![cosmwasm_std::coin(
+                return_amount.u128(),
+                &config.collateral_denom,
+            )],
         })
         .add_event(trade_event(
             "sell",
@@ -1576,13 +1559,8 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
     state::POSITIONS.save(deps.storage, &config.initial_lp, &Position::default())?;
     state::REPLY_IN_PROGRESS.remove(deps.storage);
     Ok(Response::new().add_event(
-        cosmwasm_std::Event::new("juno_pm_v1")
+        canonical_event(&config, &env)
             .add_attribute("action", "market_activated")
-            .add_attribute("protocol_version", "1")
-            .add_attribute("factory", config.factory.to_string())
-            .add_attribute("market", env.contract.address.to_string())
-            .add_attribute("height", env.block.height.to_string())
-            .add_attribute("block_time", env.block.time.seconds().to_string())
             .add_attribute("creator", config.creator.to_string())
             .add_attribute("verdict_authority", config.verdict_authority.to_string())
             .add_attribute("lp", config.initial_lp.to_string())
@@ -1606,7 +1584,7 @@ fn verify_oracle_question(
         && q.asker == *market
         && q.text.as_bytes() == config.question.as_bytes()
         && q.answer_type == AnswerType::Bool
-        && q.bond_denom == UJUNO_DENOM
+        && q.bond_denom == config.collateral_denom
         && q.initial_bond == config.oracle_initial_bond
         && q.min_bond == config.oracle_initial_bond
         && q.answer_timeout_secs == config.answer_timeout_secs
@@ -1653,12 +1631,13 @@ mod activation_verification_tests {
         msg::{FinalAnswerResponse, QueryMsg as OracleQueryMsg, QuestionResponse},
         state::{AnswerType, Question, State},
     };
-    use pm_types::{ProtocolVersion, TierId};
+    use pm_types::{ContractProfile, ProtocolVersion, TierId};
 
     fn fixture() -> (Config, Addr, Binary, QuestionResponse) {
         let market = Addr::unchecked("market");
         let expected_id = Binary::from(vec![7; 32]);
         let config = Config {
+            contract_profile: ContractProfile::Juno1,
             protocol_version: ProtocolVersion::V1,
             factory: Addr::unchecked("factory"),
             creator: Addr::unchecked("creator"),
@@ -2217,6 +2196,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     let config = state::CONFIG.load(deps.storage)?;
     match msg {
         QueryMsg::Config {} => to_json_binary(&ConfigResponse {
+            contract_profile: config.contract_profile,
             protocol_version: config.protocol_version,
             factory: config.factory.to_string(),
             creator: config.creator.to_string(),
@@ -2240,6 +2220,8 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             challenge_bond: config.challenge_bond,
         }),
         QueryMsg::Identity {} => to_json_binary(&IdentityResponse {
+            contract_profile: config.contract_profile,
+            collateral_denom: config.collateral_denom,
             protocol_version: ProtocolVersion::V1,
             factory: config.factory.to_string(),
             market: env.contract.address.to_string(),

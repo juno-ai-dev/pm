@@ -6,6 +6,7 @@
   "required": [
     "amount",
     "answer",
+    "contract_profile",
     "outcome",
     "payout",
     "question",
@@ -18,6 +19,9 @@
     },
     "answer": {
       "$ref": "#/definitions/Binary"
+    },
+    "contract_profile": {
+      "$ref": "#/definitions/ContractProfile"
     },
     "outcome": {
       "$ref": "#/definitions/Outcome"
@@ -42,6 +46,14 @@
     "Binary": {
       "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
       "type": "string"
+    },
+    "ContractProfile": {
+      "description": "Explicit immutable deployment profile. Profiles are never inferred from funds or chain context.",
+      "type": "string",
+      "enum": [
+        "juno1",
+        "uni7"
+      ]
     },
     "Outcome": {
       "description": "One of the two tradeable outcomes.",

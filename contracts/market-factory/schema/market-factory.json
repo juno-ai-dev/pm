@@ -8,6 +8,7 @@
     "type": "object",
     "required": [
       "collateral_denom",
+      "contract_profile",
       "market_checksum",
       "market_code_id",
       "oracle",
@@ -23,6 +24,9 @@
     "properties": {
       "collateral_denom": {
         "type": "string"
+      },
+      "contract_profile": {
+        "$ref": "#/definitions/ContractProfile"
       },
       "market_checksum": {
         "$ref": "#/definitions/HexBinary"
@@ -68,6 +72,14 @@
     },
     "additionalProperties": false,
     "definitions": {
+      "ContractProfile": {
+        "description": "Explicit immutable deployment profile. Profiles are never inferred from funds or chain context.",
+        "type": "string",
+        "enum": [
+          "juno1",
+          "uni7"
+        ]
+      },
       "HexBinary": {
         "description": "This is a wrapper around Vec<u8> to add hex de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is similar to `cosmwasm_std::Binary` but uses hex. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
         "type": "string"
@@ -422,6 +434,7 @@
       "type": "object",
       "required": [
         "collateral_denom",
+        "contract_profile",
         "market_checksum",
         "market_code_id",
         "oracle",
@@ -437,6 +450,9 @@
       "properties": {
         "collateral_denom": {
           "type": "string"
+        },
+        "contract_profile": {
+          "$ref": "#/definitions/ContractProfile"
         },
         "market_checksum": {
           "$ref": "#/definitions/HexBinary"
@@ -482,6 +498,14 @@
       },
       "additionalProperties": false,
       "definitions": {
+        "ContractProfile": {
+          "description": "Explicit immutable deployment profile. Profiles are never inferred from funds or chain context.",
+          "type": "string",
+          "enum": [
+            "juno1",
+            "uni7"
+          ]
+        },
         "HexBinary": {
           "description": "This is a wrapper around Vec<u8> to add hex de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is similar to `cosmwasm_std::Binary` but uses hex. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
           "type": "string"
@@ -596,10 +620,20 @@
           "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
           "type": "string"
         },
+        "ContractProfile": {
+          "description": "Explicit immutable deployment profile. Profiles are never inferred from funds or chain context.",
+          "type": "string",
+          "enum": [
+            "juno1",
+            "uni7"
+          ]
+        },
         "MarketRecord": {
           "type": "object",
           "required": [
             "close_ts",
+            "collateral_denom",
+            "contract_profile",
             "created_height",
             "created_time",
             "creator",
@@ -617,6 +651,18 @@
               "type": "integer",
               "format": "uint64",
               "minimum": 0.0
+            },
+            "collateral_denom": {
+              "description": "Immutable native collateral denomination of this market.",
+              "type": "string"
+            },
+            "contract_profile": {
+              "description": "Immutable chain/denomination profile of this market.",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ContractProfile"
+                }
+              ]
             },
             "created_height": {
               "type": "integer",
@@ -688,10 +734,20 @@
           "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
           "type": "string"
         },
+        "ContractProfile": {
+          "description": "Explicit immutable deployment profile. Profiles are never inferred from funds or chain context.",
+          "type": "string",
+          "enum": [
+            "juno1",
+            "uni7"
+          ]
+        },
         "MarketRecord": {
           "type": "object",
           "required": [
             "close_ts",
+            "collateral_denom",
+            "contract_profile",
             "created_height",
             "created_time",
             "creator",
@@ -709,6 +765,18 @@
               "type": "integer",
               "format": "uint64",
               "minimum": 0.0
+            },
+            "collateral_denom": {
+              "description": "Immutable native collateral denomination of this market.",
+              "type": "string"
+            },
+            "contract_profile": {
+              "description": "Immutable chain/denomination profile of this market.",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ContractProfile"
+                }
+              ]
             },
             "created_height": {
               "type": "integer",

@@ -12,6 +12,8 @@
       "challenge_bond",
       "close_ts",
       "collateral_cap",
+      "collateral_denom",
+      "contract_profile",
       "creator",
       "factory",
       "fee_bps",
@@ -49,6 +51,18 @@
       },
       "collateral_cap": {
         "$ref": "#/definitions/Uint128"
+      },
+      "collateral_denom": {
+        "description": "Must exactly match `contract_profile`.",
+        "type": "string"
+      },
+      "contract_profile": {
+        "description": "Explicit chain/denom profile; never inferred from attached funds.",
+        "allOf": [
+          {
+            "$ref": "#/definitions/ContractProfile"
+          }
+        ]
       },
       "creator": {
         "type": "string"
@@ -121,6 +135,14 @@
     },
     "additionalProperties": false,
     "definitions": {
+      "ContractProfile": {
+        "description": "Explicit immutable deployment profile. Profiles are never inferred from funds or chain context.",
+        "type": "string",
+        "enum": [
+          "juno1",
+          "uni7"
+        ]
+      },
       "ObservationInput": {
         "type": "object",
         "required": [
@@ -1147,6 +1169,7 @@
         "close_ts",
         "collateral_cap",
         "collateral_denom",
+        "contract_profile",
         "creator",
         "factory",
         "fee_bps",
@@ -1187,6 +1210,9 @@
         },
         "collateral_denom": {
           "type": "string"
+        },
+        "contract_profile": {
+          "$ref": "#/definitions/ContractProfile"
         },
         "creator": {
           "type": "string"
@@ -1245,6 +1271,14 @@
       },
       "additionalProperties": false,
       "definitions": {
+        "ContractProfile": {
+          "description": "Explicit immutable deployment profile. Profiles are never inferred from funds or chain context.",
+          "type": "string",
+          "enum": [
+            "juno1",
+            "uni7"
+          ]
+        },
         "ProtocolVersion": {
           "description": "Version of the shared prediction-market wire protocol.",
           "type": "string",
@@ -1263,12 +1297,26 @@
       "title": "IdentityResponse",
       "type": "object",
       "required": [
+        "collateral_denom",
+        "contract_profile",
         "factory",
         "market",
         "nonce",
         "protocol_version"
       ],
       "properties": {
+        "collateral_denom": {
+          "description": "Immutable native collateral denomination bound by `contract_profile`.",
+          "type": "string"
+        },
+        "contract_profile": {
+          "description": "Immutable chain/denomination profile selected at instantiation.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ContractProfile"
+            }
+          ]
+        },
         "factory": {
           "type": "string"
         },
@@ -1299,6 +1347,14 @@
         "Binary": {
           "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
           "type": "string"
+        },
+        "ContractProfile": {
+          "description": "Explicit immutable deployment profile. Profiles are never inferred from funds or chain context.",
+          "type": "string",
+          "enum": [
+            "juno1",
+            "uni7"
+          ]
         },
         "ProtocolVersion": {
           "description": "Version of the shared prediction-market wire protocol.",
