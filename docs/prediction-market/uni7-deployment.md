@@ -25,6 +25,10 @@ evidence PR is authorized.
   A host-native Cargo/`wasm-opt -Oz` build is **non-canonical and not deployable
   until explicitly approved**. It is useful only for local diagnosis and does
   not weaken or replace the pinned optimizer gate.
+* **Issue #63 / PR #66 is a deployment blocker.** The final release source must
+  expose the explicit `uni7` contract profile and bind it to `ujunox` throughout
+  factory, market, canonical question, oracle, settlement, and payout paths.
+  Never deploy a `juno1` profile or pre-profile artifact on uni-7.
 * **Issue #61 / PR #62 is a deployment blocker.** `deployment.py preflight`
   intentionally requires its reviewed `scripts/release/verify-wasm-exports.py`.
   That gate must prove binary-market exports `instantiate,execute,reply,query`,
@@ -133,6 +137,7 @@ Create and review `factory.json` from the compiled schema. It must contain only:
 
 ```json
 {
+  "contract_profile": "uni7",
   "protocol_version": "v1",
   "market_code_id": 0,
   "market_checksum": "REPLACE_64_HEX",
@@ -174,8 +179,8 @@ scripts/uni7/prepare-unsigned.sh instantiate "$FROM" FACTORY_CODE_ID \
 Dry-run/simulate, inspect, and only then hand off for separately authorized
 signing. Record dual-provider receipts as `factory`. Query `{"config":{}}` and
 chain contract info from both providers at one height. Require no chain admin
-and exact equality with `factory.json`, including `ujunox`, checksums, code IDs,
-tier and disclosed test-only verdict authority.
+and exact equality with `factory.json`, including profile `uni7`, `ujunox`,
+checksums, code IDs, tier and disclosed test-only verdict authority.
 
 ## 5. Objective demo market
 
